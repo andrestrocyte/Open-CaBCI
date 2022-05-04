@@ -1,2 +1,2 @@
 # bmi
-brain-machine-interface
+ brain-machine-interface
