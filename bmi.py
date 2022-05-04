@@ -1,13 +1,6 @@
-
-
 '''
-  Example showing continuous hardware-timed analog input using nidaqmx-python and matplotlib
- 
-  pinidaqmxegs.ai.hardwareContinuousVoltageWithCallBackNoPlot
- 
-  Rob Campbell - SWC, 2020
   
-  Modified by C.Mitelut; github: "catubc"; mitelutco@gmail.com
+  C. Mitelut; github: "catubc"; mitelutco@gmail.com
 
 '''
 
@@ -23,75 +16,108 @@ import math
 #
 class BMI():
 	
-	def __init__(self):
-		pass
-
-	def hardwareContinuousVoltageWithCallBackNoPlot(self):
-
-		#task, pointsToPlot, start, ctr
+	def __init__(self,
+				 fname_fluroescence,
+				 sampleRate_2P,
+				 n_frames=3000):
 		
+		# 
+		self.fname_fluorescence = fname_fluorescence
+
+		#
 		# Define variables
-		self.sampleRate = 1E3     # Sample rate of NI card
-		self.sampleRate_2P = 30	  # Sample rate of BScope 
-		self.n_frames_to_be_acquired = 3000   # Number of frames from BScope
-
-		#
-		self.rois_smooth_window = 5
-		self.smooth_function = np.arange(0,self.rois_smooth_window,1)/self.rois_smooth_window
+		self.sampleRate_NI = 1E3     # Sample rate of NI card
 		
 		#
-		self.fname = r"D:\User Training\Readtest1\Image_001_001.raw"
-
+		self.sampleRate_2P = sampleRate_2P	    # Sample rate of BScope 
+		
 		#
-		self.rois_fname = r"D:\User Training\rois.txt"
+		self.n_frames_to_be_acquired = n_frames   # Number of frames from BScope
+		
+		#
+		self.rois_smooth_window = 5   				# Number of frames to use to smooth the ROI traces
+													# to be developed/changed further
+
+		# initizlie ROIs using either a text file or more specific code
+		#   for now simple version uses some random centres in the imaging file
+		#   MUST CHANGE
+		rois_fname = r"D:\User Training\rois.txt"
+		self.initialize_ROIs(rois_fname)
+		
+		# initialize all arrays to be used:
+		self.initialize_arrays()
+		
+		# locatoin of where to save the tone frequency
+		# TODO: try to develop more dynamic option
+		self.fname_freq =  r"F:\freq.npy"
+	
+	def initialize_arrays(self):
+		
+		# 
+		self.data = []					# array to hold data being read
+		self.n_ttl = 0					# ttl pulse counter
+		self.ttl_n_computed = []	    # number of ttl pulses computed based on time elapsed
+		self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
+		self.inter_ttl_time = []        # computed time between each detected TTL pluse
+		self.abs_times = [0] 			# NOT SURE REQUIRED ANYMORE; keeps track of every TTLL read outside the main BMI
+										# loop;   might be useful for debugging later on kernel interuptions etc.
+		self.ttl_times = []				# ttl times to be saved
+		self.previous_trigger=0			# time of the previous TTL trigger to be used to determine if next trigger etc
+		self.prev_max = 0 				# TTL pulse previous read max value
+		self.prev_min = 0				# TTL pulse previous read min value
+
+
+	def initialize_ROIs(self, rois_fname=None):
+		'''
+			Initialize the ROIs and ensemble arrays to be used below
+		'''
+		
+		# load ROI centres from disk;
+		#  TODO run proper ROI detection with irregular shape et.
 		self.rois = np.loadtxt(self.rois_fname, delimiter = ',', dtype=np.int32)
 		print (" ROIS: , ", self.rois.shape)
+
+		# 
 		self.roi_width = 10 # number of pixels around ROI to grab
-		print ("   using squire ROIs; TODO: use cell masks ...") 
+		print ("   using squire ROIs; TODO: use proper defined ROIs and cell masks ...") 
 		
-		#
+		# initialize the fluorescence time series for all the ROIs that are being tracked
 		self.rois_traces = []
 		for k in range(self.rois.shape[0]):
 			self.rois_traces.append([])
+			
+		# 	
+		self.smooth_function = np.arange(0,self.rois_smooth_window,1)/self.rois_smooth_window
 		
 		#
 		self.ensemble_activity_realtime = np.zeros(self.rois.shape[0])
 
-		#
-		self.read_data_flag = True
+	#
+	def run_BMI(self):
 
-		# 
-		self.data = []
-		self.n_ttl = 0
-		self.ttl_n_computed = []
-		self.ttl_n_detected = []
-		self.inter_ttl_time = []
-		self.abs_times = [0]
-		self.ttl_times = []
-		self.previous_trigger=0
-		self.prev_max = 0
-		self.prev_min = 0
-		
-		# locatoin of where to save the tone frequency
-		self.fname_freq =  r"F:\freq.npy"
+		# NOT SURE FUNCTION... TO DELETE
+		# self.read_data_flag = True
 
 		# 
 		start = time.perf_counter_ns()
-		n_mins_to_run = 2
 		
 		#
 		n_sec_to_stop_after_no_TTL_pluse = 5
 
 		print('Running BMI (ctrl-c to stop)')
 		#
-		with nidaqmx.Task('hardwareContinuousVoltageWithCallBackNoPlot') as self.task_ttl:
+		
+		if self.test_mode == True:
+			self.task_ttl = self.test_mode_functions
+		else:
+			self.task_ttl = nidaqmx.Task('bmi_online'):
 
-			#
+			# set TTL pulse reader from 2p system
 			self.task_ttl.ai_channels.add_ai_voltage_chan("Dev3/ai0", terminal_config = TerminalConfiguration.NRSE)
 
 
 			#
-			self.task_ttl.timing.cfg_samp_clk_timing(self.sampleRate,
+			self.task_ttl.timing.cfg_samp_clk_timing(self.sampleRate_NI,
 											#samps_per_chan=pointsToPlot*2, 
 											sample_mode=AcquisitionType.CONTINUOUS)
 
@@ -394,6 +420,14 @@ class BMI():
 
 	
 	
-###############################
+#######################################
+fname = r"D:\User Training\Readtest1\Image_001_001.raw"
+n_frames = 100
+sampleRate_2P = 30
+
+
 bmi = BMI()
-bmi.hardwareContinuousVoltageWithCallBackNoPlot()
+bmi.run_BMI(fname,
+			n_frames,
+			sampleRate_2P,
+)
