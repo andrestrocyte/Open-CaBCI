@@ -13,20 +13,67 @@ import matplotlib.pyplot as plt
 from nidaqmx.constants import TerminalConfiguration
 import math
 
+
+#
+class Simulation():
+	''' This class simulates the TTL pulses coming out of the Bscope
+	    by reading a ttl pulse file and returning values as requested
+	'''
+	
+	
+	def __init__(self, fname_ttl):
+
+		# set location of reading index to 0 at beginning
+		self.index = 0
+
+		# read ttl pulses from file
+		self.ttl = np.load(fname_ttl)
+	
+	def read(self, n_pts):
+		
+		ttl_val = self.ttl[self.index:self.index+n_pts]
+		self.index += n_pts
+		
+		return ttl_val
+		
 #
 class BMI():
 	
+	''' BMI class 
+		Inputs: 
+			- path of Thorimage memmap file where [ca] data is to be saved
+			- ROI values for ROIs to be tracked during BMI
+			- path of speaker file where tones are saved
+			- ...
+			
+		Outputs:
+			-  
+	'''
+	
 	def __init__(self,
+				 simulation_mode,
 				 fname_fluroescence,
+				 fname_rois,
+				 fname_freq, 
 				 sampleRate_2P,
-				 n_frames=3000):
+				 n_frames):
+		
+		#
+		self.simulation_mode = simulation_mode
 		
 		# 
-		self.fname_fluorescence = fname_fluorescence
+		self.fname_fluorescence = fname_fluorescence			
+		self.fname_rois = fname_rois
+		self.fname_freq = fname_freq 
 
-		#
+		# number of frames to run BMI for
+		self.n_frames = n_frames		
+		
 		# Define variables
 		self.sampleRate_NI = 1E3     # Sample rate of NI card
+		
+		#
+		self.ttl_pts = 1  			 # number of values to read from NI card - usually we read a single value to avoid buffering issues
 		
 		#
 		self.sampleRate_2P = sampleRate_2P	    # Sample rate of BScope 
@@ -41,20 +88,17 @@ class BMI():
 		# initizlie ROIs using either a text file or more specific code
 		#   for now simple version uses some random centres in the imaging file
 		#   MUST CHANGE
-		rois_fname = r"D:\User Training\rois.txt"
-		self.initialize_ROIs(rois_fname)
+		self.initialize_ROIs(fname_rois)
 		
 		# initialize all arrays to be used:
 		self.initialize_arrays()
 		
-		# locatoin of where to save the tone frequency
-		# TODO: try to develop more dynamic option
-		self.fname_freq =  r"F:\freq.npy"
-	
+
+	# 
 	def initialize_arrays(self):
 		
 		# 
-		self.data = []					# array to hold data being read
+		self.ttl_values = []			# array to hold ttl data being read
 		self.n_ttl = 0					# ttl pulse counter
 		self.ttl_n_computed = []	    # number of ttl pulses computed based on time elapsed
 		self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
@@ -66,15 +110,17 @@ class BMI():
 		self.prev_max = 0 				# TTL pulse previous read max value
 		self.prev_min = 0				# TTL pulse previous read min value
 
-
-	def initialize_ROIs(self, rois_fname=None):
+	# 
+	def initialize_ROIs(self):
 		'''
 			Initialize the ROIs and ensemble arrays to be used below
+			
+			TODO: Must properly transfer ROIs to this function not just use a box aroudn a point of interest
 		'''
 		
 		# load ROI centres from disk;
 		#  TODO run proper ROI detection with irregular shape et.
-		self.rois = np.loadtxt(self.rois_fname, delimiter = ',', dtype=np.int32)
+		self.rois = np.loadtxt(self.fname_rois, delimiter = ',', dtype=np.int32)
 		print (" ROIS: , ", self.rois.shape)
 
 		# 
@@ -92,6 +138,7 @@ class BMI():
 		#
 		self.ensemble_activity_realtime = np.zeros(self.rois.shape[0])
 
+
 	#
 	def run_BMI(self):
 
@@ -108,7 +155,7 @@ class BMI():
 		#
 		
 		if self.test_mode == True:
-			self.task_ttl = self.test_mode_functions
+			self.task_ttl = Simulation()
 		else:
 			self.task_ttl = nidaqmx.Task('bmi_online'):
 
@@ -120,92 +167,87 @@ class BMI():
 			self.task_ttl.timing.cfg_samp_clk_timing(self.sampleRate_NI,
 											#samps_per_chan=pointsToPlot*2, 
 											sample_mode=AcquisitionType.CONTINUOUS)
-
-			#
+	
+			# start the TTL reader (not required in simulation mode)  
 			self.task_ttl.start()
-			
-			# set time to auto finish the acquisition;
-			#    TODO: automate acquisition end if no TTL pulses for X seconds
-			t_end = (time.perf_counter() + 
-			         self.n_frames_to_be_acquired/self.sampleRate_2P+
-			         5) 
-			         
-			#
-			pts = 1  # number of values to read from NI card
-			self.now = time.perf_counter() #time.perf_counter_ns()/1E9
-			self.frame_no = 0
-			self.previous_trigger = time.perf_counter()-2 # set the previous tirgger a few sec prior to start
-			
-			# abssolute start time
-			self.start = time.perf_counter()
-			
-			# start recording and acquisition
-			while self.now < t_end:
-				data = self.task_ttl.read(number_of_samples_per_channel=pts)
-				
-				#  leave these in just in case we end up reading at higher bit rates and multiple samples at a atime
-				self.min_ = np.min(data)
-				self.max_ = np.max(data)
-				self.data.append(data)
-				# 
-				
-				# get time of ttl pulse
-				self.now = time.perf_counter() #perf_counter_ns()/1E9
-				
-				# not sure this is requiered; TO DELETE
-				# while True:
-				#	if (now - self.abs_times[-1])>0:
-		        #				break
-				# 	now = time.perf_counter() #perf_counter_ns()/1E9
-
-				# 
-				# self.now = now
-				self.abs_times.append(self.now)
-				
-				# check of ttl pulse when from high ~5 to low ~0
-				if self.min_<1 and self.prev_max>=1:
-											
-					#
-					self.bmi_update()
-									
-					# update trigger time
-					self.previous_trigger = self.now
-				# 
-				self.prev_min = self.min_
-				self.prev_max = self.max_						
-				
-			task.stop()
 		
+		# set time to auto finish the acquisition;
+		#    TODO: automate acquisition end if no TTL pulses for X seconds
+		t_end = (time.perf_counter() + 
+				 self.n_frames_to_be_acquired/self.sampleRate_2P+
+				 5) 
+				 
 		#
+		self.now = time.perf_counter() #time.perf_counter_ns()/1E9
+		self.frame_no = 0
+		self.previous_trigger = time.perf_counter()-2 # set the previous tirgger a few sec prior to start
+		
+		# abssolute start time
+		self.start = time.perf_counter()
+		
+		# start recording and acquisition
+		while self.now < t_end:
+			ttl_value = self.task_ttl.read(number_of_samples_per_channel=self.ttl_pts)
+			
+			#  leave these in just in case we end up reading at higher bit rates and multiple samples at a atime
+			self.min_ = np.min(ttl_value)
+			self.max_ = np.max(ttl_value)
+			self.ttl_values.append(ttl_value)
+			# 
+			
+			# get time of ttl pulse
+			self.now = time.perf_counter() #perf_counter_ns()/1E9
+			
+			# not sure this is requiered; TO DELETE
+			# while True:
+			#	if (now - self.abs_times[-1])>0:
+			#				break
+			# 	now = time.perf_counter() #perf_counter_ns()/1E9
+
+			# 
+			# self.now = now
+			self.abs_times.append(self.now)
+			
+			# check of ttl pulse when from high ~5 to low ~0
+			if self.min_<1 and self.prev_max>=1:
+										
+				#
+				self.bmi_update()
+								
+				# update trigger time
+				self.previous_trigger = self.now
+			# 
+			self.prev_min = self.min_
+			self.prev_max = self.max_						
+			
+	
+		# save all data acquried during recording
+		# TODO: try to save this on the fly if possible to avoid loosing data during crashes
 		self.save_data()
 
 
 	#
 	def bmi_update(self):
-	
-		# 
-		# One workaround that may or may not be helpful in your specific 
-		# code: create new mmap objects periodically (and get rid of old ones), 
-		# at logical points in your workflow. Then the amount of RAM needed 
-		# should be roughly proportional to the number of array items you touch 
-		# between such steps. Against that, it takes time to create and destroy 
-		# new mmap objects. So it's a balancing act.
-	
-	
-		# Initialize ttl arrays; also make mmap of file to be read
+		
+		# Initialize ttl arrays; a
+		
+		# if no ttl values read or computed means this is the first time we are udpating BMI
+		#  - need to set the memmap for the data (more to be explained here)
+		#  - 
 		if len(self.ttl_n_computed)==0:
 			self.ttl_computed=0
 			
 			#
 			if self.read_data_flag:
 				ss = time.time()
-				self.newfp = np.memmap(self.fname, dtype='uint16', mode='r', 
+				self.newfp = np.memmap(self.fname_fluorescence, dtype='uint16', mode='r', 
 									   shape=(self.n_frames_to_be_acquired,512,512))
 				print (" duration to setup memmap: ", time.time()-ss)
 				print ("     TODO: work with 1D flattened arrays")
 			
 			# reset start time: requird becaues we start the BMI a few seconds before the BScope 
 			self.start=self.now
+
 		else:
 			
 			# 
@@ -401,9 +443,6 @@ class BMI():
 					
 				print ("")
 				print ("")
-				
-		pass
-
 		
 	#	
 	def save_data(self):
@@ -421,13 +460,23 @@ class BMI():
 	
 	
 #######################################
-fname = r"D:\User Training\Readtest1\Image_001_001.raw"
-n_frames = 100
+fname_root_path = r"D:\User Training"
+fname_fluorescence = r"D:\User Training\Readtest1\Image_001_001.raw"
+fname_freq =  r"F:\freq.npy"
+fname_rois = r"D:\User Training\rois.txt"
+
+# 			
 sampleRate_2P = 30
+n_frames = 10 * sampleRate_2P                   # number of seconds to run the BMI 
+simulation_mode = True							# Run BMI in simulation mode (i.e. don't need Bscope input)
 
-
+#
 bmi = BMI()
-bmi.run_BMI(fname,
+bmi.run_BMI(simulation_mode,
+			fname_root_path,
+			fname_fluorescence,
+			fname_rois,
+			fname_freq,
 			n_frames,
 			sampleRate_2P,
 )
