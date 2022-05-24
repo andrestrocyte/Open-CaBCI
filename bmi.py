@@ -4,15 +4,196 @@
 
 '''
 
-import time
-import os
+import matplotlib.pyplot as plt
 import nidaqmx
 from nidaqmx.constants import (AcquisitionType)  # https://nidaqmx-python.readthedocs.io/en/latest/constants.html
-import numpy as np
 from nidaqmx.constants import TerminalConfiguration
 import tqdm # tdqm
-from tqdm import notebook
 import os
+import time
+import numpy as np
+from multiprocessing import shared_memory
+
+#################################################
+############### TONE PLAYER CLASS ###############
+#################################################
+#
+class PlayTone():
+    ''' Class that visualizes the BMI ROI readouts as traces
+        Input: shared memory
+
+    '''
+
+    def __init__(self):
+        pass
+
+#################################################
+############### PLOTTING CLASS ##################
+#################################################
+#
+class PlotROIs():
+    ''' Class that visualizes the BMI ROI readouts as traces
+        Input: shared memory
+
+    '''
+
+    #
+    def __init__(self,
+                 shmem_rois_traces,
+                 shmem_n_ttl,
+                 rois_traces_shape):
+
+        #
+        self.initialize_rois_traces(shmem_rois_traces,
+                                   rois_traces_shape)
+
+        #
+        self.initalize_n_ttl(shmem_n_ttl)
+
+    #
+    def initalize_n_ttl(self,
+                         shmem_n_ttl):
+
+        #
+        print ("  Plotter loaded: ", shmem_n_ttl)
+
+        # get the rois_traces from the shared memory name
+        existing_shm = shared_memory.SharedMemory(name=shmem_n_ttl)
+
+        #
+        self.n_ttl = np.ndarray(1,
+                                dtype=np.float32,
+                                buffer=existing_shm.buf)
+
+        #
+        print ("  loaded n_ttl: ", self.n_ttl)
+
+
+    #
+    def initialize_rois_traces(self,
+                               shmem_rois_traces,
+                               rois_traces_shape):
+
+        print ("  Plotter loaded: ", shmem_rois_traces, " size: ", rois_traces_shape)
+
+        # get the rois_traces from the shared memory name
+        existing_shm = shared_memory.SharedMemory(name=shmem_rois_traces)
+
+        #
+        self.rois_traces = np.ndarray(rois_traces_shape,
+                                      dtype=np.float32,
+                                      buffer=existing_shm.buf)
+
+        #
+        print ("  loaded rois_traces: ", self.rois_traces.shape)
+
+
+
+    #
+    def make_roi_plots(self, ):
+
+        #
+        self.fig = plt.figure(figsize=(10,5))
+
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_ylim(0, self.plot_y_scale*len(self.rois)*1.1)
+        self.ax.set_xlim(-10,0)
+        self.ax.set_xlabel("Time (sec)")
+        self.ax.set_yticks([])
+
+        # initialize time:
+        # self.plot_times = []
+        # for k in range(-10*self.sampleRate_2P,0,1):
+        #     self.plot_times.append(k)
+
+        self.plot_times = np.arange(-10*self.sampleRate_2P,0,1)/self.sampleRate_2P
+
+        # make a list to hold the matplotlib line objects
+        self.time_course_objects = []
+        for k in range(len(self.rois_traces)):
+            # if self.verbose:
+            #     print ("k: ", k)
+            #     print (self.plot_times)
+            #     print (self.rois_traces[k][-len(self.plot_times):])
+            #self.ax.plot(self.plot_times,
+            #             self.rois_traces[-len(self.plot_times):],  # plot last X values depending on length of plttimes
+            #             'r-')  # Returns a tuple of line objects, thus the comma
+            lineobject, = self.ax.plot(self.plot_times,
+                                       np.array(self.rois_traces[k][-len(self.plot_times):])-1000*k,  # plot last X values depending on length of plttimes
+                                       #'r-'
+                                       )  # Returns a tuple of line objects, thus the comma
+            self.time_course_objects.append(lineobject)
+
+        # self.ax.clear()
+
+        #
+        self.ax.set_title("DON T CLOSE MANUALLY")
+
+        #
+        self.fig.canvas.flush_events()
+
+        #
+        self.fig.canvas.draw()
+
+        #
+        self.fig.canvas.flush_events()
+
+        #
+        #self.fig.clf()
+
+        # cache the background
+        self.axbackground = self.fig.canvas.copy_from_bbox(self.ax.bbox)
+
+        #
+        plt.show(block=False)
+
+    #
+    def update_plots(self):
+
+        '''  Function to dynamically update our plots
+            TODO: move it to a separate core/process to not interfere with the main BMI loop/analysis code
+
+        '''
+
+        if self.verbose2:
+            start = time.time()
+
+        # restore background
+        self.fig.canvas.restore_region(self.axbackground)
+
+        # update ROI line plots
+        for k in range(len(self.rois_traces)):
+
+            # if self.verbose:
+            #     print ("k: ", k)
+            #     print (self.plot_times)
+            #     print (self.rois_traces[k][-len(self.plot_times):])
+
+            #
+            self.time_course_objects[k].set_data(
+                            self.plot_times,
+                            np.array(self.rois_traces[k][-len(self.plot_times):])+self.plot_y_scale*k)
+        #
+        self.fig.canvas.restore_region(self.axbackground)
+
+        # fill in the axes rectangle
+        self.fig.canvas.blit(self.ax.bbox)
+
+        for k in range(len(self.rois_traces)):
+            self.ax.draw_artist(self.time_course_objects[k])
+
+        #
+        self.fig.canvas.blit(self.ax.bbox)
+
+        #
+        self.fig.canvas.flush_events()
+
+        #
+        if self.verbose2:
+            print ("time for updating graph: ", time.time()-start)
+            print ('')
+            print ('')
+
 
 #################################################
 ############# SIMULATION CLASS ##################
@@ -22,9 +203,12 @@ class Simulation():
         by reading a ttl pulse file and returning values as requested
     '''
 
-
     def __init__(self,
                  fname_ttl):
+
+        #
+        print ("TODO: implement shared memory to run plotting and tone playback directly from memroy")
+        print ("  more info:  https://docs.python.org/3/library/multiprocessing.shared_memory.html")
 
         # set location of reading index to 0 at beginning
         self.index = 0
@@ -33,10 +217,11 @@ class Simulation():
         self.ttl = np.load(fname_ttl)
 
     def read(self, number_of_samples_per_channel):
-
+        #
         ttl_val = self.ttl[self.index:self.index+number_of_samples_per_channel]
         self.index += number_of_samples_per_channel
 
+        #
         return ttl_val
 
 #################################################
@@ -63,7 +248,7 @@ class BMI():
                  fname_freq,
                  fname_ttl,
                  sampleRate_2P,
-                 n_frames):
+                 n_seconds_session):
 
         #
         self.simulation_mode = simulation_mode
@@ -76,12 +261,8 @@ class BMI():
         self.fname_ttl = fname_ttl
 
         # NOT SURE IF REQUIRED... TO DELETE
-        #  flag was probably used during development toskip the reading step; 
+        # TODO flag was probably used during development toskip the reading step;
         self.read_data_flag = True
-
-        
-        # number of frames to run BMI for
-        self.n_frames = n_frames
 
         # Define variables
         self.sampleRate_NI = 1E3     # Sample rate of NI card
@@ -92,8 +273,11 @@ class BMI():
         #
         self.sampleRate_2P = sampleRate_2P	    # Sample rate of BScope
 
-        #
-        self.n_frames_to_be_acquired = n_frames   # Number of frames from BScope
+        # number of frames to run BMI for
+        self.n_frames = n_seconds_session*sampleRate_2P
+
+        # TODO: why do we have 2 of these variables?
+        self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
 
         #
         self.rois_smooth_window = 5   				# Number of frames to use to smooth the ROI traces
@@ -101,6 +285,9 @@ class BMI():
         # start the ttl frame counter at 0
         self.ttl_computed = 0
 
+        # number of frames to search forward in time to see if there is any neural data saved
+        #   this is for the ROI reading step
+        self.n_frames_search_forward  = 5
 
         # initizlie ROIs using either a text file or more specific code
         #   for now simple version uses some random centres in the imaging file
@@ -111,17 +298,19 @@ class BMI():
         self.initialize_arrays()
 
         # initialize progress toolbar
+
+    def initialize_pbar(self):
         self.pbar = tqdm.tqdm(total=self.n_frames_to_be_acquired,
-                         position=0,
-                         leave=True,
-                         ascii=True)  # Init pbar
+                              desc='% complete',
+                             position=0,
+                             leave=True,
+                             ascii=True)  # Init pbar
 
     #
     def initialize_arrays(self):
 
         #
         self.ttl_values = []			# array to hold ttl data being read
-        self.n_ttl = 0					# ttl pulse counter
         self.ttl_n_computed = []	    # number of ttl pulses computed based on time elapsed
         self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
         self.inter_ttl_time = []        # computed time between each detected TTL pluse
@@ -132,6 +321,31 @@ class BMI():
         self.prev_max = 0 				# TTL pulse previous read max value
         self.prev_min = 0				# TTL pulse previous read min value
         self.ttl_voltages = []          # ttl_voltages
+
+        self.initialize_n_ttl()
+
+    def initialize_n_ttl(self):
+
+        # this variable keeps track of how many frames the BMI has detected
+        # --- needs to be shared with the plotting algorithm
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1)
+        self.shmem_n_ttl = shared_memory.SharedMemory(create=True,
+                                                       size=aa.nbytes)
+
+        #
+        self.n_ttl = np.ndarray(aa.shape,
+                                dtype=aa.dtype,
+                                buffer=self.shmem_n_ttl.buf)
+
+        #
+        print (" ttl counter initialized: ", self.n_ttl, self.shmem_n_ttl.name)
+
+        #
+
+
+
     #
     def initialize_ROIs(self):
         '''
@@ -147,12 +361,31 @@ class BMI():
 
         #
         self.roi_width = 10 # number of pixels around ROI to grab
-        print ("   using squire ROIs; TODO: use proper defined ROIs and cell masks ...")
+        print ("   using square ROIs; TODO: use proper defined ROIs and cell masks ...")
 
         # initialize the fluorescence time series for all the ROIs that are being tracked
-        self.rois_traces = []
-        for k in range(self.rois.shape[0]):
-            self.rois_traces.append([])
+        # if False:  #OLD WAY USING LISTS; does not work with memory sharing
+        #     self.rois_traces = []
+        #     for k in range(self.rois.shape[0]):
+        #         self.rois_traces.append([])
+        #         for p in range(10*self.sampleRate_2P):
+        #             self.rois_traces[k].append(0)
+        #
+        # else:
+        # make a numpy array to hold the rois_traces
+        a = np.zeros((self.rois.shape[0],self.n_frames))
+        self.shmem_rois_traces = shared_memory.SharedMemory(create=True, size=a.nbytes)
+
+        #
+        self.rois_traces = np.ndarray(a.shape,
+                                      dtype=a.dtype,
+                                      buffer=self.shmem_rois_traces.buf)
+
+        #
+        self.rois_traces[:] = a[:]
+
+        #
+        print (" shared memory rois traces: ", self.rois_traces.shape, self.shmem_rois_traces.name)
 
         #
         self.smooth_function = np.arange(0,self.rois_smooth_window,1)/self.rois_smooth_window
@@ -185,12 +418,12 @@ class BMI():
         self.now = time.perf_counter() #time.perf_counter_ns()/1E9
         self.previous_trigger = time.perf_counter()-2 # set the previous tirgger 2 sec prior to start
 
+        #
+        self.initialize_pbar()
+
         # abssolute start time
         self.start = time.perf_counter()
 
-        # make progress bar toolbox
-
-        #
         # start recording and acquisition
         while self.ttl_computed < self.n_frames_to_be_acquired - 1:
 
@@ -219,14 +452,14 @@ class BMI():
             # check of ttl pulse when from high ~5 to low ~0
             if self.min_<1 and self.prev_max>=1:
 
-                #
+                # runs the bmi code whenever imaging frame is completed
                 self.bmi_update()
 
                 # update trigger time
                 self.previous_trigger = self.now
 
                 #
-                self.pbar.update(1)
+                self.pbar.update(n=1)
 
             #
             self.prev_min = self.min_
@@ -238,6 +471,8 @@ class BMI():
         # TODO: try to save this on the fly if possible to avoid loosing data during crashes
         self.save_data()
 
+        #
+        print("... DONE BMI...")
 
     def initialize_ttl_reader(self):
 
@@ -246,6 +481,12 @@ class BMI():
             self.task_ttl = Simulation(self.fname_ttl)
         else:
             self.task_ttl = nidaqmx.Task('bmi_online')
+
+            #
+            print ("TODO: check if TLL voltages are being read in real time or buffering")
+            print ("   if buffering, then it's a problem if the OS/kernel hang up and we fall behind too much")
+            print ("   save workaround is to and read a data a few frames ahead of current count to ensure not behind")
+
 
             # set TTL pulse reader from 2p system
             self.task_ttl.ai_channels.add_ai_voltage_chan("Dev3/ai0",
@@ -259,8 +500,6 @@ class BMI():
             # start the TTL reader (not required in simulation mode)
             self.task_ttl.start()
 
-
-
     #
     def bmi_update(self):
 
@@ -268,7 +507,7 @@ class BMI():
 
         # if no ttl values read or computed means this is the first time we are udpating BMI
         #  - need to set the memmap for the data (more to be explained here)
-        #  -
+        #  - ...
 
         #
         self.compute_frame_number()
@@ -296,8 +535,10 @@ class BMI():
         #
         self.n_ttl+=1
 
+    #
 
 
+    #
     def compute_frame_number(self):
         
         ''' Function that computes which frame to read from [Ca] file based on how many TTL pulses
@@ -343,7 +584,7 @@ class BMI():
         
         '''
 
-        
+        # first time point
         if len(self.ttl_n_computed)==0:
 
             #
@@ -363,6 +604,7 @@ class BMI():
             #   ttl pulse to the stack
             if self.simulation_mode==True:
                 self.ttl_computed = self.n_ttl+1  # move to next ttl.
+                time.sleep(self.sleep_time_sec)
                 
             else:
                 time_passed = self.now-self.start
@@ -371,13 +613,15 @@ class BMI():
                 # 
                 if self.verbose:
                     print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
-    
+
+    #
     def trigger_reward(self):
 
         # generate water reward
 
         pass
 
+    #
     def post_reward_state(self):
 
         # disable tone playback;
@@ -471,22 +715,36 @@ class BMI():
                    " computed_frame : ", self.ttl_computed)
 
             # update ROIS
-            # TODO: write this fucntion to loop until it finds a non-zero mean then exit:
-            for p in range(self.rois.shape[0]):
+            # for the very first ROI: we loop over the data from -1 frames back to up to n_frames_search_forward in the future
+            #  - we are looking for the last frame that has data in it;
+            #    we then exit and keep the counter in memroy
+            # IMPORTANT
+            # TODO: this algorithm essentially uses empirical data to check how far our imaging system has gone
+            # - it is probably the best way to ensure that we are uptoday with real time (at least realtime with the 2p + writing times
+            # - more to think about whether this can go wrong
+            # - but for now, this next loop is quasi-guarantee that we are in real time
+            for z in range(-1,self.n_frames_search_forward,1):
+                roi_sum0 = self.newfp[self.n_ttl+z,
+                                      self.rois[0][0]-self.roi_width:self.rois[0][0]+self.roi_width,
+                                      self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].mean()
+                if roi_sum0 != 0:
+                    break
 
-                roi_sum0 = self.newfp[self.n_ttl-1,
-                                      self.rois[p][0]-self.roi_width:self.rois[p][0]+self.roi_width,
-                                      self.rois[p][1]-self.roi_width:self.rois[p][1]+self.roi_width].mean()
+            # TODO: we should reset the n_ttl here
+            # - if we find that we needed to search x steps forward,
+            #   we should then add x to n_ttl - and vice versa
 
-                roi_sum1 = self.newfp[self.n_ttl,
-                                      self.rois[p][0]-self.roi_width:self.rois[p][0]+self.roi_width,
-                                      self.rois[p][1]-self.roi_width:self.rois[p][1]+self.roi_width].mean()
+            # save the first ROI mean of the data
+            self.rois_traces[0].append(roi_sum0)
 
-                roi_sum2 = self.newfp[self.n_ttl+1,
+            # loop over the remaning cells on the last frame 'z'
+            for p in range(1,self.rois.shape[0]):
+                roi_sum0 = self.newfp[self.n_ttl+z,
                                       self.rois[p][0]-self.roi_width:self.rois[p][0]+self.roi_width,
                                       self.rois[p][1]-self.roi_width:self.rois[p][1]+self.roi_width].mean()
 
                 self.rois_traces[p].append(roi_sum0)
+
             if self.verbose:
                 print ("")
                 print ("")
