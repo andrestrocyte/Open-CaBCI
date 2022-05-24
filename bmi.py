@@ -43,85 +43,133 @@ class PlotROIs():
                  shmem_n_ttl,
                  rois_traces_shape):
 
-        #
-        self.initialize_rois_traces(shmem_rois_traces,
-                                   rois_traces_shape)
+
+        print ("INITALIZED PLOTROIS FUCTIONS...")
+        import matplotlib
+        # matplotlib.use('qtagg')
+        #%matplotlib tk
+        import matplotlib.pyplot as plt
+        plt.ion()
 
         #
-        self.initalize_n_ttl(shmem_n_ttl)
+        self.sampleRate_2P = 30
+        print ("...assuming sampling rate is ", self.sampleRate_2P, "hz")
 
+        #
+        self.verbose2 = False
+
+
+        self.shmem_rois_traces = shmem_rois_traces
+        self.rois_traces_shape = rois_traces_shape
+        self.shmem_n_ttl = shmem_n_ttl
+        #
+        self.initialize_rois_traces()
+
+        #
+        self.initalize_n_ttl()
+
+        # #
+        self.make_roi_plots()
+
+        #
+        self.ctr = 0
+
+        #
+        #ctr = 0
+        while True:
+            self.update_plots()
+            #print ("looping ", self.ctr)# plot last X values depending
+            #self.ctr+=1
+            #time.sleep(.1)
     #
-    def initalize_n_ttl(self,
-                         shmem_n_ttl):
+    def initalize_n_ttl(self):
 
         #
-        print ("  Plotter loaded: ", shmem_n_ttl)
+        print ("  nttl memory name : ", self.shmem_n_ttl)
+
+        aa = np.zeros((1,), dtype=np.int64)
 
         # get the rois_traces from the shared memory name
-        existing_shm = shared_memory.SharedMemory(name=shmem_n_ttl)
+        self.existing_shm_n_ttl = shared_memory.SharedMemory(name=self.shmem_n_ttl)
+        #existing_shm = shared_memory.SharedMemory(name='testname')
+
+        print ("existing shm: ", self.existing_shm_n_ttl)
+
 
         #
-        self.n_ttl = np.ndarray(1,
-                                dtype=np.float32,
-                                buffer=existing_shm.buf)
+        self.n_ttl2 = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shm_n_ttl.buf)
 
         #
-        print ("  loaded n_ttl: ", self.n_ttl)
+        print ("  loaded n_ttl: ", self.n_ttl2)
 
+        #
+        self.n_ttl_last = self.n_ttl2[0]
 
-    #
-    def initialize_rois_traces(self,
-                               shmem_rois_traces,
-                               rois_traces_shape):
+           #
+    def initialize_rois_traces(self):
 
-        print ("  Plotter loaded: ", shmem_rois_traces, " size: ", rois_traces_shape)
+        print ("  Plotter loaded: ", self.shmem_rois_traces,
+               " size: ", self.rois_traces_shape)
 
         # get the rois_traces from the shared memory name
-        existing_shm = shared_memory.SharedMemory(name=shmem_rois_traces)
+        self.existing_shm_rois_traces = shared_memory.SharedMemory(name=self.shmem_rois_traces)
 
         #
-        self.rois_traces = np.ndarray(rois_traces_shape,
-                                      dtype=np.float32,
-                                      buffer=existing_shm.buf)
+        print ("existing shm traces*****************: ",
+               self.existing_shm_rois_traces)
 
         #
-        print ("  loaded rois_traces: ", self.rois_traces.shape)
+        self.rois_traces = np.ndarray((self.rois_traces_shape[0],
+                                       self.rois_traces_shape[1]),
+                                       dtype=np.float32,
+                                       buffer=self.existing_shm_rois_traces.buf)
+
+        #
+        #print ("  loaded rois_traces: ", self.rois_traces)
+        #print ("rois traces: ", self.rois_traces.shape)
+        #print ("rois sums: ", self.rois_traces.sum())
+
+        #print ("TOTAL NANS IN roi traces INSIDE ", np.isnan(self.rois_traces).sum())
 
 
+    #shmem_rois_traces
+    def make_roi_plots(self):
 
-    #
-    def make_roi_plots(self, ):
+        #
+        self.plot_y_scale = 1000
 
         #
         self.fig = plt.figure(figsize=(10,5))
 
         self.ax = self.fig.add_subplot(111)
-        self.ax.set_ylim(0, self.plot_y_scale*len(self.rois)*1.1)
+        #self.ax.set_ylim(0, self.plot_y_scale*len(self.rois_traces)*1.1)
+        self.ax.set_ylim(0, 10000)
         self.ax.set_xlim(-10,0)
         self.ax.set_xlabel("Time (sec)")
-        self.ax.set_yticks([])
+        #self.ax.set_yticks([])
 
         # initialize time:
-        # self.plot_times = []
-        # for k in range(-10*self.sampleRate_2P,0,1):
-        #     self.plot_times.append(k)
+        print ("TOTAL NANS IN roi traces OUTSIDE ", np.isnan(self.rois_traces).sum())
 
         self.plot_times = np.arange(-10*self.sampleRate_2P,0,1)/self.sampleRate_2P
 
         # make a list to hold the matplotlib line objects
         self.time_course_objects = []
-        for k in range(len(self.rois_traces)):
-            # if self.verbose:
-            #     print ("k: ", k)
-            #     print (self.plot_times)
-            #     print (self.rois_traces[k][-len(self.plot_times):])
-            #self.ax.plot(self.plot_times,
-            #             self.rois_traces[-len(self.plot_times):],  # plot last X values depending on length of plttimes
-            #             'r-')  # Returns a tuple of line objects, thus the comma
+        for k in range(self.rois_traces.shape[0]):
+
+            #
+            #print (k, self.plot_times.shape, self.rois_traces[k,:10*self.sampleRate_2P].shape)
+            y_values = self.rois_traces[k,:10*self.sampleRate_2P]-1000*k
+            #print ("yvalues iniatlized np.nans: ", np.isnan(y_values).sum(),
+            #       np.isnan(self.plot_times).sum())
             lineobject, = self.ax.plot(self.plot_times,
-                                       np.array(self.rois_traces[k][-len(self.plot_times):])-1000*k,  # plot last X values depending on length of plttimes
+                                       #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
+                                       y_values,  # plot last X values depending on length of plttimes
                                        #'r-'
                                        )  # Returns a tuple of line objects, thus the comma
+            #
             self.time_course_objects.append(lineobject)
 
         # self.ax.clear()
@@ -146,6 +194,10 @@ class PlotROIs():
 
         #
         plt.show(block=False)
+        #plt.show(block=False)
+
+        print (" DONE MAKING ROI LINE PLOTS")
+
 
     #
     def update_plots(self):
@@ -161,18 +213,29 @@ class PlotROIs():
         # restore background
         self.fig.canvas.restore_region(self.axbackground)
 
+        #
         # update ROI line plots
-        for k in range(len(self.rois_traces)):
+        self.n_ttl_current = self.n_ttl2[0].copy()
 
-            # if self.verbose:
-            #     print ("k: ", k)
-            #     print (self.plot_times)
-            #     print (self.rois_traces[k][-len(self.plot_times):])
+        #
+        if self.n_ttl_current<= self.n_ttl_last:
+            return
+
+        x_values = np.arange(0, min(self.n_ttl_current, 300), 1) / 30 - 10
+        for k in range(self.rois_traces.shape[0]):
 
             #
-            self.time_course_objects[k].set_data(
-                            self.plot_times,
-                            np.array(self.rois_traces[k][-len(self.plot_times):])+self.plot_y_scale*k)
+
+            #x_values = self.plot_times[x_values]
+
+            #
+            y_values = self.rois_traces[k,max(0,self.n_ttl_current-300):self.n_ttl_current]+1000*k
+
+            #
+            #print (x_values.shape, y_values.shape)
+            self.time_course_objects[k].set_data(x_values,
+                                                y_values
+                                                )
         #
         self.fig.canvas.restore_region(self.axbackground)
 
@@ -207,8 +270,8 @@ class Simulation():
                  fname_ttl):
 
         #
-        print ("TODO: implement shared memory to run plotting and tone playback directly from memroy")
-        print ("  more info:  https://docs.python.org/3/library/multiprocessing.shared_memory.html")
+        #print ("TODO: implement shared memory to run plotting and tone playback directly from memroy")
+        #print ("  more info:  https://docs.python.org/3/library/multiprocessing.shared_memory.html")
 
         # set location of reading index to 0 at beginning
         self.index = 0
@@ -302,9 +365,9 @@ class BMI():
     def initialize_pbar(self):
         self.pbar = tqdm.tqdm(total=self.n_frames_to_be_acquired,
                               desc='% complete',
-                             position=0,
-                             leave=True,
-                             ascii=True)  # Init pbar
+                              position=0,
+                              leave=True,
+                              ascii=True)  # Init pbar
 
     #
     def initialize_arrays(self):
@@ -324,13 +387,14 @@ class BMI():
 
         self.initialize_n_ttl()
 
+    #
     def initialize_n_ttl(self):
 
         # this variable keeps track of how many frames the BMI has detected
         # --- needs to be shared with the plotting algorithm
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros(1)
+        aa = np.zeros(1,dtype=np.int64)
         self.shmem_n_ttl = shared_memory.SharedMemory(create=True,
                                                        size=aa.nbytes)
 
@@ -338,12 +402,9 @@ class BMI():
         self.n_ttl = np.ndarray(aa.shape,
                                 dtype=aa.dtype,
                                 buffer=self.shmem_n_ttl.buf)
-
+        self.n_ttl[:] = aa[:]
         #
         print (" ttl counter initialized: ", self.n_ttl, self.shmem_n_ttl.name)
-
-        #
-
 
 
     #
@@ -364,17 +425,13 @@ class BMI():
         print ("   using square ROIs; TODO: use proper defined ROIs and cell masks ...")
 
         # initialize the fluorescence time series for all the ROIs that are being tracked
-        # if False:  #OLD WAY USING LISTS; does not work with memory sharing
-        #     self.rois_traces = []
-        #     for k in range(self.rois.shape[0]):
-        #         self.rois_traces.append([])
-        #         for p in range(10*self.sampleRate_2P):
-        #             self.rois_traces[k].append(0)
-        #
-        # else:
         # make a numpy array to hold the rois_traces
-        a = np.zeros((self.rois.shape[0],self.n_frames))
-        self.shmem_rois_traces = shared_memory.SharedMemory(create=True, size=a.nbytes)
+        a = np.zeros((self.rois.shape[0],self.n_frames),
+                     dtype=np.float32)+1E-8
+
+        #
+        self.shmem_rois_traces = shared_memory.SharedMemory(create=True,
+                                                            size=a.nbytes)
 
         #
         self.rois_traces = np.ndarray(a.shape,
@@ -384,9 +441,15 @@ class BMI():
         #
         self.rois_traces[:] = a[:]
 
+        # check if any nans are weirdly in
+        print ("ISNAN of iniatlized ROIs in BMI class ", np.isnan(self.rois_traces).sum())
+
+
         #
         print (" shared memory rois traces: ", self.rois_traces.shape, self.shmem_rois_traces.name)
 
+        #
+        print ("ROI TRACES INIALLIZED: ", self.rois_traces)
         #
         self.smooth_function = np.arange(0,self.rois_smooth_window,1)/self.rois_smooth_window
 
@@ -724,7 +787,7 @@ class BMI():
             # - more to think about whether this can go wrong
             # - but for now, this next loop is quasi-guarantee that we are in real time
             for z in range(-1,self.n_frames_search_forward,1):
-                roi_sum0 = self.newfp[self.n_ttl+z,
+                roi_sum0 = self.newfp[self.n_ttl[0]+z,
                                       self.rois[0][0]-self.roi_width:self.rois[0][0]+self.roi_width,
                                       self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].mean()
                 if roi_sum0 != 0:
@@ -735,15 +798,18 @@ class BMI():
             #   we should then add x to n_ttl - and vice versa
 
             # save the first ROI mean of the data
-            self.rois_traces[0].append(roi_sum0)
+            self.rois_traces[0,self.n_ttl[0]] = roi_sum0
 
             # loop over the remaning cells on the last frame 'z'
             for p in range(1,self.rois.shape[0]):
-                roi_sum0 = self.newfp[self.n_ttl+z,
+                roi_sum0 = self.newfp[self.n_ttl[0]+z,
                                       self.rois[p][0]-self.roi_width:self.rois[p][0]+self.roi_width,
                                       self.rois[p][1]-self.roi_width:self.rois[p][1]+self.roi_width].mean()
 
-                self.rois_traces[p].append(roi_sum0)
+                #self.rois_traces[p].append(roi_sum0)
+                self.rois_traces[p,self.n_ttl[0]] = roi_sum0
+
+
 
             if self.verbose:
                 print ("")
@@ -754,7 +820,9 @@ class BMI():
     def update_ensembles(self):
 
         # wait for at least a few frames to be grabbed (usually at least enough to apply smoothing window)
-        if self.n_ttl<self.rois_smooth_window:
+        #print ("updating ensembles: ", self.n_ttl, " self.n_ttl")
+
+        if self.n_ttl[0]<self.rois_smooth_window:
             #for p in range(self.rois.shape[0]):
             self.ensemble_activity_realtime[:] = 0
 
@@ -768,13 +836,18 @@ class BMI():
                     print ("self.rois_smooth_window: ", self.rois_smooth_window)
                     print ("index 1: ", self.n_ttl-self.rois_smooth_window, " index 2: ", self.n_ttl)
                     print ("sefl rois traces[p]: ", self.rois_traces[p])
-                temp = self.rois_traces[p][self.n_ttl-self.rois_smooth_window:self.n_ttl]
 
+                #print (p, self.n_ttl, self.rois_smooth_window, ' rois_smooth_window: ', self.rois_smooth_window)
+                #print ("self roi traces: ", self.rois_traces.shape)
+                temp = self.rois_traces[p, self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
+                #print ("temp: ", temp.shape)
                 # scale using a linear decay/trinagle function
                 # TODO: THIS IS NOT CORRECT; MORE NEEDS TO BE DONE HERE
                 if self.verbose:
                     print ("temp: ", temp)
                     print ("smooth function: ", self.smooth_function)
+
+                #
                 temp = temp*self.smooth_function
 
                 # take largest value
