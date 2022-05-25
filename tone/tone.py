@@ -43,8 +43,77 @@ class PlayTone():
         self.initialize_tone_playback()
 
         #
+        self.initialize_tone_display()
+
+        #
         while True:
             self.update_tone()
+
+            #
+            self.update_tone_display()
+
+    def initialize_tone_display(self):
+        ''' '''
+        #
+        self.fig = plt.figure(figsize=(3, 3))
+
+        self.text = self.fig.text(0.5,0.96, str(self.tone_frequency))
+
+        # self.ax = self.fig.add_subplot(111)
+        # text = self.ax.text(0.5, 1.100, str(self.tone_frequency),
+        #         bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 5},
+        #         transform=self.ax.transAxes, ha="center")
+        #
+        # self.ax.text.remove()
+        #
+        # self.ax.set_title(str(self.tone_frequency))
+        #
+        # #
+        # self.fig.canvas.flush_events()
+        #
+        # #
+        # self.fig.canvas.draw()
+        #
+        # #
+        # self.fig.canvas.flush_events()
+        #
+        # #
+        # # self.fig.clf()
+        #
+        # # cache the background
+        # #self.axbackground = self.fig.canvas.copy_from_bbox(self.ax.bbox)
+
+        #
+        plt.show(block=False)
+
+
+    def update_tone_display(self):
+
+        # restore background
+        #self.fig.canvas.restore_region(self.axbackground)
+
+        #
+        pass
+        #self.text.remove()
+        #self.text = self.fig.text(0.5,0.96, str(self.tone_frequency))
+
+        #
+        # self.ax.title.set_text(self.tone_frequency)
+        # self.ax.text(0.5, 1.100, str(self.tone_frequency),
+        #         bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 5},
+        #         transform=self.ax.transAxes, ha="center")
+        #
+        # #
+        # #self.fig.canvas.restore_region(self.axbackground)
+        #
+        # # fill in the axes rectangle
+        # self.fig.canvas.blit(self.ax.bbox)
+        #
+        # #
+        # self.fig.canvas.blit(self.ax.bbox)
+        #
+        # #
+        # self.fig.canvas.flush_events()
 
     #
     def make_tone(self, f, amp, duration):
@@ -67,14 +136,12 @@ class PlayTone():
 
         tone = self.make_tone(self.tone_frequency, self.amp, self.duration)
 
-        print ("playing tone: ", self.tone_frequency, "hz")
+        #print ("playing tone: ", self.tone_frequency, "hz")
 
         if self.simulation_flag:
             return
 
         self.audio_Writer.write_many_sample(tone)
-
-
 
     #
     def initialize_tone_playback(self):

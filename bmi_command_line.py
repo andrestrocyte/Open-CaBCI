@@ -16,7 +16,8 @@ from tone.tone import PlayTone
 
 
 # FOR LINUX
-fname_root_path = '/home/cat/data/donato/bscope_tests/'
+#fname_root_path = '/home/cat/data/donato/bscope_tests/'
+fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
 fname_fluorescence = os.path.join(fname_root_path, 
                                   'image_1000frames.raw')
 
@@ -65,7 +66,7 @@ bmi.verbose2 = False    # this displays the time it takes to copute ROI
 ############## INITIALIZE PLOTTER ############################# 
 ###############################################################
 
-if True:
+if False:
 	if True:
 		print ("RUNNING Plotter in multiprocessing...")
 		plotter_ = Process(target=PlotROIs, args=(
