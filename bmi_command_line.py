@@ -10,8 +10,9 @@ import math
 from multiprocessing import Process
 
 # 
-from bmi import BMI, PlotROIs
-
+from bmi.bmi import BMI
+from plotter.plotter import PlotROIs
+from tone.tone import PlayTone
 
 
 # FOR LINUX
@@ -61,36 +62,49 @@ bmi.verbose2 = False    # this displays the time it takes to copute ROI
 
 
 ###############################################################
-#################### INITIALIZE BMI ########################### 
+############## INITIALIZE PLOTTER ############################# 
+###############################################################
+
+if True:
+	if True:
+		print ("RUNNING Plotter in multiprocessing...")
+		plotter_ = Process(target=PlotROIs, args=(
+						bmi.shmem_rois_traces.name,
+						bmi.shmem_n_ttl.name,
+						bmi.rois_traces.shape,))
+		plotter_.start()
+
+	else:
+		print ("RUNNING Plotter in main process...")
+		plotter_ = PlotROIs(
+						bmi.shmem_rois_traces.name,
+						bmi.shmem_n_ttl.name,
+						bmi.rois_traces.shape)
+
+
+###############################################################
+############## INITIALIZE TONE PLAYBACK #######################
 ###############################################################
 #print ("BMI BMI: ", bmi.n_ttl)
 
 if True:
-	print ("RUNNING Plotter in multiprocessing...")
-	plotter_ = Process(target=PlotROIs, args=(
-                    bmi.shmem_rois_traces.name,
-                    bmi.shmem_n_ttl.name,
-                    bmi.rois_traces.shape,))
-else:
-	print ("RUNNING Plotter in main process...")
-	plotter_ = PlotROIs(
-                    bmi.shmem_rois_traces.name,
-                    bmi.shmem_n_ttl.name,
-                    bmi.rois_traces.shape)
+	if True:
+		print ("RUNNING Tone player in multiprocessing...")
+		tone_player_ = Process(target=PlayTone, args=(bmi.shmem_tone_frequency.name,))
+		tone_player_.start()
 
-#print ("BMI BMI: ", bmi.n_ttl)
-plotter_.start()
+	else:
+		print ("RUNNING Tone player in main process...")
+		tone_player_ = PlayTone(bmi.shmem_tone_frequency.name)
+
 
 ###############################################################
 #################### INITIALIZE BMI ########################### 
 ###############################################################
-#
-# plotter_.join()
 
-# 
-# plotter_.terminate()
 
 #
+#time.sleep(5)
 bmi.run_BMI()
 
 
