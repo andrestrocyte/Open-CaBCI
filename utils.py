@@ -6,10 +6,25 @@ from tqdm import trange
 from scipy import ndimage as ndi
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
-
+from scipy import signal
 import scipy
+import scipy.ndimage
+
 import cv2
-#
+
+def convolve_parallel(idx, data_sparse):
+	
+	# 
+	kernel = 11
+	for k in idx:
+		for p in range(data_sparse.shape[2]):
+			data_sparse[:,k,p] = np.convolve(data_sparse[:,k,p], kernel, mode='same')
+
+	return data_sparse
+
+
+
+##############################
 class ComputeROIs(object):
 	
 	#
@@ -18,27 +33,19 @@ class ComputeROIs(object):
 		#
 		self.fname = fname
 
-		#
+		# some of these paramters need to be exposed outside also
 		self.vmin = 200
 		self.vmax = 500
 		
-		#
-		self.subsample = 10 # for std computation downsample to single second 
-				
-		#
+		# 
 		self.binarize_thresh =.05
 		self.sigma = .5
 		self.order = 0
 		self.n_smooth_steps = 1
-		
-	#
+	
 	
 	def make_corr_map(self):
-		'''
-		Not yet used; to think about it.
-		'''
-		
-		# 
+
 		data = np.memmap(self.fname, dtype='uint16', mode='r')
 		data = data.reshape(-1,512,512)
 		print ("memmap : ", data.shape)
@@ -46,39 +53,24 @@ class ComputeROIs(object):
 		data_sparse = data[::self.subsample]
 		print ("data into analysis: ", data_sparse.shape)
 
-		# filter once to remove much of the white noise
-		if False:
-			sigma = 1
-			order = 0
-			print (" gaussian filter width: ", sigma, ", order: ", order)
-			data_sparse = scipy.ndimage.gaussian_filter(data_sparse, 
-														sigma, 
-														order)
-			print ("done filtering... (TO CHECK which axis are we filtering!!)")
-													
-		print ("staring computing std...")
-		std = np.std(data_sparse,axis=0)
-		print ("done computing std...")
-		#
-		std = (std-self.vmin)/(self.vmax-self.vmin)
-		idx = np.where(std<0)
-		std[idx]=0
-		idx = np.where(std>1)
-		std[idx]=1
-
+		# 
+		img = scipy.signal.correlate2d(data_sparse[0], 
+									   data_sparse[1], 
+									   mode='same')
+		
 		# 
 		plt.figure()
-		plt.imshow(std,
+		plt.imshow(img,
 				   #vmin=vmin,
 				   #vmax=vmax
 				  )
 		plt.show()
 		
-		self.std_map = std
-		
-		return std
-		
-		
+	
+		return img
+	
+	
+	# 
 	def make_std_map(self):
 
 		data = np.memmap(self.fname, dtype='uint16', mode='r')
@@ -97,7 +89,58 @@ class ComputeROIs(object):
 														sigma, 
 														order)
 			print ("done filtering... (TO CHECK which axis are we filtering!!)")
-													
+        
+        #
+		if False:
+			kernel = [7,0,0]   # filter only across time
+			print (" median filter width: ", kernel)
+			data_sparse = signal.medfilt(data_sparse, kernel)
+			print ("done median filtering... ")
+		
+		#
+		if False:
+
+			#scipy.ndimage.gaussian_filter1d
+			#import scipy.ndimage # import gaussian_filter1d
+			#kernel = [1,1,7]
+			kernel = 30
+			print (" filter1d: ", kernel)
+			data_sparse = scipy.ndimage.gaussian_filter1d(data_sparse, kernel)
+			print ("done filter1d... ", data_sparse.shape)
+		
+		# 
+		if False:
+
+			#
+			if False:
+				import parmap
+				n_cores = 8
+				idx = np.array_split(np.arange(data_sparse.shape[1]),n_cores)
+				#print ("data split idx: ", idx)
+				
+				res = parmap.map(convolve_parallel, 
+								 idx,
+								 data_sparse,
+								 pm_processes = n_cores,
+								 pm_pbar = True)
+				
+				#
+				print (" len res: ", len(res), res[0].shape)
+				
+				# 
+				data_sparse = np.sum(data_sparse,axis=0)
+				print ("recombined data sparse", data_sparse.shape)
+			
+			#
+			else:
+				data_out = np.zeros(data_sparse.shape)
+				for k in trange(data_sparse.shape[1]):
+					for p in range(data_sparse.shape[2]):
+						data_out[:,k,p] = np.convolve(data_sparse[:,k,p], kernel, mode='same')
+			
+			print ("done window smoothing...")
+				
+		# 
 		print ("staring computing std...")
 		std = np.std(data_sparse,axis=0)
 		print ("done computing std...")
@@ -181,39 +224,10 @@ class ComputeROIs(object):
 									 np.median(idx[1])])
 				indexes.append(idx)
 
-		# 
-		if False:
-			# scrabmel the labels
-			import sklearn
-			idxrand = sklearn.utils.shuffle(np.unique(labels))
-			#print (idxrand)
-
-			# 
-			labels_rand = np.zeros(labels.shape)
-			for ctr,k in enumerate(np.unique(labels)):
-				idx = np.where(labels==k)
-				#print (k, idxrand[ctr])
-				labels_rand[idx] = idxrand[ctr]
-
-			# 
-			ax=plt.subplot(111)
-			ax.imshow(labels_rand, 
-					  cmap=plt.cm.nipy_spectral,
-					  interpolation='none')
-			ax.set_axis_off()
-
-			plt.show()
-
-		#return None
-		
 		self.rois = np.vstack(roi_centres)
 		self.indexes = indexes
-		
-		#
-		return self.rois, self.indexes
-	# 
 
-
+	#
 	def show_contour_map(self, std_map, indexes, new_plot=True):
 		
 		if new_plot:
@@ -241,6 +255,107 @@ class ComputeROIs(object):
 
 		plt.show()
     
+	#
+	def compute_traces2(self):
+		''' Same as below but visualize every single frame
+		'''
+		
+		data = np.memmap(self.fname, dtype='uint16', mode='r')
+		data = data.reshape(-1,512,512)
+		print ("memmap : ", data.shape)
+			
+		#  
+		plt.figure()
+		traces = []
+		ctr=0
+		ax=plt.subplot(121)
+		roi_traces = []
+		for k in range(len(self.rois)):
+			roi_traces.append([])
+		
+		# loop over each frame
+		#skip = 1
+		for p in trange(0, data.shape[0], self.trace_subsample):
+
+			# grab frame
+			frame = data[p]
+
+			# loop over ROIS
+			for k in range(0,len(self.indexes)):
+				#loc = np.int32(np.array(self.rois[k])/1.5)  # why are we dividing by 1/5?  Is this due to smoothign!?
+				#loc = np.int32(np.array(self.rois[k]))  # why are we dividing by 1/5?  Is this due to smoothign!?
+
+				# grab roi
+				temp = frame[self.indexes[k]]
+
+				# normalize by surface area so that cells don't look way different because of footprint size
+				if True:
+					temp = temp/self.indexes[k][0].shape[0]
+
+				# add pixel values inside roi
+				temp = np.nansum(temp)
+
+				# save
+				roi_traces[k].append(temp)
+				
+		#
+		roi_traces = np.array(roi_traces)
+		self.roi_traces = roi_traces
+
+		#	
+		t = np.arange(0, data.shape[0], self.trace_subsample)/30.
+		ctr = 0
+		
+		for k in range(len(roi_traces)):
+
+			temp = roi_traces[k]
+			temp = temp- np.median(temp)
+			plt.plot(t, temp+ctr*self.scale)
+		
+			ctr+=1
+			
+		labels = np.arange(len(self.rois))
+		labels_old = np.arange(0,ctr*self.scale,self.scale)
+		
+		#
+		plt.yticks(labels_old, labels)
+		plt.xlabel("Time (sec)")
+        
+        # 
+		ax=plt.subplot(122)
+		new_plot = False
+		self.show_contour_map(self.std_map,self.indexes, new_plot)
+
+		plt.show()
+		
+	def show_traces_ids(self, ids):
+		
+		#
+		fig=plt.figure()
+		
+		#
+		plt.title("Cell Ids: "+str(ids))
+		#	
+		t = np.arange(0, self.roi_traces[0].shape[0],1)/30.*self.trace_subsample
+		ctr = 0
+		for k in ids:
+
+			temp = self.roi_traces[k]
+			temp = temp- np.median(temp)
+			plt.plot(t, temp+ctr*self.scale)
+		
+			ctr+=1
+			
+		labels = np.arange(len(ids))
+		labels_old = np.arange(0,ctr*self.scale,self.scale)
+		
+		#
+		plt.yticks(labels_old, labels)
+		plt.xlabel("Time (sec)")
+        
+		plt.show()
+		
+		
 		
 	def compute_traces(self):
 		
@@ -254,11 +369,12 @@ class ComputeROIs(object):
 		ctr=0
 		ax=plt.subplot(121)
 		roi_traces = []
+		
+		
 		for k in trange(0,len(self.rois)):
 			loc = np.int32(np.array(self.rois[k])/1.5)
 			
 			# check every .3 secs
-			skip = self.subsample
 			t = np.arange(0, data.shape[0], 10)/30.
 			traces = []
 			# step in time
@@ -293,7 +409,9 @@ class ComputeROIs(object):
 		labels = np.arange(len(self.rois))
 		labels_old = np.arange(0,ctr*self.scale,self.scale)
 		plt.yticks(labels_old, labels)
-		
+		plt.xlabel("Time (sec)")
+        
+        # 
 		ax=plt.subplot(122)
 		new_plot = False
 		self.show_contour_map(self.std_map,self.indexes, new_plot)
@@ -303,4 +421,133 @@ class ComputeROIs(object):
 		self.roi_traces = roi_traces
 		
 		return roi_traces
-    
+
+	#
+	def find_reward_thresholds(self, diff):
+
+		#
+		E1 = self.roi_traces[self.ensemble1[0]]+self.roi_traces[self.ensemble1[1]]
+
+		#
+		E2 = self.roi_traces[self.ensemble2[0]]+self.roi_traces[self.ensemble2[1]]
+
+		# TODO: SMOOTH THE SAME WAY AS IN BMI!
+		max_E1 = np.max(E1)
+		max_E2 = np.max(E2)
+		low = -max_E1
+		high = max_E2    
+
+		#
+		self.smoothing_kernel = np.arange(0,self.rois_smooth_window,1)/self.rois_smooth_window
+
+		
+		# difference between ensemble
+		diff = E1-E2
+		print ("difference between 2 ensembles: ", diff.shape)
+
+		#
+		y = np.histogram(diff, bins=np.arange(np.min(diff),np.max(diff),100))
+
+		#
+		n_sec_recording = int(diff.shape[0]/self.sample_rate)
+		print ("nsec recording: ", n_sec_recording)
+
+		# use 30 sec lockouts
+		n_rewards_random = n_sec_recording//self.sample_rate
+		print ("max number of rewards received randomly (i.e. every 30sec) ", n_rewards_random)
+
+		# set the low and high to match this
+		n_rewards = 0
+		stepper = 0.95
+		while n_rewards<n_rewards_random:
+
+			# run inside while loop for eveyr setting of low and high until we hit 
+			#   exact number of random rewards
+			k=0
+			n_rewards = 0
+			reward_times = []
+			while k<diff.shape[0]:
+				
+				temp_diff = diff[k]
+				
+				# apply median smoothing function
+				if self.smooth_diff_function and k>self.rois_smooth_window:
+					temp_diff = diff[k-self.rois_smooth_window:k]
+					temp_diff = temp_diff*self.smoothing_kernel
+					temp_diff = np.median(temp_diff)
+					
+						
+				if temp_diff<=low:
+					# low reward state reached
+					n_rewards+=1
+					reward_times.append([k,0])
+					k+= int(self.post_reward_lockout*self.sample_rate)
+				elif temp_diff>=high:
+					# high reward state reached
+					n_rewards+=1
+					reward_times.append([k,1])
+					k+= int(self.post_reward_lockout*self.sample_rate)
+				else:
+					k+=1
+
+			#print ("Reard times: ", reward_times)
+			# check exit condition otherwise decrase thresholds
+			if len(reward_times)>1:
+				rewarded_times = np.vstack(reward_times)
+				if self.balance_ensemble_rewards_flag:
+					idx_E1 = np.where(rewarded_times[:,1]==0)[0].shape[0]
+					idx_E2 = np.where(rewarded_times[:,1]==1)[0].shape[0]
+					if idx_E1 <= idx_E2:
+						low*=stepper
+					else:
+						high*=stepper
+				else:
+					low*=stepper
+					high*=stepper
+			else:
+				low*=stepper
+				high*=stepper
+
+			print ("updated rwards #: ", n_rewards, low, high)
+
+		self.reward_times = np.vstack(reward_times)
+		
+		self.low = low
+		self.high = high
+		self.E1 = E1
+		self.E2 = E2
+		self.diff = diff
+		
+	#
+	def plot_rewarded_ensembles(self):
+		
+		#
+		plt.figure()
+		
+		t = np.arange(self.diff.shape[0])/self.sample_rate
+		plt.plot([t[0],t[-1]], [self.low, self.low], '--', c='grey')
+		plt.plot([t[0],t[-1]], [self.high, self.high], '--', c='grey')
+		plt.plot(t,self.E1,c='blue',alpha=.1,label='E1')
+		plt.plot(t,self.E2,c='red',alpha=.1,label='E2')
+		plt.plot(t, self.diff,c='black', alpha=.8, label='Difference')
+		plt.plot([t[0],t[-1]], [0, 0], c='black', linewidth=3)
+
+		#
+		for k in range(len(self.reward_times)):
+			temp = self.reward_times[k]
+
+			if temp[1]==0:
+				plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='red')
+			else:
+				plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='blue')
+
+		# replot two random rewards just to make nice legend
+		idx1 = np.where(self.reward_times[:,1]==0)[0].shape[0]
+		idx2 = np.where(self.reward_times[:,1]==1)[0].shape[0]
+
+		plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='red', label='E1 rewarded # '+str(idx1),)
+		plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='blue', label='E2 rewarded # '+str(idx2),)
+		plt.legend()
+
+		plt.title("Rec duration: " + str(int(t[-1])) + " sec; expected # of random rewards: 30")
+		plt.show()

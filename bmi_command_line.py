@@ -16,10 +16,10 @@ from tone.tone import PlayTone
 
 
 # FOR LINUX
-fname_root_path = '/home/cat/data/donato/bscope_tests/'
-#fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
+#fname_root_path = '/home/cat/data/donato/bscope_tests/'
+fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
 fname_fluorescence = os.path.join(fname_root_path, 
-                                  'image_10000frames.raw')
+                                  'image_27000frames.raw')
 
 #
 fname_freq =  os.path.join(fname_root_path,
