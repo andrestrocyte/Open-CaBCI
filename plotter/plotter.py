@@ -136,6 +136,7 @@ class PlotROIs():
         self.ax.set_ylim(0, 10000)
         self.ax.set_xlim(-10,0)
         self.ax.set_xlabel("Time (sec)")
+        self.ax.set_title("T=0: "+str(round(self.n_ttl2[0]/self.sampleRate_2P,2)))
         #self.ax.set_yticks([])
 
         # initialize time:
@@ -228,6 +229,10 @@ class PlotROIs():
             self.time_course_objects[k].set_data(x_values,
                                                 y_values
                                                 )
+
+        #
+        self.ax.set_title("T=0: "+str(round(self.n_ttl2[0]/self.sampleRate_2P,2)))
+
         #
         self.fig.canvas.restore_region(self.axbackground)
 

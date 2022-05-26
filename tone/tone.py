@@ -43,77 +43,12 @@ class PlayTone():
         self.initialize_tone_playback()
 
         #
-        self.initialize_tone_display()
-
-        #
         while True:
+            start = time.time()
             self.update_tone()
-
-            #
-            self.update_tone_display()
-
-    def initialize_tone_display(self):
-        ''' '''
-        #
-        self.fig = plt.figure(figsize=(3, 3))
-
-        self.text = self.fig.text(0.5,0.96, str(self.tone_frequency))
-
-        # self.ax = self.fig.add_subplot(111)
-        # text = self.ax.text(0.5, 1.100, str(self.tone_frequency),
-        #         bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 5},
-        #         transform=self.ax.transAxes, ha="center")
-        #
-        # self.ax.text.remove()
-        #
-        # self.ax.set_title(str(self.tone_frequency))
-        #
-        # #
-        # self.fig.canvas.flush_events()
-        #
-        # #
-        # self.fig.canvas.draw()
-        #
-        # #
-        # self.fig.canvas.flush_events()
-        #
-        # #
-        # # self.fig.clf()
-        #
-        # # cache the background
-        # #self.axbackground = self.fig.canvas.copy_from_bbox(self.ax.bbox)
-
-        #
-        plt.show(block=False)
+            #print ("   tone playtime: ", time.time()-start, "sec")
 
 
-    def update_tone_display(self):
-
-        # restore background
-        #self.fig.canvas.restore_region(self.axbackground)
-
-        #
-        pass
-        #self.text.remove()
-        #self.text = self.fig.text(0.5,0.96, str(self.tone_frequency))
-
-        #
-        # self.ax.title.set_text(self.tone_frequency)
-        # self.ax.text(0.5, 1.100, str(self.tone_frequency),
-        #         bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 5},
-        #         transform=self.ax.transAxes, ha="center")
-        #
-        # #
-        # #self.fig.canvas.restore_region(self.axbackground)
-        #
-        # # fill in the axes rectangle
-        # self.fig.canvas.blit(self.ax.bbox)
-        #
-        # #
-        # self.fig.canvas.blit(self.ax.bbox)
-        #
-        # #
-        # self.fig.canvas.flush_events()
 
     #
     def make_tone(self, f, amp, duration):
@@ -121,8 +56,16 @@ class PlayTone():
         # TODO: Is there an easier way to generate tones on raw speakers???
         fs = 200000  # 200kHz    (Sample Rate)
         x = np.arange(int(fs * duration))
-        y = [amp * np.sin(2 * np.pi * f * (i / fs)) for i in x]
-        y_new = np.tile(y, 1)
+
+        # original list; takes too long to create it;
+        # doulbe check the numpy array is ok ... but seems good
+        # y = [amp * np.sin(2 * np.pi * f * (i / fs)) for i in x]
+        # y = np.array(y)
+        y2 = amp * np.sin(2 * np.pi * f * (x / fs))
+        y2 = y2[:,None]
+
+        #
+        y_new = np.tile(y2, 1)
 
         return y_new
 
@@ -134,9 +77,12 @@ class PlayTone():
         # TODO: 1) whether this is too slow and we end up buffering which not real time
         # TODO: 2) what is the shortest/correct duration to play a tone (probably >10hz) that we wont' notice)
 
-        tone = self.make_tone(self.tone_frequency, self.amp, self.duration)
+        # make sure you send a copy of the tone, not the tone
+        tone = self.make_tone(self.tone_frequency.copy(),
+                              self.amp,
+                              self.duration)
 
-        #print ("playing tone: ", self.tone_frequency, "hz")
+        #print ("tone: ", self.tone_frequency, "hz")
 
         if self.simulation_flag:
             return
@@ -157,11 +103,13 @@ class PlayTone():
         self.audio_Task.timing.cfg_samp_clk_timing(rate=200000,
                                                   # samps_per_chan=100,  # in continuos mode this is the buffer
                                                   sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+
+        #
         # sample_mode=nidaqmx.constants.AcquisitionType.FINITE)
 
         #
         self.audio_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(audio_Task.out_stream,
-                                                                        auto_start=True)
+                                                                             auto_start=True)
 
     #
     def initialize_tone_frequency(self):

@@ -23,15 +23,62 @@ class ComputeROIs(object):
 		self.vmax = 500
 		
 		#
-		self.subsample = 30 # for std computation downsample to single second 
+		self.subsample = 10 # for std computation downsample to single second 
 				
 		#
-		self.binarize_thresh =.25
+		self.binarize_thresh =.05
 		self.sigma = .5
 		self.order = 0
 		self.n_smooth_steps = 1
 		
 	#
+	
+	def make_corr_map(self):
+		'''
+		Not yet used; to think about it.
+		'''
+		
+		# 
+		data = np.memmap(self.fname, dtype='uint16', mode='r')
+		data = data.reshape(-1,512,512)
+		print ("memmap : ", data.shape)
+
+		data_sparse = data[::self.subsample]
+		print ("data into analysis: ", data_sparse.shape)
+
+		# filter once to remove much of the white noise
+		if False:
+			sigma = 1
+			order = 0
+			print (" gaussian filter width: ", sigma, ", order: ", order)
+			data_sparse = scipy.ndimage.gaussian_filter(data_sparse, 
+														sigma, 
+														order)
+			print ("done filtering... (TO CHECK which axis are we filtering!!)")
+													
+		print ("staring computing std...")
+		std = np.std(data_sparse,axis=0)
+		print ("done computing std...")
+		#
+		std = (std-self.vmin)/(self.vmax-self.vmin)
+		idx = np.where(std<0)
+		std[idx]=0
+		idx = np.where(std>1)
+		std[idx]=1
+
+		# 
+		plt.figure()
+		plt.imshow(std,
+				   #vmin=vmin,
+				   #vmax=vmax
+				  )
+		plt.show()
+		
+		self.std_map = std
+		
+		return std
+		
+		
 	def make_std_map(self):
 
 		data = np.memmap(self.fname, dtype='uint16', mode='r')
@@ -41,16 +88,19 @@ class ComputeROIs(object):
 		data_sparse = data[::self.subsample]
 		print ("data into analysis: ", data_sparse.shape)
 
-		# filter once got remove much of the white noise
-		sigma = 1
-		order = 0
-		print (" gaussian filter width: ", sigma, ", order: ", order)
-		data_sparse = scipy.ndimage.gaussian_filter(data_sparse, 
-													sigma, 
-													order)
+		# filter once to remove much of the white noise
+		if True:
+			sigma = 1
+			order = 0
+			print (" gaussian filter width: ", sigma, ", order: ", order)
+			data_sparse = scipy.ndimage.gaussian_filter(data_sparse, 
+														sigma, 
+														order)
+			print ("done filtering... (TO CHECK which axis are we filtering!!)")
 													
+		print ("staring computing std...")
 		std = np.std(data_sparse,axis=0)
-
+		print ("done computing std...")
 		#
 		std = (std-self.vmin)/(self.vmax-self.vmin)
 		idx = np.where(std<0)

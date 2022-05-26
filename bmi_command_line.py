@@ -16,10 +16,10 @@ from tone.tone import PlayTone
 
 
 # FOR LINUX
-#fname_root_path = '/home/cat/data/donato/bscope_tests/'
-fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
+fname_root_path = '/home/cat/data/donato/bscope_tests/'
+#fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
 fname_fluorescence = os.path.join(fname_root_path, 
-                                  'image_1000frames.raw')
+                                  'image_10000frames.raw')
 
 #
 fname_freq =  os.path.join(fname_root_path,
@@ -27,7 +27,7 @@ fname_freq =  os.path.join(fname_root_path,
 
 #
 fname_rois = os.path.join(fname_root_path, 
-                          "rois.txt")
+                          "ensemble_rois_centres.txt")
 
 # required for simulation mode
 fname_ttl = os.path.join(fname_root_path,
@@ -38,7 +38,7 @@ fname_ttl = os.path.join(fname_root_path,
 ################### DEFAULT PARAMTERS FOR BMI ######################### 			
 ####################################################################### 			
 sampleRate_2P = 30
-n_seconds_session = 30                          # number of seconds to run the BMI 
+n_seconds_session = int(10000/30)                          # number of seconds to run the BMI 
 simulation_mode = True							# Run BMI in simulation mode (i.e. don't need Bscope input)
 
 ###############################################################
@@ -66,7 +66,7 @@ bmi.verbose2 = False    # this displays the time it takes to copute ROI
 ############## INITIALIZE PLOTTER ############################# 
 ###############################################################
 
-if False:
+if True:
 	if True:
 		print ("RUNNING Plotter in multiprocessing...")
 		plotter_ = Process(target=PlotROIs, args=(
@@ -86,7 +86,6 @@ if False:
 ###############################################################
 ############## INITIALIZE TONE PLAYBACK #######################
 ###############################################################
-#print ("BMI BMI: ", bmi.n_ttl)
 
 if True:
 	if True:
@@ -108,4 +107,4 @@ if True:
 #time.sleep(5)
 bmi.run_BMI()
 
-
+quit()
