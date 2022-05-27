@@ -13,6 +13,7 @@ import os
 import time
 import numpy as np
 from multiprocessing import shared_memory
+from utils.utils import smooth_ca_time_series
 
 #################################################
 ############# SIMULATION CLASS ##################
@@ -69,6 +70,10 @@ class BMI():
                  n_seconds_session):
 
         #
+        print ("... initializing BMI parameters...")
+        print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
+
+        #
         self.simulation_mode = simulation_mode
 
         #
@@ -79,8 +84,8 @@ class BMI():
         self.fname_ttl = fname_ttl
 
         #
-        self.fname_rois_pixels = os.path.join(fname_root_path,
-                                              'rois.npz')
+        self.fname_rois_pixels_thresholds = os.path.join(fname_root_path,
+                                              'rois_pixels_and_thresholds.npz')
 
         # NOT SURE IF REQUIRED... TO DELETE
         # TODO flag was probably used during development toskip the reading step;
@@ -104,8 +109,8 @@ class BMI():
         #
         self.rois_smooth_window = 5   				# Number of frames to use to smooth the ROI traces
                                                     # to be developed/changed further
-        # initialize smoothing fuction kernel
-        self.initialize_smoothing_kernel()
+        # # initialize smoothing fuction kernel
+        # self.initialize_smoothing_kernel()
 
         # start the ttl frame counter at 0
         self.ttl_computed = 0
@@ -133,7 +138,7 @@ class BMI():
         self.initialize_tone_state()
 
         # initalize reward contidions based on ~15mins of pre BMI recorded data
-        self.initialize_reward_conditions()
+        self.initialize_reward_conditions_and_parameters()
 
     #
     def drift_correction(self):
@@ -144,18 +149,7 @@ class BMI():
         pass
 
     #
-    def initialize_smoothing_kernel(self):
-
-        ''' This is important step where we get rid of potential aritfacts (e.g. x,y,z drift)
-
-        '''
-
-        # TODO: look at literature and figure out what the correct smoothing function IF ANY is being used
-        self.smoothing_kernel = np.arange(0,self.rois_smooth_window,1)/self.rois_smooth_window
-
-
-    #
-    def initialize_reward_conditions(self):
+    def initialize_reward_conditions_and_parameters(self):
 
         ''' This function should load the parameters computed by another script
             Input: filenames of several parameters:
@@ -163,16 +157,31 @@ class BMI():
                 - maximum frequency (e.g. 180000Hz)
                 - threshold_low (e.g. -1.0)
                 - threshold_high (e.g. +1.0)
+                ... others to add
         '''
 
+        data = np.load(self.fname_rois_pixels_thresholds, allow_pickle=True)
 
-        pass
+        #
+        self.low_threshold = data['low_threshold']
+        self.high_threshold = data['high_threshold']
+
+        #
+        self.post_reward_lockout = data['post_reward_lockout']
+
+        #
+        self.rois_smooth_window = data['rois_smooth_window']
+
+        #
+        self.smooth_diff_function_flag = data['smooth_diff_function_flag']
 
     #
     def initialize_tone_state(self):
 
-        # this variable keeps track of the locally computed tone state
-        # ---
+        '''
+            This variable keeps track of the locally computed tone state
+            - it is shared with a different process which plays tones
+        '''
 
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1,dtype=np.int64)
@@ -202,7 +211,9 @@ class BMI():
 
     #
     def initialize_data_arrays(self):
+        ''' TODO: check to make sure all the possible data being recorded is being saved
 
+        '''
         #
         self.ttl_values = []			# array to hold ttl data being read
         self.ttl_n_computed = []	    # number of ttl pulses computed based on time elapsed
@@ -221,8 +232,21 @@ class BMI():
     #
     def initialize_n_ttl(self):
 
-        # this variable keeps track of how many frames the BMI has detected
-        # --- needs to be shared with the plotting algorithm
+        ''' This variable keeps track of how many frames the BMI has detected
+            - it is used to trigger the search for the next imaging frame
+            - it is also shared with the plotting algorithm
+
+            TODO:
+            - we may actually be able to run the BMI without TTL signals from the microscope
+            - that is, we can just actively search (e.g. every 10ms) the raw imaging data to see if any
+              new data has been written and take the latest image as proof of this
+            - this "nuclear" option could be implemented in systems that are more complex to work with
+              or that dont' have easily accessible TTL pulses - but are very good at writing to disk
+
+            - NOTE: this option should probably be implemented using a RAM-drive where the imaging data
+              is saved to a ram disk to avoid brekaing spindisks/SSDs
+
+        '''
 
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1, dtype=np.int64)
@@ -234,6 +258,7 @@ class BMI():
                                 dtype=aa.dtype,
                                 buffer=self.shmem_n_ttl.buf)
         self.n_ttl[:] = aa[:]
+
         #
         print(" ttl counter initialized: ", self.n_ttl, self.shmem_n_ttl.name)
 
@@ -251,7 +276,7 @@ class BMI():
 
         # NEW WAY OF LOADING EXACT PIXELS
         # TODO: generalize some of this code to allow different #s of cells; - not a priority
-        data = np.load(self.fname_rois_pixels, allow_pickle=True)
+        data = np.load(self.fname_rois_pixels_thresholds, allow_pickle=True)
         self.rois_pixels = []
         self.rois_pixels.append(data['cell0'])
         self.rois_pixels.append(data['cell1'])
@@ -265,6 +290,10 @@ class BMI():
         # initialize the fluorescence time series called rois_traces which keeps
         #  track of time series for all the ROIs
         # Note: we have to share this with the plotting function so we use sharedmemory
+        # NOTE we want to share the smooth traces with the plotting function as that is what the
+        #      reward condintion computation is based on
+
+        #
         a = np.zeros((len(self.rois_pixels),self.n_frames),
                       dtype=np.float32)+1E-8
 
@@ -273,23 +302,22 @@ class BMI():
                                                             size=a.nbytes)
 
         #
-        self.rois_traces = np.ndarray(a.shape,
+        self.rois_traces_smooth = np.ndarray(a.shape,
                                       dtype=a.dtype,
                                       buffer=self.shmem_rois_traces.buf)
 
         #
-        self.rois_traces[:] = a[:]
+        self.rois_traces_smooth[:] = a[:]
+
+        #####################################################
+        # need separate function to keep track of smooth version of traces
+        # these are the traces shared with visualization tool...
+        self.rois_traces_raw = np.zeros(a.shape,dtype=np.float32)
 
     #
     def run_BMI(self):
 
         #
-        # #
-        # start = time.perf_counter_ns()
-        #
-        # #
-        # n_sec_to_stop_after_no_TTL_pluse = 5
-
         print('Running BMI (ctrl-c to stop)')
 
         #
@@ -326,14 +354,9 @@ class BMI():
             # get time of ttl pulse
             self.now = time.perf_counter() #perf_counter_ns()/1E9
 
-            # not sure this is requiered; TO DELETE
-            # while True:
-            #	if (now - self.abs_times[-1])>0:
-            #				break
-            # 	now = time.perf_counter() #perf_counter_ns()/1E9
-
-            #
-            # self.now = now
+            # this helps us figure out how fast this loop runs
+            # TODO: we may want to introduce a delay of 5ms or so so we don't constanly read TTL pulses
+            #     but this is probably not necessary as the NIDAQMX package was made to be pinged a lot
             self.abs_times.append(self.now)
 
             # check of ttl pulse when from high ~5 to low ~0
@@ -396,6 +419,9 @@ class BMI():
         # load the [ca] imaging and compute activity in each ROI
         self.update_rois()
 
+        # smooth the ROIs using the external function
+        self.smooth_rois()
+
         # compute the ensemble activity from ROIs loaded
         self.update_ensembles()
 
@@ -417,6 +443,21 @@ class BMI():
         self.n_ttl+=1
     #
 
+    def smooth_rois(self):
+
+        # if we made threhsods using smoothing, then need to run them on data also
+
+        if self.smooth_diff_function_flag and self.n_ttl[0]>self.rois_smooth_window:
+
+            # loop over each cell
+            for p in range(self.rois_traces_raw.shape[0]):
+                #
+                temp = self.rois_traces_raw[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
+                self.rois_traces_smooth[p,self.n_ttl[0]] = smooth_ca_time_series(temp)
+
+        else:
+            #
+            self.rois_traces_smooth[:,self.n_ttl[0]] = self.rois_traces_raw[:,self.n_ttl[0]]
 
     #
     def compute_frame_number(self):
@@ -574,9 +615,7 @@ class BMI():
         ''' We check if reward condition was reached
 
         '''
-
-
-        #
+        return
 
         diff = E1 - E2
 
@@ -612,146 +651,90 @@ class BMI():
     #
     def update_rois(self):
 
-        if self.read_data_flag:
+
+        #
+        if self.verbose:
+            print ("self.ttl_computed: ", self.ttl_computed)
+            print("  detected frame #: ", self.n_ttl,
+               " computed_frame : ", self.ttl_computed)
+
+        # update ROIS
+        # for the very first ROI: we loop over the data from -1 frames back to up to n_frames_search_forward in the future
+        #  - we are looking for the last frame that has data in it;
+        #    we then exit and keep the counter in memroy
+
+        # IMPORTANT #1
+        # TODO: 2 options for computing activity in a cell ROI: sum vs. mean (there are others of course
+        # IMPORTANT #2
+        # TODO: this algorithm essentially uses empirical data to check how far our imaging system has gone
+        # - it is probably the best way to ensure that we are up todate with real time (at least realtime with the 2p + writing times
+        # - more to think about whether this can go wrong
+        # - but for now, this next loop is quasi-guarantee that we are in real time
+
+        # search the very first ROI in time from previous frame to future frames until we get a non-zero pixel values;
+        #  then we set the time i.e. n_ttl
+        for z in range(-1,self.n_frames_search_forward,1):
+
+            # check
+            #roi_sum0 = self.newfp[self.n_ttl[0]+z,
+            #                      self.rois[0][0]-self.roi_width:self.rois[0][0]+self.roi_width,
+            #                      self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].sum()
+
+            # TODO ;could just check any part of the FOV to see if there is non zero values
+            roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels[0]].sum()
 
             #
-            if self.verbose:
-                print ("self.ttl_computed: ", self.ttl_computed)
-                print("  detected frame #: ", self.n_ttl,
-                   " computed_frame : ", self.ttl_computed)
+            if roi_sum0 != 0:
+                break
 
-            # update ROIS
-            # for the very first ROI: we loop over the data from -1 frames back to up to n_frames_search_forward in the future
-            #  - we are looking for the last frame that has data in it;
-            #    we then exit and keep the counter in memroy
+        # TODO: we should reset the n_ttl here
+        # - if we find that we needed to search x steps forward,
+        #   we should then add x to n_ttl - and vice versa
 
-            # IMPORTANT #1
-            # TODO: 2 options for computing activity in a cell ROI: sum vs. mean (there are others of course
-            #
+        # loop over the remaning cells on the last frame 'z'
+        for p in range(0,len(self.rois_pixels),1):
 
+            # old way of summin pixels inside square centred on cell
+            # roi_sum0 = self.newfp[self.n_ttl[0]+z,
+            #                       self.rois[p][0]-self.roi_width:self.rois[p][0]+self.roi_width,
+            #                       self.rois[p][1]-self.roi_width:self.rois[p][1]+self.roi_width].sum()
 
-            # IMPORTANT #2
-            # TODO: this algorithm essentially uses empirical data to check how far our imaging system has gone
-            # - it is probably the best way to ensure that we are uptoday with real time (at least realtime with the 2p + writing times
-            # - more to think about whether this can go wrong
-            # - but for now, this next loop is quasi-guarantee that we are in real time
-            for z in range(-1,self.n_frames_search_forward,1):
+            # new way use exact pixel location
+            temp = self.newfp[self.n_ttl[0]+z]
+            temp = temp[self.rois_pixels[p].T[:, 0],
+                        self.rois_pixels[p].T[:, 1]]
 
-                # check
-                #roi_sum0 = self.newfp[self.n_ttl[0]+z,
-                #                      self.rois[0][0]-self.roi_width:self.rois[0][0]+self.roi_width,
-                #                      self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].sum()
+            # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
+            # TODO: these algorithms must match the default water disposal algorithms
+            roi_sum0 = temp / self.rois_pixels[p][0].shape[0]
 
-                # TODO ;could just check any part of the FOV to see if there is non zero values
-                roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels[0]].sum()
+            # sum
+            # TODO: not sure this is the correct function; to check literature
+            roi_sum0 = np.nansum(roi_sum0)
+            #print (p, roi_sum0)
+            #self.rois_traces[p].append(roi_sum0)
+            self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0
 
-                #
-                if roi_sum0 != 0:
-                    break
-
-            # TODO: we should reset the n_ttl here
-            # - if we find that we needed to search x steps forward,
-            #   we should then add x to n_ttl - and vice versa
-
-            # loop over the remaning cells on the last frame 'z'
-            for p in range(0,len(self.rois_pixels),1):
-
-                # old way of summin pixels inside square centred on cell
-                # roi_sum0 = self.newfp[self.n_ttl[0]+z,
-                #                       self.rois[p][0]-self.roi_width:self.rois[p][0]+self.roi_width,
-                #                       self.rois[p][1]-self.roi_width:self.rois[p][1]+self.roi_width].sum()
-
-                # new way use exact pixel location
-                temp = self.newfp[self.n_ttl[0]+z]
-                temp = temp[self.rois_pixels[p].T[:, 0],
-                            self.rois_pixels[p].T[:, 1]]
-
-                # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
-                # TODO: these algorithms must match the default water disposal algorithms
-                roi_sum0 = temp / self.rois_pixels[p][0].shape[0]
-
-                # sum
-                # TODO: not sure this is the correct function; to check literature
-                roi_sum0 = np.nansum(roi_sum0)
-
-                #self.rois_traces[p].append(roi_sum0)
-                self.rois_traces[p,self.n_ttl[0]] = roi_sum0
-
-
-
-            if self.verbose:
-                print ("")
-                print ("")
+        #
+        if self.verbose:
+            print ("")
+            print ("")
 
     #
     def update_ensembles(self):
 
         # wait for at least some frames to go by first
-        if self.n_ttl[0]<self.rois_smooth_window:
-            #for p in range(self.rois.shape[0]):
-            self.rois_activity_realtime[:] = 0
-
-        else:
-            # compute ensemble 1
-            self.ensemble_activity[0,self.n_ttl[0]] = (self.rois_traces[0, self.n_ttl[0]]+
-                                                       self.rois_traces[1, self.n_ttl[0]])
+        if self.n_ttl[0]>self.rois_smooth_window:
 
             # compute ensemble 1
-            self.ensemble_activity[1,self.n_ttl[0]] = (self.rois_traces[2, self.n_ttl[0]]+
-                                                       self.rois_traces[3, self.n_ttl[0]])
+            self.ensemble_activity[0,self.n_ttl[0]] = (self.rois_traces_smooth[0, self.n_ttl[0]]+
+                                                       self.rois_traces_smooth[1, self.n_ttl[0]])
 
-    # TODO: THIS Fuctnion is not being used so much
-    def update_rois(self):
+            # compute ensemble 1
+            self.ensemble_activity[1,self.n_ttl[0]] = (self.rois_traces_smooth[2, self.n_ttl[0]]+
+                                                       self.rois_traces_smooth[3, self.n_ttl[0]])
 
-        ''' Not sure this function is required as we smooth the ensemble differnece altogether in a single plrace
-
-        '''
-
-
-        # wait for at least a few frames to be grabbed (usually at least enough to apply smoothing window)
-        if self.n_ttl[0]<self.rois_smooth_window:
-            #for p in range(self.rois.shape[0]):
-            self.rois_activity_realtime[:] = 0
-
-        # update each ensemble based on some smoothing function
-        else:
-            for p in range(len(self.rois_pixels)):
-
-                # grab last 5 frames (e.g.)
-                if self.verbose:
-                    print ("n_ttl: ", self.n_ttl)
-                    print ("self.rois_smooth_window: ", self.rois_smooth_window)
-                    print ("index 1: ", self.n_ttl-self.rois_smooth_window, " index 2: ", self.n_ttl)
-                    print ("sefl rois traces[p]: ", self.rois_traces[p])
-
-                # grab the last N time points
-                temp = self.rois_traces[p, self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
-
-                # smooth them using linear decay/trinagle function
-                # TODO: A BETTER SMOOTHING FUNCTION NEEDS TO BE IMPLEMENTED
-                temp = temp*self.smoothing_kernel
-
-                #
-                if self.verbose:
-                    print ("temp: ", temp)
-                    print ("smooth function: ", self.smoothing_kernel)
-
-                # take largest value
-                # TODO: is this the correct approach?  UNCLEAR
-                # TODO: MAKE SURE THIS METHOD MATCHES THE OFFLINE THRESHOLD CALCULATIONS
-                temp = np.median(temp)
-
-                #
-                self.roi_activity_realtime[p] = temp
-
-                # TODO: perhaps keep track of all realtime ensemble activity
-                # i.e. save it somewhere, we might need it offline
-
-        #
-        if self.verbose:
-            print (" rois realtime: ", self.rois_activity_realtime)
-
-
+    #
     def tone_off(self):
 
         # turn toneplayback off
@@ -760,6 +743,7 @@ class BMI():
 
         pass
 
+    #
     def compute_ensemble_to_tone_state(self):
 
         # for now we use a simple scaled difference
@@ -768,7 +752,8 @@ class BMI():
         # self.tone_frequency  <--- this should be the variable to change
         # - it is automatically monitored by a separate process
 
-        self.tone_frequency[0] = np.random.randint(1000,18000)
+        #
+        # self.tone_frequency[0] = np.random.randint(1000,18000)
         #print ("bmi computed tone: ", self.tone_frequency)
 
 
@@ -808,5 +793,8 @@ class BMI():
                  ttl_n_detected = self.ttl_n_detected,
                  abs_times = self.abs_times,
                  ttl_times = self.ttl_times,
-                 rois_traces = self.rois_traces)
+                 rois_traces_raw = self.rois_traces_raw,
+                 rois_traces_smooth = self.rois_traces_smooth,
+
+                 )
 

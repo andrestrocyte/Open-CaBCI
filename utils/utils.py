@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import trange
 
+
 from scipy import ndimage as ndi
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
@@ -11,6 +12,10 @@ import scipy
 import scipy.ndimage
 
 import cv2
+
+def smooth_ca_time_series(diff):
+	#
+	return np.mean(diff)
 
 def convolve_parallel(idx, data_sparse):
 	
@@ -411,7 +416,7 @@ class ComputeROIs(object):
 		plt.yticks(labels_old, labels)
 		plt.xlabel("Time (sec)")
         
-        # 
+		#
 		ax=plt.subplot(122)
 		new_plot = False
 		self.show_contour_map(self.std_map,self.indexes, new_plot)
@@ -425,38 +430,51 @@ class ComputeROIs(object):
 	#
 	def find_reward_thresholds(self):
 
-		#
-		E1 = self.roi_traces[self.ensemble1[0]]+self.roi_traces[self.ensemble1[1]]
+		# run smoothing on each ensemble
+		if self.smooth_diff_function_flag:
+
+			for p in range(2):
+				smooth = np.zeros(self.roi_traces[self.ensemble1[p]].shape)
+				for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble1[p]].shape[0],1):
+					smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble1[p]][k-self.rois_smooth_window:k])
+				#
+				self.roi_traces[self.ensemble1[p]] = smooth
+
+			for p in range(2):
+				smooth = np.zeros(self.roi_traces[self.ensemble2[p]].shape)
+				for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble2[p]].shape[0],1):
+					smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble2[p]][k-self.rois_smooth_window:k])
+				#
+				self.roi_traces[self.ensemble2[p]] = smooth
+
+
+		# detrend traces and make ensembles
+		temp0 = self.roi_traces[self.ensemble1[0]]-np.median(self.roi_traces[self.ensemble1[0]],axis=0)
+		temp1 = self.roi_traces[self.ensemble1[1]]-np.median(self.roi_traces[self.ensemble1[1]],axis=0)
+		E1 = temp0+temp1
 
 		#
-		E2 = self.roi_traces[self.ensemble2[0]]+self.roi_traces[self.ensemble2[1]]
+		temp2 = self.roi_traces[self.ensemble2[0]]-np.median(self.roi_traces[self.ensemble2[0]],axis=0)
+		temp3 = self.roi_traces[self.ensemble2[1]]-np.median(self.roi_traces[self.ensemble2[1]],axis=0)
+		E2 = temp2+temp3
 
-		# TODO: SMOOTH THE SAME WAY AS IN BMI!
+		# initialize the max and min values
 		max_E1 = np.max(E1)
 		max_E2 = np.max(E2)
 		low = -max_E1
-		high = max_E2    
+		high = max_E2
 
-		#
-		self.smoothing_kernel = np.arange(0,self.rois_smooth_window,1)/self.rois_smooth_window
-
-		
+		print ("low, high: ", low, high)
 		# difference between ensemble
 		diff = E1-E2
-		print ("difference between 2 ensembles: ", diff.shape)
-
-		#
-		y = np.histogram(diff, bins=np.arange(np.min(diff),np.max(diff),100))
 
 		#
 		n_sec_recording = int(diff.shape[0]/self.sample_rate)
-		print ("nsec recording: ", n_sec_recording)
-
-		# use 30 sec lockouts
 		n_rewards_random = n_sec_recording//self.sample_rate
-		print ("max number of rewards received randomly (i.e. every 30sec) ", n_rewards_random)
+		print ("nsec recording: ", n_sec_recording,
+			   "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
 
-		# set the low and high to match this
+		# loop over time series decreasing the rewards until we hit the random #
 		n_rewards = 0
 		stepper = 0.95
 		while n_rewards<n_rewards_random:
@@ -470,13 +488,7 @@ class ComputeROIs(object):
 				
 				temp_diff = diff[k]
 				
-				# apply median smoothing function
-				if self.smooth_diff_function and k>self.rois_smooth_window:
-					temp_diff = diff[k-self.rois_smooth_window:k]
-					temp_diff = temp_diff*self.smoothing_kernel
-					temp_diff = np.median(temp_diff)
-					
-						
+				#
 				if temp_diff<=low:
 					# low reward state reached
 					n_rewards+=1
@@ -508,7 +520,7 @@ class ComputeROIs(object):
 				low*=stepper
 				high*=stepper
 
-			print ("updated rwards #: ", n_rewards, low, high)
+		print ("updated rwards #: ", n_rewards, low, high)
 
 		self.reward_times = np.vstack(reward_times)
 		
@@ -549,5 +561,5 @@ class ComputeROIs(object):
 		plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='blue', label='E2 rewarded # '+str(idx2),)
 		plt.legend()
 
-		plt.title("Rec duration: " + str(int(t[-1])) + " sec; expected # of random rewards: 30")
+		plt.title("Rec duration: " + str(int(t[-1])) + " sec; expected # of random rewards: "+str(int(t[-1]/30)))
 		plt.show()

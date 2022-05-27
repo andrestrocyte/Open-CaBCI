@@ -142,9 +142,6 @@ class PlotROIs():
         #self.ax.set_title("T=0: "+str(round(self.n_ttl2[0]/self.sampleRate_2P,2)))
         #self.ax.set_yticks([])
 
-        # initialize time:
-        print ("TOTAL NANS IN roi traces OUTSIDE ", np.isnan(self.rois_traces).sum())
-
         self.plot_times = np.arange(-self.plotting_window_width*self.sampleRate_2P,0,1)/self.sampleRate_2P
 
         # make a list to hold the matplotlib line objects
@@ -188,7 +185,7 @@ class PlotROIs():
         plt.show(block=False)
         #plt.show(block=False)
 
-        print (" DONE MAKING ROI LINE PLOTS")
+       # print (" DONE MAKING ROI LINE PLOTS")
 
     #
     def update_plots(self):

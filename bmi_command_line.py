@@ -18,13 +18,15 @@ from tone.tone import PlayTone
 # FOR LINUX
 fname_root_path = '/home/cat/data/donato/bscope_tests/'
 #fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
+fname_root_path = '/media/cat/4TBSSD/donato/Bscope_tests/'
+
+#
 fname_fluorescence = os.path.join(fname_root_path, 
                                   'image_27000frames.raw')
 
 #
 fname_freq =  os.path.join(fname_root_path,
                            "freq.npy")
-
 #
 fname_rois = os.path.join(fname_root_path, 
                           "ensemble_rois_centres.txt")
@@ -72,7 +74,7 @@ if True:
 		plotter_ = Process(target=PlotROIs, args=(
 						bmi.shmem_rois_traces.name,
 						bmi.shmem_n_ttl.name,
-						bmi.rois_traces.shape,))
+						bmi.rois_traces_raw.shape,))
 		plotter_.start()
 
 	else:
@@ -80,7 +82,7 @@ if True:
 		plotter_ = PlotROIs(
 						bmi.shmem_rois_traces.name,
 						bmi.shmem_n_ttl.name,
-						bmi.rois_traces.shape)
+						bmi.rois_traces_raw.shape)
 
 
 ###############################################################
