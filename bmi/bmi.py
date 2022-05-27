@@ -121,7 +121,10 @@ class BMI():
 
         # initizlie the realtime value of the ensembel states (i.e. no history)
         # TODO: may wish to hold history somewhere also
-        self.ensemble_activity_realtime = np.zeros(len(self.rois_pixels))
+        self.ensemble_activity = np.zeros((self.n_frames_to_be_acquired,2))
+
+        # initailize the realtime roi states; these hold the smooth/processed version of the realtime roi
+        self.rois_activity_realtime = np.zeros(len(self.rois_pixels),dtype=np.float32)
 
         # initialize all arrays to be used, mostly to save data after BMI run
         self.initialize_data_arrays()
@@ -568,7 +571,33 @@ class BMI():
 
     def check_reward_condition(self):
 
-        # check if esnemble difference reach threshold
+        ''' We check if reward condition was reached
+
+        '''
+
+
+        #
+
+        diff = E1 - E2
+
+        # apply median smoothing function
+        if self.smooth_diff_function and k > self.rois_smooth_window:
+            temp_diff = diff[k - self.rois_smooth_window:k]
+            temp_diff = temp_diff * self.smoothing_kernel
+            temp_diff = np.median(temp_diff)
+
+        if temp_diff <= low:
+            # low reward state reached
+            n_rewards += 1
+            reward_times.append([k, 0])
+            k += int(self.post_reward_lockout * self.sample_rate)
+        elif temp_diff >= high:
+            # high reward state reached
+            n_rewards += 1
+            reward_times.append([k, 1])
+            k += int(self.post_reward_lockout * self.sample_rate)
+        else:
+            k += 1
         # if ensemble...[ensbmel_ID1] - ensbmel..[ensemble_ID2]> condition1  OR
         #        ...................''...............           < condition 2:
 
@@ -657,10 +686,32 @@ class BMI():
     #
     def update_ensembles(self):
 
+        # wait for at least some frames to go by first
+        if self.n_ttl[0]<self.rois_smooth_window:
+            #for p in range(self.rois.shape[0]):
+            self.rois_activity_realtime[:] = 0
+
+        else:
+            # compute ensemble 1
+            self.ensemble_activity[0,self.n_ttl[0]] = (self.rois_traces[0, self.n_ttl[0]]+
+                                                       self.rois_traces[1, self.n_ttl[0]])
+
+            # compute ensemble 1
+            self.ensemble_activity[1,self.n_ttl[0]] = (self.rois_traces[2, self.n_ttl[0]]+
+                                                       self.rois_traces[3, self.n_ttl[0]])
+
+    # TODO: THIS Fuctnion is not being used so much
+    def update_rois(self):
+
+        ''' Not sure this function is required as we smooth the ensemble differnece altogether in a single plrace
+
+        '''
+
+
         # wait for at least a few frames to be grabbed (usually at least enough to apply smoothing window)
         if self.n_ttl[0]<self.rois_smooth_window:
             #for p in range(self.rois.shape[0]):
-            self.ensemble_activity_realtime[:] = 0
+            self.rois_activity_realtime[:] = 0
 
         # update each ensemble based on some smoothing function
         else:
@@ -691,14 +742,14 @@ class BMI():
                 temp = np.median(temp)
 
                 #
-                self.ensemble_activity_realtime[p] = temp
+                self.roi_activity_realtime[p] = temp
 
                 # TODO: perhaps keep track of all realtime ensemble activity
                 # i.e. save it somewhere, we might need it offline
 
         #
         if self.verbose:
-            print (" ensembles realtime: ", self.ensemble_activity_realtime)
+            print (" rois realtime: ", self.rois_activity_realtime)
 
 
     def tone_off(self):

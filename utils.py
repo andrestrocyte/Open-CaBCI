@@ -423,7 +423,7 @@ class ComputeROIs(object):
 		return roi_traces
 
 	#
-	def find_reward_thresholds(self, diff):
+	def find_reward_thresholds(self):
 
 		#
 		E1 = self.roi_traces[self.ensemble1[0]]+self.roi_traces[self.ensemble1[1]]

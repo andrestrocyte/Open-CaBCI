@@ -4,11 +4,9 @@
     <list default="true" id="de00f235-b9b4-4fd7-8c96-92efce916187" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/bmi.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/bmi.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/bmi/bmi.py" beforeDir="false" afterPath="$PROJECT_DIR$/bmi/bmi.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/bmi_command_line.py" beforeDir="false" afterPath="$PROJECT_DIR$/bmi_command_line.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/nidaqmx_play_speaker.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/nidaqmx_play_speaker.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plotter/plotter.py" beforeDir="false" afterPath="$PROJECT_DIR$/plotter/plotter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/select_rois.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/select_rois.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tone/tone.py" beforeDir="false" afterPath="$PROJECT_DIR$/tone/tone.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -55,6 +53,5 @@
         </entry>
       </map>
     </option>
-    <option name="oldMeFiltersMigrated" value="true" />
   </component>
 </project>
