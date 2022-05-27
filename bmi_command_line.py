@@ -18,7 +18,7 @@ from tone.tone import PlayTone
 # FOR LINUX
 fname_root_path = '/home/cat/data/donato/bscope_tests/'
 #fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
-fname_root_path = '/media/cat/4TBSSD/donato/Bscope_tests/'
+#fname_root_path = '/media/cat/4TBSSD/donato/Bscope_tests/'
 
 #
 fname_fluorescence = os.path.join(fname_root_path, 
@@ -74,7 +74,9 @@ if True:
 		plotter_ = Process(target=PlotROIs, args=(
 						bmi.shmem_rois_traces.name,
 						bmi.shmem_n_ttl.name,
-						bmi.rois_traces_raw.shape,))
+						bmi.rois_traces_raw.shape,
+						bmi.shmem_n_rewards.name,
+						))
 		plotter_.start()
 
 	else:
@@ -88,16 +90,20 @@ if True:
 ###############################################################
 ############## INITIALIZE TONE PLAYBACK #######################
 ###############################################################
+'''  Here we pass only the ensemble state (i.e. E1-E2) to the 
+	tone player. The tone player alone then computes the transfer function
+	as this is not related to anything else in the BMI class
+'''
 
 if True:
 	if True:
 		print ("RUNNING Tone player in multiprocessing...")
-		tone_player_ = Process(target=PlayTone, args=(bmi.shmem_tone_frequency.name,))
+		tone_player_ = Process(target=PlayTone, args=(bmi.shmem_ensemble_state.name,))
 		tone_player_.start()
 
 	else:
 		print ("RUNNING Tone player in main process...")
-		tone_player_ = PlayTone(bmi.shmem_tone_frequency.name)
+		tone_player_ = PlayTone(bmi.shmem_ensemble_state.name)
 
 
 ###############################################################

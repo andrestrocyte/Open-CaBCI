@@ -69,6 +69,23 @@ class PlayTone():
 
         return y_new
 
+    def compute_ensemble_to_tone_state(self):
+
+        # for now we use a simple scaled difference
+        # TODO: Mariona to finish up this function
+        # compute ensemble -> tone trasnfer function
+        # self.tone_frequency  <--- this should be the variable to change
+        # - it is automatically monitored by a separate process
+
+        # compute the E1-E2 for current time point
+        self.ensemble_diff_current = self.ensemble_activity[0, self.n_ttl[0]] - self.ensemble_activity[1, self.n_ttl[1]]
+
+        #
+        self.tone_frequency = transfer_function(self.ensemble_diff_current)
+        #
+        # self.tone_frequency[0] = np.random.randint(1000,18000)
+        # print ("bmi computed tone: ", self.tone_frequency)
+
     #
     def update_tone(self):
 

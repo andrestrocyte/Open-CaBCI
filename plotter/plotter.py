@@ -29,7 +29,8 @@ class PlotROIs():
     def __init__(self,
                  shmem_rois_traces,
                  shmem_n_ttl,
-                 rois_traces_shape):
+                 rois_traces_shape,
+                 shmem_n_rewards):
 
 
         print ("INITALIZED PLOTROIS FUCTIONS...")
@@ -49,10 +50,18 @@ class PlotROIs():
         #
         self.verbose2 = False
 
-
+        #
         self.shmem_rois_traces = shmem_rois_traces
+
+        #
         self.rois_traces_shape = rois_traces_shape
+
+        #
         self.shmem_n_ttl = shmem_n_ttl
+
+        #
+        self.shmem_n_rewards = shmem_n_rewards
+
         #
         self.initialize_rois_traces()
 
@@ -63,15 +72,39 @@ class PlotROIs():
         self.make_roi_plots()
 
         #
-        self.ctr = 0
+        self.initalize_n_rewards()
 
         #
-        #ctr = 0
+        self.ctr = 0
+
+        # enter plot update condition
+        # optional use sleep to slow down plotting
         while True:
             self.update_plots()
-            #print ("looping ", self.ctr)# plot last X values depending
-            #self.ctr+=1
-            #time.sleep(.1)
+
+
+
+
+    #
+    def initalize_n_rewards(self):
+
+        #
+        print ("  n_rewards memory name : ", self.shmem_n_rewards)
+
+        aa = np.zeros((1,), dtype=np.int64)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_n_rewards = shared_memory.SharedMemory(name=self.shmem_n_rewards)
+        print ("existing shm: ", self.existing_shm_n_rewards)
+
+        #
+        self.n_rewards = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shm_n_rewards.buf)
+
+        #
+        print ("  loaded n_rewards: ", self.n_rewards)
+
     #
     def initalize_n_ttl(self):
 
@@ -98,7 +131,8 @@ class PlotROIs():
         #
         self.n_ttl_last = self.n_ttl2[0].copy()
 
-           #
+       #
+
     def initialize_rois_traces(self):
 
         print ("  Plotter loaded: ", self.shmem_rois_traces,
@@ -117,15 +151,7 @@ class PlotROIs():
                                        dtype=np.float32,
                                        buffer=self.existing_shm_rois_traces.buf)
 
-        #
-        #print ("  loaded rois_traces: ", self.rois_traces)
-        #print ("rois traces: ", self.rois_traces.shape)
-        #print ("rois sums: ", self.rois_traces.sum())
-
-        #print ("TOTAL NANS IN roi traces INSIDE ", np.isnan(self.rois_traces).sum())
-
-
-    #shmem_rois_traces
+    #
     def make_roi_plots(self):
 
         #
@@ -210,7 +236,6 @@ class PlotROIs():
         # restore background
         self.fig.canvas.restore_region(self.axbackground)
 
-
         #
         x_ticks = np.arange(-30,0.1,5)
         x_ticks_new = np.arange(-30,0.1,5)
@@ -235,7 +260,8 @@ class PlotROIs():
                                                 )
 
         #
-        self.ax.set_title("T=0: "+str(round(self.n_ttl2[0]/self.sampleRate_2P,2)))
+        #self.ax.set_title("T=0: "+str(round(self.n_ttl2[0]/self.sampleRate_2P,2)))
+        self.ax.set_title(" # rewards : "+str(self.n_rewards))
 
         #
         self.fig.canvas.restore_region(self.axbackground)

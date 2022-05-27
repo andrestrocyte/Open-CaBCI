@@ -126,7 +126,7 @@ class BMI():
 
         # initizlie the realtime value of the ensembel states (i.e. no history)
         # TODO: may wish to hold history somewhere also
-        self.ensemble_activity = np.zeros((self.n_frames_to_be_acquired,2))
+        self.ensemble_activity = np.zeros((2, self.n_frames_to_be_acquired))
 
         # initailize the realtime roi states; these hold the smooth/processed version of the realtime roi
         self.rois_activity_realtime = np.zeros(len(self.rois_pixels),dtype=np.float32)
@@ -139,6 +139,12 @@ class BMI():
 
         # initalize reward contidions based on ~15mins of pre BMI recorded data
         self.initialize_reward_conditions_and_parameters()
+
+        # initialize rewards counter
+        self.initialize_n_rewards()
+
+        # intiatlie n_ttl
+        self.initialize_n_ttl()
 
     #
     def drift_correction(self):
@@ -185,21 +191,21 @@ class BMI():
 
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1,dtype=np.int64)
-        self.shmem_tone_frequency = shared_memory.SharedMemory(create=True,
+        self.shmem_ensemble_state = shared_memory.SharedMemory(create=True,
                                                        size=aa.nbytes)
 
         #
-        self.tone_frequency = np.ndarray(aa.shape,
+        self.ensemble_state = np.ndarray(aa.shape,
                                          dtype=aa.dtype,
-                                         buffer=self.shmem_tone_frequency.buf)
+                                         buffer=self.shmem_ensemble_state.buf)
 
         #
-        self.tone_frequency [:] = aa[:]
+        self.ensemble_state [:] = aa[:]
 
         #
         print (" tone frequency initialized: ",
-               self.tone_frequency ,
-               self.shmem_tone_frequency.name)
+               self.ensemble_state ,
+               self.shmem_ensemble_state.name)
 
     #
     def initialize_pbar(self):
@@ -227,7 +233,32 @@ class BMI():
         self.prev_min = 0				# TTL pulse previous read min value
         self.ttl_voltages = []          # ttl_voltages
 
-        self.initialize_n_ttl()
+        #self.initialize_n_ttl()
+        self.rewarded_times = []
+
+
+    #
+    def initialize_n_rewards(self):
+
+        ''' shared variable that tracks # of rewards
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int64)
+        self.shmem_n_rewards = shared_memory.SharedMemory(create=True,
+                                                      size=aa.nbytes)
+
+        #
+        self.n_rewards = np.ndarray(aa.shape,
+                                dtype=aa.dtype,
+                                buffer=self.shmem_n_rewards.buf)
+
+        #
+        self.n_rewards[:] = aa[:]
+
+        #
+        print(" n_rewards initialized: ", self.n_rewards, self.shmem_n_rewards.name)
 
     #
     def initialize_n_ttl(self):
@@ -425,14 +456,12 @@ class BMI():
         # compute the ensemble activity from ROIs loaded
         self.update_ensembles()
 
-        #
-        self.compute_ensemble_to_tone_state()
-
-        # update tone and check for task completion
-        self.update_tone()
-
         # check for reward condition:
         self.check_reward_condition()
+
+        # check if > 30 sec has passed since last reward
+        self.check_missed_reward_state()
+
 
         # save meta data
         self.ttl_n_computed.append(self.ttl_computed)
@@ -545,13 +574,12 @@ class BMI():
     #
     def post_reward_state(self):
 
+        return
         # disable tone playback;
         self.tone_off()
 
 
         LENGTH = 10  # Number of iterations required to fill pbar
-
-        #pbar = tqdm(total=LENGTH)  # Init pbar
 
         # run while loop until ensemble activit return to normal;
         # start recording and acquisition
@@ -591,7 +619,7 @@ class BMI():
 
         pass
 
-    def missed_reward_state(self):
+    def check_missed_reward_state(self):
 
         # run time out sequence for 10 sec
         #    play white noise!? to distinguish it from the post-reward state
@@ -609,48 +637,38 @@ class BMI():
 
         pass
 
-
+    #
     def check_reward_condition(self):
 
         ''' We check if reward condition was reached
 
         '''
-        return
 
-        diff = E1 - E2
+        # IF E1 reward state reached
+        if self.ensemble_state <= self.low_threshold:
 
-        # apply median smoothing function
-        if self.smooth_diff_function and k > self.rois_smooth_window:
-            temp_diff = diff[k - self.rois_smooth_window:k]
-            temp_diff = temp_diff * self.smoothing_kernel
-            temp_diff = np.median(temp_diff)
-
-        if temp_diff <= low:
             # low reward state reached
-            n_rewards += 1
-            reward_times.append([k, 0])
-            k += int(self.post_reward_lockout * self.sample_rate)
-        elif temp_diff >= high:
-            # high reward state reached
-            n_rewards += 1
-            reward_times.append([k, 1])
-            k += int(self.post_reward_lockout * self.sample_rate)
-        else:
-            k += 1
-        # if ensemble...[ensbmel_ID1] - ensbmel..[ensemble_ID2]> condition1  OR
-        #        ...................''...............           < condition 2:
+            self.n_rewards += 1     #reward type, ttl pulse, absolute time
+            self.rewarded_times.append([0, self.n_ttl[0], self.abs_times])
 
-        #       # trigger reward to mouse
-        #       self.trigger_reward()
+            #
+            self.trigger_reward()
+
+            # decouple tone etc. from feedback
+            self.post_reward_state()
         #
-        #       #
-        #		self.post_reward_state()
+        elif self.ensemble_state >= self.high_threshold:
+            self.n_rewards += 1     #reward type, ttl pulse, absolute time
+            self.rewarded_times.append([1, self.n_ttl[0], self.abs_times])
 
-        pass
+            #
+            self.trigger_reward()
+
+            # decouple tone etc. from feedback
+            self.post_reward_state()
 
     #
     def update_rois(self):
-
 
         #
         if self.verbose:
@@ -734,6 +752,11 @@ class BMI():
             self.ensemble_activity[1,self.n_ttl[0]] = (self.rois_traces_smooth[2, self.n_ttl[0]]+
                                                        self.rois_traces_smooth[3, self.n_ttl[0]])
 
+        # Compute the E1-E2 for current time point
+        # this value goes to the tone package which converts it into a tone
+        self.ensemble_state = (self.ensemble_activity[0, self.n_ttl[0]] -
+                               self.ensemble_activity[1, self.n_ttl[0]])
+
     #
     def tone_off(self):
 
@@ -741,33 +764,10 @@ class BMI():
         #  freq = 0
         #  np.save(self.fname_freq,freq)
 
-        pass
+        # pass a zero neural state vector??!?!
 
-    #
-    def compute_ensemble_to_tone_state(self):
-
-        # for now we use a simple scaled difference
-        # TODO: Mariona to finish up this function
-        # compute ensemble -> tone trasnfer function
-        # self.tone_frequency  <--- this should be the variable to change
-        # - it is automatically monitored by a separate process
-
-        #
-        # self.tone_frequency[0] = np.random.randint(1000,18000)
-        #print ("bmi computed tone: ", self.tone_frequency)
-
-
-    def update_tone(self):
-        ''' This function is not required any more, as we run a separate process
-            tracking our self.tone_frequency variable
-        '''
-
-        # update current tone use self.freq
-        #
-        #  np.save(self.fname_freq,freq)
 
         pass
-
 
     #
     def save_data(self):
