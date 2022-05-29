@@ -8,6 +8,7 @@
       <change beforePath="$PROJECT_DIR$/plotter/plotter.py" beforeDir="false" afterPath="$PROJECT_DIR$/plotter/plotter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/preprocess.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/preprocess.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tone/tone.py" beforeDir="false" afterPath="$PROJECT_DIR$/tone/tone.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

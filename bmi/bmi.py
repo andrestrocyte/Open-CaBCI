@@ -135,13 +135,13 @@ class BMI():
         self.initialize_data_arrays()
 
         # initialize tone state
-        self.initialize_tone_state()
+        self.initialize_ensemble_state()
 
         # initalize reward contidions based on ~15mins of pre BMI recorded data
         self.initialize_reward_conditions_and_parameters()
 
         # initialize rewards counter
-        self.initialize_n_rewards()
+        self.initialize_reward_times()
 
         # intiatlie n_ttl
         self.initialize_n_ttl()
@@ -181,16 +181,32 @@ class BMI():
         #
         self.smooth_diff_function_flag = data['smooth_diff_function_flag']
 
+        # set the last reward time in ttl pulses (might need something better here)
+        self.initialize_last_reward_ttl()
+
+        # reward lockout time after a positive reward - in seconds
+        self.received_reward_lockout = 10
+
+        # counter that track time after last reward
+        self.initialize_reward_lockout_counter()
+
+        # the amount of time the mouse has to try and receive a reward - in seconds
+        self.max_reward_window = 30
+
+        # similar to post-reward lockout
+        self.missed_reward_lockout = 10
+
     #
-    def initialize_tone_state(self):
+    def initialize_ensemble_state(self):
 
         '''
-            This variable keeps track of the locally computed tone state
+            This variable keeps track of the locally computed E1-E2
             - it is shared with a different process which plays tones
+            - TODO: perhaps want a better name like neural_state - to disambugate from ensembel states
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros(1,dtype=np.int64)
+        aa = np.zeros(1,dtype=np.float32)
         self.shmem_ensemble_state = shared_memory.SharedMemory(create=True,
                                                        size=aa.nbytes)
 
@@ -203,8 +219,8 @@ class BMI():
         self.ensemble_state [:] = aa[:]
 
         #
-        print (" tone frequency initialized: ",
-               self.ensemble_state ,
+        print (" ensemble states initialized: ",
+               self.ensemble_state,
                self.shmem_ensemble_state.name)
 
     #
@@ -236,29 +252,69 @@ class BMI():
         #self.initialize_n_ttl()
         self.rewarded_times = []
 
+    #
+    def initialize_last_reward_ttl(self):
+        ''' This variable keeps track of the last received reward or missed reward time
+            - it is used to reset certain conditions
+            TODO: may wish to have separate clocks for received reward vs. missed reward time.
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int64)
+        self.shmem_last_reward_ttl = shared_memory.SharedMemory(create=True,
+                                                          size=aa.nbytes)
+
+        #
+        self.last_reward_ttl = np.ndarray(aa.shape,
+                                    dtype=aa.dtype,
+                                    buffer=self.shmem_last_reward_ttl.buf)
+
+        #
+        self.last_reward_ttl[0] = -1
 
     #
-    def initialize_n_rewards(self):
+    def initialize_reward_lockout_counter(self):
+
+        '''  This value keeps track of a counter that resets every time there's a reward
+            - or a missed reward to prevent rewards during the period
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int64)
+        self.shmem_reward_lockout = shared_memory.SharedMemory(create=True,
+                                                          size=aa.nbytes)
+
+        #
+        self.reward_lockout_counter = np.ndarray(aa.shape,
+                                    dtype=aa.dtype,
+                                    buffer=self.shmem_reward_lockout.buf)
+
+        #
+        self.reward_lockout_counter[:] = aa[:]
+
+    #
+    def initialize_reward_times(self):
 
         ''' shared variable that tracks # of rewards
 
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros(1, dtype=np.int64)
-        self.shmem_n_rewards = shared_memory.SharedMemory(create=True,
-                                                      size=aa.nbytes)
+        aa = np.zeros((2,1000), dtype=np.int64)-1
+        self.shmem_reward_times = shared_memory.SharedMemory(create=True,
+                                                             size=aa.nbytes)
 
         #
-        self.n_rewards = np.ndarray(aa.shape,
+        self.reward_times = np.ndarray(aa.shape,
                                 dtype=aa.dtype,
-                                buffer=self.shmem_n_rewards.buf)
+                                buffer=self.shmem_reward_times.buf)
 
         #
-        self.n_rewards[:] = aa[:]
+        self.reward_times[:] = aa[:]
 
         #
-        print(" n_rewards initialized: ", self.n_rewards, self.shmem_n_rewards.name)
+        print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
 
     #
     def initialize_n_ttl(self):
@@ -462,6 +518,8 @@ class BMI():
         # check if > 30 sec has passed since last reward
         self.check_missed_reward_state()
 
+        # decrease any potential reward lockout counter
+        self.reward_lockout_counter[0] -= 1
 
         # save meta data
         self.ttl_n_computed.append(self.ttl_computed)
@@ -564,69 +622,47 @@ class BMI():
                 if self.verbose:
                     print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
 
+    def give_reward(self):
+        print (" generating reward ttl ")
+        pass
+
     #
     def trigger_reward(self):
 
-        # generate water reward
+        # generate water reward only if we are not in a reward lockout state
+        print (" giving reward ")
 
-        pass
+        #
+        self.give_reward()
+
+        # start a counter that
+        self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
 
     #
     def post_reward_state(self):
 
-        return
         # disable tone playback;
         self.tone_off()
 
-
-        LENGTH = 10  # Number of iterations required to fill pbar
-
-        # run while loop until ensemble activit return to normal;
-        # start recording and acquisition
-        while self.now < t_end:
-
-            # search for next TTL pulse
-            data = self.task_ttl.read(number_of_samples_per_channel=pts)
-
-            #  leave these in just in case we end up reading at higher bit rates and multiple samples at a atime
-            self.min_ = np.min(data)
-            self.max_ = np.max(data)
-            self.ttl_state.append(data)
-
-            # get time of ttl pulse
-            self.now = time.perf_counter() #perf_counter_ns()/1E9
-            self.abs_times.append(self.now)
-
-            # check of ttl pulse when from high ~5 to low ~0
-            if self.min_<1 and self.prev_max>=1:
-
-                #
-                self.update_rois()
-
-                #
-                self.update_ensembles()
-
-                # check to see if neural activity back to baseline
-                if self.check_baseline_condition():
-                    break
-
-                # update trigger time
-                self.previous_trigger = self.now
-            #
-            self.prev_min = self.min_
-            self.prev_max = self.max_
-
-
-        pass
-
+    #
     def check_missed_reward_state(self):
 
-        # run time out sequence for 10 sec
-        #    play white noise!? to distinguish it from the post-reward state
-        #
+        # if mouse does not perform in e.g. 30 sec, do a lockout
+        # TODO: May wish to play white noise to distinguish it from post-reward state
+        if (self.n_ttl[0]-self.last_reward_ttl[0])>(self.max_reward_window*self.sampleRate_2P):
+            print ("  triggering missed reward lockout ")
 
-        pass
+            # reset counter
+            self.reward_lockout_counter[0] = self.missed_reward_lockout * self.sampleRate_2P
 
+            # turn tone off; but better might be to play white noise!?
+            print(".... may wish to play white noise to dsituish between post-reward state")
+            self.tone_off()
+
+            # reset the last rewarded time to
+            self.last_reward_ttl[0] = self.n_ttl[0]
+
+    #
     def check_baseline_condition(self):
 
         # check if ensemble activity back to baseline; e.g. within 1 x of std
@@ -645,11 +681,21 @@ class BMI():
         '''
 
         # IF E1 reward state reached
-        if self.ensemble_state <= self.low_threshold:
+        if (self.ensemble_state <= self.low_threshold) and (self.reward_lockout_counter[0]<=0):
 
             # low reward state reached
-            self.n_rewards += 1     #reward type, ttl pulse, absolute time
+            # search for the first empty slot in the reward times list
+            for k in range(self.reward_times.shape[1]):
+                if self.reward_times[0,k]==-1:
+                    self.reward_times[0,k] = self.n_ttl[0]     # save current reward time
+                    break
+
+            # same variable as above; probably need to reduce osme of this redundancy at some point
+            # - this is a list though, more useful for other things also
             self.rewarded_times.append([0, self.n_ttl[0], self.abs_times])
+
+            # reset last reward time to current time
+            self.last_reward_ttl[0] = self.n_ttl[0]
 
             #
             self.trigger_reward()
@@ -657,9 +703,18 @@ class BMI():
             # decouple tone etc. from feedback
             self.post_reward_state()
         #
-        elif self.ensemble_state >= self.high_threshold:
-            self.n_rewards += 1     #reward type, ttl pulse, absolute time
+        elif (self.ensemble_state >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
+
+            # search for the first empty slot in the reward times list
+            for k in range(self.reward_times.shape[1]):
+                if self.reward_times[1, k] ==-1:
+                    self.reward_times[1, k] = self.n_ttl[0]  # save current reward time
+                    break
+            #
             self.rewarded_times.append([1, self.n_ttl[0], self.abs_times])
+
+            # reset last reward time to current time
+            self.last_reward_ttl[0] = self.n_ttl[0]
 
             #
             self.trigger_reward()
@@ -764,6 +819,8 @@ class BMI():
         #  freq = 0
         #  np.save(self.fname_freq,freq)
 
+        # need to also pass the time out counter
+        #
         # pass a zero neural state vector??!?!
 
 

@@ -30,9 +30,9 @@ class PlotROIs():
                  shmem_rois_traces,
                  shmem_n_ttl,
                  rois_traces_shape,
-                 shmem_n_rewards):
+                 shmem_reward_times):
 
-
+        #
         print ("INITALIZED PLOTROIS FUCTIONS...")
         import matplotlib
         # matplotlib.use('qtagg')
@@ -60,7 +60,7 @@ class PlotROIs():
         self.shmem_n_ttl = shmem_n_ttl
 
         #
-        self.shmem_n_rewards = shmem_n_rewards
+        self.shmem_reward_times = shmem_reward_times
 
         #
         self.initialize_rois_traces()
@@ -72,7 +72,7 @@ class PlotROIs():
         self.make_roi_plots()
 
         #
-        self.initalize_n_rewards()
+        self.initalize_reward_times()
 
         #
         self.ctr = 0
@@ -82,28 +82,27 @@ class PlotROIs():
         while True:
             self.update_plots()
 
-
-
-
+            # optional decrease plotting speed, may help in some cases
+            # time.sleep()
     #
-    def initalize_n_rewards(self):
+    def initalize_reward_times(self):
 
         #
-        print ("  n_rewards memory name : ", self.shmem_n_rewards)
+        print ("  n_rewards memory name : ", self.shmem_reward_times)
 
-        aa = np.zeros((1,), dtype=np.int64)
+        aa = np.zeros((2,1000), dtype=np.int64)
 
         # get the rois_traces from the shared memory name
-        self.existing_shm_n_rewards = shared_memory.SharedMemory(name=self.shmem_n_rewards)
-        print ("existing shm: ", self.existing_shm_n_rewards)
+        self.existing_shm_reward_times = shared_memory.SharedMemory(name=self.shmem_reward_times)
+        print ("existing shm: ", self.existing_shm_reward_times)
 
         #
-        self.n_rewards = np.ndarray(aa.shape,
-                                 dtype=aa.dtype,
-                                 buffer=self.existing_shm_n_rewards.buf)
+        self.reward_times = np.ndarray(aa.shape,
+                                    dtype=aa.dtype,
+                                    buffer=self.existing_shm_reward_times.buf)
 
         #
-        print ("  loaded n_rewards: ", self.n_rewards)
+        print ("  loaded rward_times: ", self.reward_times)
 
     #
     def initalize_n_ttl(self):
@@ -236,18 +235,19 @@ class PlotROIs():
         # restore background
         self.fig.canvas.restore_region(self.axbackground)
 
-        #
+        # make t=0 tick to the current timer in seconds
         x_ticks = np.arange(-30,0.1,5)
         x_ticks_new = np.arange(-30,0.1,5)
-        #print ("x ticks new: ", x_ticks_new)
-        x_ticks_new[-1] =  round(self.n_ttl2[0]/self.sampleRate_2P,2)
-        # print (x_ticks, x_ticks_new)
+        x_ticks_new[-1] = round(self.n_ttl2[0]/self.sampleRate_2P,2)
         self.ax.set_xticks(x_ticks, x_ticks_new)
 
         #
         self.n_ttl_last = self.n_ttl_current.copy()
 
+        #
         x_values = np.arange(0, min(self.n_ttl_current, self.plotting_window_width*self.sampleRate_2P), 1) / 30 - self.plotting_window_width
+
+        #
         for k in range(self.rois_traces.shape[0]):
 
             #
@@ -260,8 +260,21 @@ class PlotROIs():
                                                 )
 
         #
-        #self.ax.set_title("T=0: "+str(round(self.n_ttl2[0]/self.sampleRate_2P,2)))
-        self.ax.set_title(" # rewards : "+str(self.n_rewards))
+        idx1 = np.where(self.reward_times[0]>-1)[0]
+        idx2 = np.where(self.reward_times[1]>-1)[0]
+        self.ax.set_title(" # rewards : "+str(idx1.shape[0])+
+                          " "+str(idx2.shape[0]))
+
+        # Try to visualize rewarded state/time
+        # TODO: this is a bit tricky and cumbersome as fast plotting requires
+        #   declaraing these lines prior to starting (i.e. before there were any plots)
+        # # show last rewarded time
+        # if idx1.shape[0]>0:
+        #
+        #     # grab last rewarded time for high state reward
+        #     high_state_time = self.reward_times[0,idx1[-1]]
+        #     if high_state_time>x_values[0] and high_state_time<=x_values[-1]
+        #         plt.plot([])
 
         #
         self.fig.canvas.restore_region(self.axbackground)
@@ -269,6 +282,7 @@ class PlotROIs():
         # fill in the axes rectangle
         self.fig.canvas.blit(self.ax.bbox)
 
+        # add the drawn lines to the plot
         for k in range(len(self.rois_traces)):
             self.ax.draw_artist(self.time_course_objects[k])
 

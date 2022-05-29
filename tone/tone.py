@@ -4,6 +4,7 @@ from nidaqmx.constants import (AcquisitionType)  # https://nidaqmx-python.readth
 from nidaqmx.constants import TerminalConfiguration
 import tqdm # tdqm
 import os
+from utils.utils import ensemble_to_tone_transfer_function
 import time
 import numpy as np
 from multiprocessing import shared_memory
@@ -21,10 +22,17 @@ class PlayTone():
 
     '''
 
-    def __init__(self, shmem_tone_frequency):
+    def __init__(self, fname_roi_pixels_and_thresholds,
+                        shmem_ensemble_state):
 
         #
-        self.shmem_tone_frequency = shmem_tone_frequency
+        self.fname_roi_pixels_and_thresholds = fname_roi_pixels_and_thresholds
+
+        #
+        self.initialize_thresholds()
+
+        #
+        self.shmem_ensemble_state = shmem_ensemble_state
 
         #
         self.simulation_flag = True
@@ -37,7 +45,7 @@ class PlayTone():
         self.duration = 0.1
 
         #
-        self.initialize_tone_frequency()
+        self.initialize_ensemble_state()
 
         #
         self.initialize_tone_playback()
@@ -48,7 +56,15 @@ class PlayTone():
             self.update_tone()
             #print ("   tone playtime: ", time.time()-start, "sec")
 
+    def initialize_thresholds(self):
 
+        data = np.load(self.fname_roi_pixels_and_thresholds)
+        self.low_threshold = data['low_threshold']
+        self.high_threshold = data['high_threshold']
+
+        #
+        self.low_freq = data['low_freq']
+        self.high_freq = data['high_freq']
 
     #
     def make_tone(self, f, amp, duration):
@@ -77,14 +93,19 @@ class PlayTone():
         # self.tone_frequency  <--- this should be the variable to change
         # - it is automatically monitored by a separate process
 
-        # compute the E1-E2 for current time point
-        self.ensemble_diff_current = self.ensemble_activity[0, self.n_ttl[0]] - self.ensemble_activity[1, self.n_ttl[1]]
+        # E1-E2 for current time point is already computed for us in BMI class
+        # - it is contained in shared memory variable self.ensemble_state
 
         #
-        self.tone_frequency = transfer_function(self.ensemble_diff_current)
+        self.tone_frequency = ensemble_to_tone_transfer_function(self.ensemble_state,
+                                                                 self.low_freq,
+                                                                 self.high_freq,
+                                                                 self.low_threshold,
+                                                                 self.high_threshold
+                                                                 )
+
         #
-        # self.tone_frequency[0] = np.random.randint(1000,18000)
-        # print ("bmi computed tone: ", self.tone_frequency)
+        print ("bmi computed tone: ", self.tone_frequency)
 
     #
     def update_tone(self):
@@ -129,26 +150,24 @@ class PlayTone():
                                                                              auto_start=True)
 
     #
-    def initialize_tone_frequency(self):
+    def initialize_ensemble_state(self):
         #
-        print("  tone freq memory name : ", self.shmem_tone_frequency)
+        print("  ensemble state memory name : ", self.shmem_ensemble_state)
 
-        aa = np.zeros((1,), dtype=np.int64)
+        aa = np.zeros((1,), dtype=np.float32)
 
         # get the rois_traces from the shared memory name
-        self.existing_shm_tone_frequency = shared_memory.SharedMemory(name=self.shmem_tone_frequency)
-        # existing_shm = shared_memory.SharedMemory(name='testname')
-
-        print("existing shm: ", self.existing_shm_tone_frequency)
+        self.existing_shm_ensemble_state = shared_memory.SharedMemory(name=self.shmem_ensemble_state)
+        print("existing shm: ", self.existing_shm_ensemble_state)
 
         #
-        self.tone_frequency = np.ndarray(aa.shape,
+        self.ensemble_state = np.ndarray(aa.shape,
                                  dtype=aa.dtype,
-                                 buffer=self.existing_shm_tone_frequency.buf)
+                                 buffer=self.existing_shm_ensemble_state.buf)
 
         #
-        print("  loaded tone freq: ", self.tone_frequency)
+        print("  loaded ensemble_state: ", self.ensemble_state)
 
         #
-        self.tone_frequency_last = self.tone_frequency[0].copy()
+        self.ensemble_state_last = self.ensemble_state[0].copy()
 

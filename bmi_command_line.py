@@ -34,6 +34,10 @@ fname_rois = os.path.join(fname_root_path,
 # required for simulation mode
 fname_ttl = os.path.join(fname_root_path,
                          "ttl_pulses.npy")
+                         
+#
+fname_roi_pixels_and_thresholds = os.path.join(fname_root_path,
+						'fname_roi_pixels_and_thresholds')
 
 
 ####################################################################### 			
@@ -57,7 +61,7 @@ bmi = BMI(simulation_mode,
 
 # for simulation mode we sometimes want to slow down the processing;
 # ... not as necessary 
-bmi.sleep_time_sec = 0.033
+bmi.sleep_time_sec = 0.001
 
 # Flag to print out information from the proessing
 bmi.verbose = False
@@ -75,16 +79,16 @@ if True:
 						bmi.shmem_rois_traces.name,
 						bmi.shmem_n_ttl.name,
 						bmi.rois_traces_raw.shape,
-						bmi.shmem_n_rewards.name,
+						bmi.shmem_reward_times.name,
 						))
 		plotter_.start()
 
-	else:
-		print ("RUNNING Plotter in main process...")
-		plotter_ = PlotROIs(
-						bmi.shmem_rois_traces.name,
-						bmi.shmem_n_ttl.name,
-						bmi.rois_traces_raw.shape)
+	# else:
+		# print ("RUNNING Plotter in main process...")
+		# plotter_ = PlotROIs(
+						# bmi.shmem_rois_traces.name,
+						# bmi.shmem_n_ttl.name,
+						# bmi.rois_traces_raw.shape)
 
 
 ###############################################################
@@ -98,7 +102,8 @@ if True:
 if True:
 	if True:
 		print ("RUNNING Tone player in multiprocessing...")
-		tone_player_ = Process(target=PlayTone, args=(bmi.shmem_ensemble_state.name,))
+		tone_player_ = Process(target=PlayTone, args=(fname_roi_pixels_and_thresholds,
+														bmi.shmem_ensemble_state.name,))
 		tone_player_.start()
 
 	else:

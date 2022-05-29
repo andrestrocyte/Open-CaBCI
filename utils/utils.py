@@ -1,8 +1,6 @@
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import trange
-
 
 from scipy import ndimage as ndi
 from skimage.segmentation import watershed
@@ -28,6 +26,26 @@ def convolve_parallel(idx, data_sparse):
 	return data_sparse
 
 
+def ensemble_to_tone_transfer_function(ensemble_state,
+										low_freq,
+										high_freq,
+										low_threshold,
+										high_threshold):
+
+	# for now do a linear projection between the neural states and the
+	# TODO: load the frequency parameters from disk etc.
+	# TODO: calibrate the speaker so that it macthes the assumed playback states
+
+	#
+	tone_centre = high_freq-low_freq
+
+	#
+	if ensemble_state>=0:
+		tone = (ensemble_state/high_threshold)*high_freq
+	else:
+		tone = -(ensemble_state/low_threshold)*low_freq
+
+	return tone
 
 ##############################
 class ComputeROIs(object):
