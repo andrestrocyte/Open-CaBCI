@@ -146,6 +146,38 @@ class BMI():
         # intiatlie n_ttl
         self.initialize_n_ttl()
 
+        # initialize tone state
+        self.initialize_tone_state()
+
+    #
+    def initialize_tone_state(self):
+
+        '''
+            This variable keeps track of the tone value computed by the TONE class
+            - technically it doesn't have to be initialized here, but we do it for simplicity to easier
+              share it with the plotter class (BMI class doesn't need it for now)
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1,dtype=np.float32)
+        self.shmem_tone_state = shared_memory.SharedMemory(create=True,
+                                                       size=aa.nbytes)
+
+        #
+        self.tone_state = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.shmem_tone_state.buf)
+
+        #
+        self.tone_state [:] = aa[:]
+
+        #
+        print (" ensemble states initialized: ",
+               self.tone_state,
+               self.shmem_tone_state.name)
+
+
     #
     def drift_correction(self):
 
@@ -535,13 +567,18 @@ class BMI():
     def smooth_rois(self):
 
         # if we made threhsods using smoothing, then need to run them on data also
-
+        # TODO;
         if self.smooth_diff_function_flag and self.n_ttl[0]>self.rois_smooth_window:
 
             # loop over each cell
             for p in range(self.rois_traces_raw.shape[0]):
                 #
                 temp = self.rois_traces_raw[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
+
+                # subtract f0 from this
+                temp = temp - self.roi_f0s[p]
+
+                #
                 self.rois_traces_smooth[p,self.n_ttl[0]] = smooth_ca_time_series(temp)
 
         else:
@@ -781,13 +818,14 @@ class BMI():
 
             # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
             # TODO: these algorithms must match the default water disposal algorithms
+            # TODO: USE A FUNCTION OVER THIS AND FOLLOWING STEP THAT IS SHARED WITH CALIBRATION CODE
             roi_sum0 = temp / self.rois_pixels[p][0].shape[0]
 
             # sum
             # TODO: not sure this is the correct function; to check literature
             # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
             roi_sum0 = np.nansum(roi_sum0)
-            self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0 - self.roi_f0s[p]
+            self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0  #- self.roi_f0s[p] NOTE: DO NOT SUBTRACT F0 FROM RAW as it's based on smoothed data
 
         #
         if self.verbose:
@@ -807,15 +845,14 @@ class BMI():
             # compute ensemble 1
             self.ensemble_activity[1,self.n_ttl[0]] = (self.rois_traces_smooth[2, self.n_ttl[0]]+
                                                        self.rois_traces_smooth[3, self.n_ttl[0]])
-            #print ("UPdated ensembel states: ", self.ensemble_activity[0,self.n_ttl[0]],
-            #                                    self.ensemble_activity[1,self.n_ttl[0]])
+
         # Compute the E1-E2 for current time point
         # this value goes to the tone package which converts it into a tone
-        self.ensemble_state = (self.ensemble_activity[0, self.n_ttl[0]] -
-                               self.ensemble_activity[1, self.n_ttl[0]])
+        self.ensemble_state[0] = (self.ensemble_activity[0, self.n_ttl[0]] -
+                                  self.ensemble_activity[1, self.n_ttl[0]])
 
-        # print
-        #print ("UPDATES ENEMBEL STATE: ", self.ensemble_state)
+        #
+        ##print ("updated ensembel state: ", self.ensemble_state, "**********************")
 
     #
     def tone_off(self):

@@ -27,7 +27,8 @@ class PlotROIs():
                  shmem_rois_traces,
                  shmem_n_ttl,
                  rois_traces_shape,
-                 shmem_reward_times):
+                 shmem_reward_times,
+                 shmem_tone_state):
 
         #
         print ("INITALIZED PLOTROIS FUCTIONS...")
@@ -56,6 +57,12 @@ class PlotROIs():
 
         #
         self.shmem_reward_times = shmem_reward_times
+
+        #
+        self.shmem_tone_state = shmem_tone_state
+
+        #
+        self.initialize_tone_state()
 
         #
         self.initialize_rois_traces()
@@ -98,6 +105,26 @@ class PlotROIs():
 
         #
         print ("  loaded rward_times: ", self.reward_times)
+
+    #
+    def initialize_tone_state(self):
+        #
+        print("  ensemble state memory name : ", self.shmem_tone_state)
+
+        aa = np.zeros((1,), dtype=np.float32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_tone_state = shared_memory.SharedMemory(name=self.shmem_tone_state)
+        #print("existing shm: ", self.existing_shm_tone_state)
+
+        #
+        self.tone_state = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shm_tone_state.buf)
+
+        #
+        print("  TONE state: ", self.tone_state)
+
 
     #
     def initalize_n_ttl(self):
@@ -200,7 +227,7 @@ class PlotROIs():
         # self.ax.clear()
 
         #
-        self.ax.set_title("(if closed, can't reopen")
+        #self.ax.set_title("(if closed, can't reopen")
 
         #
         self.fig.canvas.flush_events()
@@ -219,9 +246,6 @@ class PlotROIs():
 
         #
         plt.show(block=False)
-        #plt.show(block=False)
-
-       # print (" DONE MAKING ROI LINE PLOTS")
 
     #
     def update_plots(self):
@@ -284,7 +308,7 @@ class PlotROIs():
         idx1 = np.where(self.reward_times[0]>-1)[0]
         idx2 = np.where(self.reward_times[1]>-1)[0]
         self.ax.set_title(" # rewards : "+str(idx1.shape[0])+
-                          " "+str(idx2.shape[0]))
+                          " "+str(idx2.shape[0]) + "\n Freq: " +str(int(self.tone_state[0]))+"hz")
 
         # Try to visualize rewarded state/time
         # TODO: this is a bit tricky and cumbersome as fast plotting requires

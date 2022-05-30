@@ -11,10 +11,12 @@ import scipy.ndimage
 
 import cv2
 
+#
 def smooth_ca_time_series(diff):
 	#
 	return np.mean(diff)
 
+#
 def convolve_parallel(idx, data_sparse):
 	
 	# 
@@ -25,25 +27,37 @@ def convolve_parallel(idx, data_sparse):
 
 	return data_sparse
 
-
+#
 def ensemble_to_tone_transfer_function(ensemble_state,
-										low_freq,
-										high_freq,
-										low_threshold,
-										high_threshold):
+									   low_freq,
+									   high_freq,
+									   low_threshold,
+									   high_threshold):
 
 	# for now do a linear projection between the neural states and the
 	# TODO: load the frequency parameters from disk etc.
 	# TODO: calibrate the speaker so that it macthes the assumed playback states
 
 	#
-	tone_centre = high_freq-low_freq
+	tone_centre = (high_freq-low_freq)/2
 
 	#
 	if ensemble_state>=0:
-		tone = (ensemble_state/high_threshold)*high_freq
+		tone = min((ensemble_state/high_threshold)*(high_freq-tone_centre)+tone_centre,high_freq)
 	else:
-		tone = -(ensemble_state/low_threshold)*low_freq
+		tone = max((1-ensemble_state/low_threshold)*(tone_centre-low_freq)+low_freq,low_freq)
+
+	print("ensembel state: ", ensemble_state)
+	print("low_freq: ", low_freq)
+	print("high_freq: ", high_freq)
+	print ("tone centre: ", tone_centre)
+	print("low_threshold: ", low_threshold)
+	print("high_threshold: ", high_threshold)
+	print ("**********")
+	print ("tone: ", tone)
+	print ("**********")
+	print ('')
+	print ('')
 
 	return tone
 

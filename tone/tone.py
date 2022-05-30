@@ -23,7 +23,8 @@ class PlayTone():
     '''
 
     def __init__(self, fname_roi_pixels_and_thresholds,
-                        shmem_ensemble_state):
+                        shmem_ensemble_state,
+                        shmem_tone_state):
 
         #
         self.fname_roi_pixels_and_thresholds = fname_roi_pixels_and_thresholds
@@ -35,6 +36,9 @@ class PlayTone():
         self.shmem_ensemble_state = shmem_ensemble_state
 
         #
+        self.shmem_tone_state = shmem_tone_state
+
+        #
         self.simulation_flag = True
 
         # TODO: unclear what these units are?
@@ -43,6 +47,9 @@ class PlayTone():
         # TODO: unclear what the correct duration of tone play and update
         # TODO: for now we update at 10hz
         self.duration = 0.1
+
+        #
+        self.initialize_tone_state()
 
         #
         self.initialize_ensemble_state()
@@ -98,9 +105,8 @@ class PlayTone():
         # E1-E2 for current time point is already computed for us in BMI class
         # - it is contained in shared memory variable self.ensemble_state
 
-        #
-        print ("self.ensemble state: ", self.ensemble_state)
-        self.tone_frequency = ensemble_to_tone_transfer_function(self.ensemble_state,
+        # compute the tone state in Hz
+        self.tone_state[0] = ensemble_to_tone_transfer_function(self.ensemble_state,
                                                                  self.low_freq,
                                                                  self.high_freq,
                                                                  self.low_threshold,
@@ -118,18 +124,16 @@ class PlayTone():
         #
         self.compute_ensemble_to_tone_state()
 
-
         # make sure you send a copy of the tone, not the tone
-        tone = self.make_tone(self.tone_frequency.copy(),
+        tone_data = self.make_tone(self.tone_state[0].copy(),
                               self.amp,
                               self.duration)
 
-        #print ("tone: ", self.tone_frequency, "hz")
-
+        #
         if self.simulation_flag:
             return
 
-        self.audio_Writer.write_many_sample(tone)
+        self.audio_Writer.write_many_sample(tone_data)
 
     #
     def initialize_tone_playback(self):
@@ -155,6 +159,29 @@ class PlayTone():
         #
         self.audio_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(audio_Task.out_stream,
                                                                              auto_start=True)
+
+
+    #
+    def initialize_tone_state(self):
+        #
+        print("  ensemble state memory name : ", self.shmem_tone_state)
+
+        aa = np.zeros((1,), dtype=np.float32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_tone_state = shared_memory.SharedMemory(name=self.shmem_tone_state)
+        #print("existing shm: ", self.existing_shm_tone_state)
+
+        #
+        self.tone_state = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shm_tone_state.buf)
+
+        #
+        print("  TONE state: ", self.tone_state)
+
+        #
+        #self.ensemble_state_last = self.tone_state[0].copy()
 
     #
     def initialize_ensemble_state(self):

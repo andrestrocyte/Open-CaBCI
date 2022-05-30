@@ -16,8 +16,8 @@ from tone.tone import PlayTone
 
 
 # FOR LINUX
-fname_root_path = '/home/cat/data/donato/bscope_tests/'
-#fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
+#fname_root_path = '/home/cat/data/donato/bscope_tests/'
+fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
 #fname_root_path = '/media/cat/4TBSSD/donato/Bscope_tests/'
 
 #
@@ -61,7 +61,7 @@ bmi = BMI(simulation_mode,
 
 # for simulation mode we sometimes want to slow down the processing;
 # ... not as necessary 
-bmi.sleep_time_sec = 0.001
+bmi.sleep_time_sec = 0.01  # Delay in simulation mode
 
 # Flag to print out information from the proessing
 bmi.verbose = False
@@ -81,6 +81,7 @@ if True:
 						bmi.shmem_n_ttl.name,
 						bmi.rois_traces_raw.shape,
 						bmi.shmem_reward_times.name,
+						bmi.shmem_tone_state.name
 						))
 		plotter_.start()
 
@@ -104,7 +105,8 @@ if True:
 	if True:
 		print ("RUNNING Tone player in multiprocessing...")
 		tone_player_ = Process(target=PlayTone, args=(fname_roi_pixels_and_thresholds,
-													  bmi.shmem_ensemble_state.name,))
+													  bmi.shmem_ensemble_state.name,
+													  bmi.shmem_tone_state.name,))
 		tone_player_.start()
 
 	else:
