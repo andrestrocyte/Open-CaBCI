@@ -328,15 +328,21 @@ class ComputeROIs(object):
 		#	
 		t = np.arange(0, data.shape[0], self.trace_subsample)/30.
 		ctr = 0
-		
+
+		# save the baselin of the cells in order to be able to offset it in the BMI
+		# TODO: this is important; it functions as a rough DFF method
+		#    TODO: we may wish to implement a more complex version of this
+		self.roi_f0s = np.zeros(len(roi_traces),dtype=np.float32)
 		for k in range(len(roi_traces)):
 
 			temp = roi_traces[k]
-			temp = temp- np.median(temp)
+			self.roi_f0s[k] = np.median(temp)
+			temp = temp - self.roi_f0s[k]
 			plt.plot(t, temp+ctr*self.scale)
 		
 			ctr+=1
-			
+
+		#
 		labels = np.arange(len(self.rois))
 		labels_old = np.arange(0,ctr*self.scale,self.scale)
 		

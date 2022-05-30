@@ -54,8 +54,10 @@ class PlayTone():
         while True:
             start = time.time()
             self.update_tone()
+            time.sleep(0.01)
             #print ("   tone playtime: ", time.time()-start, "sec")
 
+    #
     def initialize_thresholds(self):
 
         data = np.load(self.fname_roi_pixels_and_thresholds)
@@ -97,15 +99,13 @@ class PlayTone():
         # - it is contained in shared memory variable self.ensemble_state
 
         #
+        print ("self.ensemble state: ", self.ensemble_state)
         self.tone_frequency = ensemble_to_tone_transfer_function(self.ensemble_state,
                                                                  self.low_freq,
                                                                  self.high_freq,
                                                                  self.low_threshold,
                                                                  self.high_threshold
                                                                  )
-
-        #
-        print ("bmi computed tone: ", self.tone_frequency)
 
     #
     def update_tone(self):
@@ -114,6 +114,10 @@ class PlayTone():
         # TODO: check a couple of things:
         # TODO: 1) whether this is too slow and we end up buffering which not real time
         # TODO: 2) what is the shortest/correct duration to play a tone (probably >10hz) that we wont' notice)
+
+        #
+        self.compute_ensemble_to_tone_state()
+
 
         # make sure you send a copy of the tone, not the tone
         tone = self.make_tone(self.tone_frequency.copy(),
@@ -130,6 +134,9 @@ class PlayTone():
     #
     def initialize_tone_playback(self):
 
+        self.compute_ensemble_to_tone_state()
+
+        #
         if self.simulation_flag:
             return
 
@@ -166,7 +173,7 @@ class PlayTone():
                                  buffer=self.existing_shm_ensemble_state.buf)
 
         #
-        print("  loaded ensemble_state: ", self.ensemble_state)
+        print("  TONE CLASS loaded ensemble_state: ", self.ensemble_state)
 
         #
         self.ensemble_state_last = self.ensemble_state[0].copy()

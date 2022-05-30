@@ -37,7 +37,7 @@ fname_ttl = os.path.join(fname_root_path,
                          
 #
 fname_roi_pixels_and_thresholds = os.path.join(fname_root_path,
-						'fname_roi_pixels_and_thresholds')
+						'rois_pixels_and_thresholds.npz')
 
 
 ####################################################################### 			
@@ -76,6 +76,7 @@ if True:
 	if True:
 		print ("RUNNING Plotter in multiprocessing...")
 		plotter_ = Process(target=PlotROIs, args=(
+						fname_roi_pixels_and_thresholds,
 						bmi.shmem_rois_traces.name,
 						bmi.shmem_n_ttl.name,
 						bmi.rois_traces_raw.shape,
@@ -103,7 +104,7 @@ if True:
 	if True:
 		print ("RUNNING Tone player in multiprocessing...")
 		tone_player_ = Process(target=PlayTone, args=(fname_roi_pixels_and_thresholds,
-														bmi.shmem_ensemble_state.name,))
+													  bmi.shmem_ensemble_state.name,))
 		tone_player_.start()
 
 	else:

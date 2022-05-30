@@ -370,8 +370,10 @@ class BMI():
         self.rois_pixels.append(data['cell2'])
         self.rois_pixels.append(data['cell3'])
 
-        #
-        print (" loaded rois pixels; # cells ", len(self.rois_pixels))
+        # also load the f0 for each cell computed a few minutes earlier
+        # TODO: this calculation is simplified, make sure you don't change power, settings etc.
+        #     TODO: between calibartion seession and BMI session
+        self.roi_f0s = data['cell_f0s']
 
         #####################################
         # initialize the fluorescence time series called rois_traces which keeps
@@ -783,10 +785,9 @@ class BMI():
 
             # sum
             # TODO: not sure this is the correct function; to check literature
+            # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
             roi_sum0 = np.nansum(roi_sum0)
-            #print (p, roi_sum0)
-            #self.rois_traces[p].append(roi_sum0)
-            self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0
+            self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0 - self.roi_f0s[p]
 
         #
         if self.verbose:
@@ -806,11 +807,15 @@ class BMI():
             # compute ensemble 1
             self.ensemble_activity[1,self.n_ttl[0]] = (self.rois_traces_smooth[2, self.n_ttl[0]]+
                                                        self.rois_traces_smooth[3, self.n_ttl[0]])
-
+            #print ("UPdated ensembel states: ", self.ensemble_activity[0,self.n_ttl[0]],
+            #                                    self.ensemble_activity[1,self.n_ttl[0]])
         # Compute the E1-E2 for current time point
         # this value goes to the tone package which converts it into a tone
         self.ensemble_state = (self.ensemble_activity[0, self.n_ttl[0]] -
                                self.ensemble_activity[1, self.n_ttl[0]])
+
+        # print
+        #print ("UPDATES ENEMBEL STATE: ", self.ensemble_state)
 
     #
     def tone_off(self):

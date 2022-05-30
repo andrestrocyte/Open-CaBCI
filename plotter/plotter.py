@@ -4,16 +4,12 @@
 
 '''
 
-import matplotlib.pyplot as plt
-import nidaqmx
-from nidaqmx.constants import (AcquisitionType)  # https://nidaqmx-python.readthedocs.io/en/latest/constants.html
-from nidaqmx.constants import TerminalConfiguration
-import tqdm # tdqm
-import os
 import time
 import numpy as np
 from multiprocessing import shared_memory
+import matplotlib.pyplot as plt
 
+plt.ion()
 
 #################################################
 ############### PLOTTING CLASS ##################
@@ -27,6 +23,7 @@ class PlotROIs():
 
     #
     def __init__(self,
+                 fname_rois,
                  shmem_rois_traces,
                  shmem_n_ttl,
                  rois_traces_shape,
@@ -34,11 +31,9 @@ class PlotROIs():
 
         #
         print ("INITALIZED PLOTROIS FUCTIONS...")
-        import matplotlib
-        # matplotlib.use('qtagg')
-        #%matplotlib tk
-        import matplotlib.pyplot as plt
-        plt.ion()
+
+        #
+        self.fname_rois = fname_rois
 
         #
         self.sampleRate_2P = 30
@@ -149,6 +144,10 @@ class PlotROIs():
                                        self.rois_traces_shape[1]),
                                        dtype=np.float32,
                                        buffer=self.existing_shm_rois_traces.buf)
+        #
+        data = np.load(self.fname_rois)
+        self.cell_f0s = data['cell_f0s']
+
 
     #
     def make_roi_plots(self):
@@ -171,11 +170,12 @@ class PlotROIs():
 
         # make a list to hold the matplotlib line objects
         self.time_course_objects = []
+        self.f0_objects = []
         for k in range(self.rois_traces.shape[0]):
 
             #
             #print (k, self.plot_times.shape, self.rois_traces[k,:10*self.sampleRate_2P].shape)
-            y_values = self.rois_traces[k,:self.plotting_window_width*self.sampleRate_2P]-self.plot_y_scale*k
+            y_values = self.rois_traces[k,:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*k
 
             #
             lineobject, = self.ax.plot(self.plot_times,
@@ -185,6 +185,17 @@ class PlotROIs():
                                        )  # Returns a tuple of line objects, thus the comma
             #
             self.time_course_objects.append(lineobject)
+
+            #
+            # also draw the f0 baseline of each cell!!
+            f0object, = self.ax.plot([self.plot_times[0],self.plot_times[-1]],
+                                       # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
+                                       [0+self.plot_y_scale*k,0+self.plot_y_scale*k],  # plot last X values depending on length of plttimes
+                                       'g--'
+                                       )  # Return
+            self.f0_objects.append(f0object)
+
+
 
         # self.ax.clear()
 
@@ -246,6 +257,7 @@ class PlotROIs():
 
         #
         x_values = np.arange(0, min(self.n_ttl_current, self.plotting_window_width*self.sampleRate_2P), 1) / 30 - self.plotting_window_width
+        x_values1 = np.array([x_values[0], x_values[-1]])
 
         #
         for k in range(self.rois_traces.shape[0]):
@@ -258,6 +270,15 @@ class PlotROIs():
             self.time_course_objects[k].set_data(x_values,
                                                 y_values
                                                 )
+
+            # redraw baseline for each cell
+            # TODO: note that we want to reset to 0 not the actual f0 values
+            #y_values1 = np.array([self.cell_f0s[k]+self.plot_y_scale*k,self.cell_f0s[k]+self.plot_y_scale*k])
+            y_values1 = np.array([0+self.plot_y_scale*k,0+self.plot_y_scale*k])
+            #print ("xavlues: ", x_values, y_values)
+            self.f0_objects[k].set_data(x_values1,
+                                        y_values1
+                                       )
 
         #
         idx1 = np.where(self.reward_times[0]>-1)[0]
@@ -285,6 +306,7 @@ class PlotROIs():
         # add the drawn lines to the plot
         for k in range(len(self.rois_traces)):
             self.ax.draw_artist(self.time_course_objects[k])
+            self.ax.draw_artist(self.f0_objects[k])
 
         #
         self.fig.canvas.blit(self.ax.bbox)
