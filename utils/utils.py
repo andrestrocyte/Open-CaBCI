@@ -27,6 +27,24 @@ def convolve_parallel(idx, data_sparse):
 
 	return data_sparse
 
+
+def get_octave_frequencies(low_freq,
+						   high_freq,
+						   octave_size=0.25):
+	#
+	octaves = []
+
+	#
+	octaves.append(low_freq)
+	temp = low_freq
+	while True:
+		temp = temp * (1 + octave_size)
+		if temp > high_freq:
+			break
+		octaves.append(temp)
+
+	return np.array(octaves)
+
 #
 def ensemble_to_tone_transfer_function(ensemble_state,
 									   low_freq,
@@ -35,29 +53,27 @@ def ensemble_to_tone_transfer_function(ensemble_state,
 									   high_threshold):
 
 	# for now do a linear projection between the neural states and the
-	# TODO: load the frequency parameters from disk etc.
 	# TODO: calibrate the speaker so that it macthes the assumed playback states
+	#
+	print ("high freq: ", high_freq, "  high_threshodl: ", high_threshold)
+	high_threshold = 1500
+	# scale from 0..1
+	tone = (ensemble_state)/(high_threshold)
+	print ("tone1: ", tone)
+	# map onto frequencies selected
+	tone = tone*(high_freq-low_freq)+low_freq
+	print ("tone2: ", tone)
+
+	# map onto octaves
+	octave_freqs = get_octave_frequencies(low_freq,
+										   high_freq,
+										   0.25)
 
 	#
-	tone_centre = (high_freq-low_freq)/2
-
-	#
-	if ensemble_state>=0:
-		tone = min((ensemble_state/high_threshold)*(high_freq-tone_centre)+tone_centre,high_freq)
-	else:
-		tone = max((1-ensemble_state/low_threshold)*(tone_centre-low_freq)+low_freq,low_freq)
-
-	print("ensembel state: ", ensemble_state)
-	print("low_freq: ", low_freq)
-	print("high_freq: ", high_freq)
-	print ("tone centre: ", tone_centre)
-	print("low_threshold: ", low_threshold)
-	print("high_threshold: ", high_threshold)
-	print ("**********")
-	print ("tone: ", tone)
-	print ("**********")
-	print ('')
-	print ('')
+	idx = np.argmin(np.abs(octave_freqs-tone))
+	print ("idx: ", idx)
+	tone = octave_freqs[idx]
+	print ("tone3: ", tone)
 
 	return tone
 
@@ -82,6 +98,9 @@ class ComputeROIs(object):
 	
 	
 	def make_corr_map(self):
+		''' Not yet working or tested etc.
+
+		'''
 
 		data = np.memmap(self.fname, dtype='uint16', mode='r')
 		data = data.reshape(-1,512,512)
@@ -466,7 +485,112 @@ class ComputeROIs(object):
 		return roi_traces
 
 	#
-	def find_reward_thresholds(self):
+	def find_reward_thresholds_high(self):
+
+		# TODO: Make sure that these functions are identical to those being used inside the BMI!!!
+
+
+		# run smoothing on each ensemble
+		if self.smooth_diff_function_flag:
+
+			# ensemble #1
+			for p in range(2):
+				smooth = np.zeros(self.roi_traces[self.ensemble1[p]].shape)
+				for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble1[p]].shape[0], 1):
+					smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble1[p]][k - self.rois_smooth_window:k])
+				#
+				self.roi_traces[self.ensemble1[p]] = smooth
+
+			# ensemble #2
+			for p in range(2):
+				smooth = np.zeros(self.roi_traces[self.ensemble2[p]].shape)
+				for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble2[p]].shape[0], 1):
+					smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble2[p]][k - self.rois_smooth_window:k])
+				#
+				self.roi_traces[self.ensemble2[p]] = smooth
+
+		# get baseline f0 after smoothing
+		self.roi_f0s = []
+		self.roi_f0s.append(np.median(self.roi_traces[self.ensemble1[0]], axis=0))
+		self.roi_f0s.append(np.median(self.roi_traces[self.ensemble1[1]], axis=0))
+		self.roi_f0s.append(np.median(self.roi_traces[self.ensemble2[0]], axis=0))
+		self.roi_f0s.append(np.median(self.roi_traces[self.ensemble2[1]], axis=0))
+
+		# detrend traces and make ensembles
+		temp0 = self.roi_traces[self.ensemble1[0]] - self.roi_f0s[0]
+		temp1 = self.roi_traces[self.ensemble1[1]] - self.roi_f0s[1]
+		E1 = temp0 + temp1
+
+		#
+		temp2 = self.roi_traces[self.ensemble2[0]] - self.roi_f0s[2]
+		temp3 = self.roi_traces[self.ensemble2[1]] - self.roi_f0s[3]
+		E2 = temp2 + temp3
+
+		# initialize the max and min values
+		max_E1 = np.max(E1)
+		max_E2 = np.max(E2)
+		low = -max_E1
+		high = max_E2
+
+		print("low, high: ", low, high)
+		# difference between ensemble
+		diff = E1 - E2
+
+		#
+		n_sec_recording = int(diff.shape[0] / self.sample_rate)
+		n_rewards_random = n_sec_recording // self.sample_rate
+		print("nsec recording: ", n_sec_recording,
+			  "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
+
+		# loop over time series decreasing the rewards until we hit the random #
+		n_rewards = 0
+		stepper = 0.95
+		while n_rewards < n_rewards_random:
+
+			# run inside while loop for eveyr setting of low and high until we hit
+			#   exact number of random rewards
+			k = 0
+			n_rewards = 0
+			reward_times = []
+			while k < diff.shape[0]:
+
+				temp_diff = diff[k]
+
+				# #
+				# if temp_diff <= low:
+				# 	# low reward state reached
+				# 	n_rewards += 1
+				# 	reward_times.append([k, 0])
+				# 	k += int(self.post_reward_lockout * self.sample_rate)
+				# elif
+				if temp_diff >= high:
+					# high reward state reached
+					n_rewards += 1
+					reward_times.append([k, 1])
+					k += int(self.post_reward_lockout * self.sample_rate)
+				else:
+					k += 1
+
+			# print ("Reard times: ", reward_times)
+			# check exit condition otherwise decrase thresholds
+			if len(reward_times) > 1:
+				rewarded_times = np.vstack(reward_times)
+				high *= stepper
+			else:
+				high *= stepper
+
+		print("updated rwards #: ", n_rewards, low, high)
+
+		self.reward_times = np.vstack(reward_times)
+
+		self.low = np.nan
+		self.high = high
+		self.E1 = E1
+		self.E2 = E2
+		self.diff = diff
+
+	#
+	def find_reward_thresholds_low_and_high(self):
 
 		# run smoothing on each ensemble
 		if self.smooth_diff_function_flag:

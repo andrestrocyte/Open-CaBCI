@@ -852,7 +852,7 @@ class BMI():
                                   self.ensemble_activity[1, self.n_ttl[0]])
 
         #
-        ##print ("updated ensembel state: ", self.ensemble_state, "**********************")
+        print ("time: ", self.n_ttl[0]/self.sampleRate_2P, " updated ensembel state: ", self.ensemble_state, "**********************")
 
     #
     def tone_off(self):

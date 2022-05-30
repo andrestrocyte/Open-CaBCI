@@ -16,8 +16,8 @@ from tone.tone import PlayTone
 
 
 # FOR LINUX
-#fname_root_path = '/home/cat/data/donato/bscope_tests/'
-fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
+fname_root_path = '/home/cat/data/donato/bscope_tests/'
+#fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
 #fname_root_path = '/media/cat/4TBSSD/donato/Bscope_tests/'
 
 #
@@ -61,7 +61,7 @@ bmi = BMI(simulation_mode,
 
 # for simulation mode we sometimes want to slow down the processing;
 # ... not as necessary 
-bmi.sleep_time_sec = 0.01  # Delay in simulation mode
+bmi.sleep_time_sec = 0.033 # Delay in simulation mode
 
 # Flag to print out information from the proessing
 bmi.verbose = False

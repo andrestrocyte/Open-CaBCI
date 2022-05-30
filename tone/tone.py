@@ -4,7 +4,7 @@ from nidaqmx.constants import (AcquisitionType)  # https://nidaqmx-python.readth
 from nidaqmx.constants import TerminalConfiguration
 import tqdm # tdqm
 import os
-from utils.utils import ensemble_to_tone_transfer_function
+from utils.utils import ensemble_to_tone_transfer_function, get_octave_frequencies
 import time
 import numpy as np
 from multiprocessing import shared_memory
@@ -52,6 +52,12 @@ class PlayTone():
         self.initialize_tone_state()
 
         #
+        self.octave_step = 0.25
+
+        #
+        self.initialize_octave_frequencies()
+
+        #
         self.initialize_ensemble_state()
 
         #
@@ -63,6 +69,15 @@ class PlayTone():
             self.update_tone()
             time.sleep(0.01)
             #print ("   tone playtime: ", time.time()-start, "sec")
+
+    #
+    def initialize_octave_frequencies(self):
+
+        #
+        self.octave_freqs = get_octave_frequencies(self.low_freq,
+                                         self.high_freq,
+                                         self.octave_step)
+
 
     #
     def initialize_thresholds(self):
@@ -112,7 +127,7 @@ class PlayTone():
                                                                  self.low_threshold,
                                                                  self.high_threshold
                                                                  )
-
+        print ("tone: ", self.tone_state)
     #
     def update_tone(self):
 
