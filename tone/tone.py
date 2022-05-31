@@ -8,6 +8,7 @@ from utils.utils import ensemble_to_tone_transfer_function, get_octave_frequenci
 import time
 import numpy as np
 from multiprocessing import shared_memory
+from nidaqmx import stream_writers
 
 #################################################
 ############### TONE PLAYER CLASS ###############
@@ -169,14 +170,16 @@ class PlayTone():
 
         # make sure you send a copy of the tone, not the tone
         tone_data = self.make_tone(self.tone_state[0].copy(),
-                              self.amp,
-                              self.duration)
+								   self.amp,
+								   self.duration)
 
         #
         if self.simulation_flag:
             return
-
-        self.audio_Writer.write_many_sample(tone_data)
+		
+        #print ("tone data: ", tone_data.shape)
+		
+        self.audio_Writer.write_many_sample(tone_data.squeeze())
 
     #
     def initialize_tone_playback(self):
@@ -200,7 +203,7 @@ class PlayTone():
         # sample_mode=nidaqmx.constants.AcquisitionType.FINITE)
 
         #
-        self.audio_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(audio_Task.out_stream,
+        self.audio_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(self.audio_Task.out_stream,
                                                                              auto_start=True)
 
 

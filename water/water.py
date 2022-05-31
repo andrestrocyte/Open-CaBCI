@@ -5,6 +5,7 @@ from utils.utils import ensemble_to_tone_transfer_function, get_octave_frequenci
 import time
 import numpy as np
 from multiprocessing import shared_memory
+from nidaqmx import stream_writers
 
 #################################################
 ############### TONE PLAYER CLASS ###############
@@ -135,15 +136,15 @@ class WaterReward():
         self.water_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(self.water_Task.out_stream,
                                                                              auto_start=True)
 
+                                                                
     #
     def update_water_spout(self):
 
         if self.water_reward==0:
             return
 
-        print('   released water for ', self.water_spout_ttl_duration,
-              "microsec, at ", self.water_spout_ttl_voltage, " mV",
-              ",  turned water reward OFF")
+        print('   releasing water for ', self.water_spout_ttl_duration,
+              "microsec, at ", self.water_spout_ttl_voltage, " mV")
 
         #
         self.water_reward[0] = 0
@@ -153,8 +154,12 @@ class WaterReward():
 
         # put water state to 5volts
         # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
-        for p in range(self.duration):
+        # THIS FUNCTION WRITES 5v to the output 10000 microseconds
+        for p in range(self.water_spout_ttl_duration):
             self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
+		
+		# 
+        print (" turned water reward OFF")
 
         # return water ttl state to 0volts
         self.water_Writer.write_one_sample(0)

@@ -103,6 +103,9 @@ class BMI():
         #
         self.sampleRate_2P = sampleRate_2P	    # Sample rate of BScope
 
+		#
+        self.n_seconds_session = n_seconds_session
+
         # number of frames to run BMI for
         self.n_frames = n_seconds_session*sampleRate_2P
 
@@ -502,6 +505,7 @@ class BMI():
         #          self.n_frames_to_be_acquired/self.sampleRate_2P+
         #          5)
 
+      
         #
         self.now = time.perf_counter() #time.perf_counter_ns()/1E9
         self.previous_trigger = time.perf_counter()-2 # set the previous tirgger 2 sec prior to start
@@ -510,9 +514,11 @@ class BMI():
         self.initialize_pbar()
 
         # abssolute start time
-        self.start = time.perf_counter()
+        self.start_time_acquisition = time.time()
 
         # start recording and acquisition
+        # count number of frames; but probably safer to just count time;
+        # TODO: merge ttl pulse counting and time tracking into a single while statement
         while self.ttl_computed < self.n_frames_to_be_acquired - 1:
 
             ttl_value = self.task_ttl.read(number_of_samples_per_channel=self.ttl_pts)
@@ -543,12 +549,18 @@ class BMI():
 
                 #
                 self.pbar.update(n=1)
+            #else:
+            #    print (" no pulse...")
 
             #
             self.prev_min = self.min_
             self.prev_max = self.max_
 
-            #
+            # exit OPTION 2 check if recording time has finished
+            if (time.time() - self.start_time_acquisition)>self.n_seconds_session:
+                print ("Duration of BMI loop: ", time.time() - self.start_time_acquisition, 'sec',
+                       "  , total requested: ", self.n_seconds_session)
+                break
 
         # save all data acquried during recording
         # TODO: try to save this on the fly if possible to avoid loosing data during crashes
@@ -564,10 +576,7 @@ class BMI():
         # give the rest of the modules a few sec to complete
         time.sleep(2)
 
-        #
-        print ("... UNLIKING SHARED MEMORY...")
-        shared_memory.unlink()
-
+     
     #
     def initialize_ttl_reader(self):
 
@@ -575,14 +584,19 @@ class BMI():
         if self.simulation_mode == True:
             self.task_ttl = Simulation(self.fname_ttl)
         else:
-            self.task_ttl = nidaqmx.Task('bmi_online')
-
+			
+            #print ("  RESETTING DEV3 ")
+            #dev_name = "Dev3"
+            #dev_name=dev_name.strip("/")
+            #dev=nidaqmx.system.Device(dev_name)
+            #dev.reset_device()
+            
             #
-            print ("TODO: check if TLL voltages are being read in real time or buffering")
-            print ("   if buffering, then it's a problem if the OS/kernel hang up and we fall behind too much")
-            print ("   save workaround is to and read a data a few frames ahead of current count to ensure not behind")
-
-
+            # time.sleep(3)
+            			
+			#			
+            self.task_ttl = nidaqmx.Task('bmi_online')
+            print ("iniitlied bmi online")
             # set TTL pulse reader from 2p system
             self.task_ttl.ai_channels.add_ai_voltage_chan("Dev3/ai0",
                                                           terminal_config=TerminalConfiguration.NRSE)
