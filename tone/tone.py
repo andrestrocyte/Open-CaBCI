@@ -24,7 +24,15 @@ class PlayTone():
 
     def __init__(self, fname_roi_pixels_and_thresholds,
                         shmem_ensemble_state,
-                        shmem_tone_state):
+                        shmem_tone_state,
+                        shmem_termination_flag,
+                        simulation_flag):
+
+        #
+        self.shmem_termination_flag = shmem_termination_flag
+
+        #
+        self.simulation_flag = simulation_flag
 
         #
         self.fname_roi_pixels_and_thresholds = fname_roi_pixels_and_thresholds
@@ -37,9 +45,6 @@ class PlayTone():
 
         #
         self.shmem_tone_state = shmem_tone_state
-
-        #
-        self.simulation_flag = True
 
         # TODO: unclear what these units are?
         self.amp = 0.1  # tone amplitude in ?
@@ -64,11 +69,19 @@ class PlayTone():
         self.initialize_tone_playback()
 
         #
+        self.initialize_termination_flag()
+
+        #
         while True:
-            start = time.time()
+            #start = time.time()
             self.update_tone()
-            time.sleep(0.01)
-            #print ("   tone playtime: ", time.time()-start, "sec")
+            #time.sleep(0.01)
+            if self.termination_flag:
+                print ("...EXITING TONE CLASS...")
+                break
+
+        #
+        quit()
 
     #
     def initialize_octave_frequencies(self):
@@ -78,6 +91,19 @@ class PlayTone():
                                          self.high_freq,
                                          self.octave_step)
 
+    #
+    def initialize_termination_flag(self):
+
+        #
+        aa = np.zeros((1,), dtype=np.int64)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_termination_flag = shared_memory.SharedMemory(name=self.shmem_termination_flag)
+
+        #
+        self.termination_flag = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shm_termination_flag.buf)
 
     #
     def initialize_thresholds(self):
@@ -98,7 +124,7 @@ class PlayTone():
         x = np.arange(int(fs * duration))
 
         # original list; takes too long to create it;
-        # doulbe check the numpy array is ok ... but seems good
+        # TODO: double check the numpy array versio is identical ... but seems good
         # y = [amp * np.sin(2 * np.pi * f * (i / fs)) for i in x]
         # y = np.array(y)
         y2 = amp * np.sin(2 * np.pi * f * (x / fs))
@@ -109,6 +135,7 @@ class PlayTone():
 
         return y_new
 
+    #
     def compute_ensemble_to_tone_state(self):
 
         # for now we use a simple scaled difference
@@ -127,7 +154,8 @@ class PlayTone():
                                                                  self.low_threshold,
                                                                  self.high_threshold
                                                                  )
-        print ("tone: ", self.tone_state)
+        #print ("tone: ", self.tone_state)
+
     #
     def update_tone(self):
 
@@ -194,9 +222,6 @@ class PlayTone():
 
         #
         print("  TONE state: ", self.tone_state)
-
-        #
-        #self.ensemble_state_last = self.tone_state[0].copy()
 
     #
     def initialize_ensemble_state(self):

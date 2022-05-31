@@ -55,14 +55,11 @@ def ensemble_to_tone_transfer_function(ensemble_state,
 	# for now do a linear projection between the neural states and the
 	# TODO: calibrate the speaker so that it macthes the assumed playback states
 	#
-	print ("high freq: ", high_freq, "  high_threshodl: ", high_threshold)
 	high_threshold = 1500
 	# scale from 0..1
 	tone = (ensemble_state)/(high_threshold)
-	print ("tone1: ", tone)
 	# map onto frequencies selected
 	tone = tone*(high_freq-low_freq)+low_freq
-	print ("tone2: ", tone)
 
 	# map onto octaves
 	octave_freqs = get_octave_frequencies(low_freq,
@@ -71,9 +68,7 @@ def ensemble_to_tone_transfer_function(ensemble_state,
 
 	#
 	idx = np.argmin(np.abs(octave_freqs-tone))
-	print ("idx: ", idx)
 	tone = octave_freqs[idx]
-	print ("tone3: ", tone)
 
 	return tone
 

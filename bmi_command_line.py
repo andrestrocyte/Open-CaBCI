@@ -1,23 +1,15 @@
 import os
-import numpy as np
-import time
-import nidaqmx
-from nidaqmx.constants import (AcquisitionType)  # https://nidaqmx-python.readthedocs.io/en/latest/constants.html
-import numpy as np
-import matplotlib.pyplot as plt
-from nidaqmx.constants import TerminalConfiguration
-import math
 from multiprocessing import Process
 
 # 
 from bmi.bmi import BMI
 from plotter.plotter import PlotROIs
 from tone.tone import PlayTone
-
+from water.water import WaterReward
 
 # FOR LINUX
 fname_root_path = '/home/cat/data/donato/bscope_tests/'
-#fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
+fname_root_path = '/media/cat/4TB/donato/BSCOPE_tests/'
 #fname_root_path = '/media/cat/4TBSSD/donato/Bscope_tests/'
 
 #
@@ -45,12 +37,12 @@ fname_roi_pixels_and_thresholds = os.path.join(fname_root_path,
 ####################################################################### 			
 sampleRate_2P = 30
 n_seconds_session = int(10000/30)                          # number of seconds to run the BMI 
-simulation_mode = True							# Run BMI in simulation mode (i.e. don't need Bscope input)
+simulation_flag = True							# Run BMI in simulation mode (i.e. don't need Bscope input)
 
 ###############################################################
 #################### INITIALIZE BMI ########################### 
 ###############################################################
-bmi = BMI(simulation_mode,
+bmi = BMI(simulation_flag,
           fname_root_path,
           fname_fluorescence,
           fname_rois,
@@ -61,7 +53,7 @@ bmi = BMI(simulation_mode,
 
 # for simulation mode we sometimes want to slow down the processing;
 # ... not as necessary 
-bmi.sleep_time_sec = 0.033 # Delay in simulation mode
+bmi.sleep_time_sec = 0.001 # Delay in simulation mode
 
 # Flag to print out information from the proessing
 bmi.verbose = False
@@ -71,26 +63,19 @@ bmi.verbose2 = False    # this displays the time it takes to copute ROI
 ###############################################################
 ############## INITIALIZE PLOTTER ############################# 
 ###############################################################
-
-if True:
-	if True:
-		print ("RUNNING Plotter in multiprocessing...")
-		plotter_ = Process(target=PlotROIs, args=(
-						fname_roi_pixels_and_thresholds,
-						bmi.shmem_rois_traces.name,
-						bmi.shmem_n_ttl.name,
-						bmi.rois_traces_raw.shape,
-						bmi.shmem_reward_times.name,
-						bmi.shmem_tone_state.name
-						))
-		plotter_.start()
-
-	# else:
-		# print ("RUNNING Plotter in main process...")
-		# plotter_ = PlotROIs(
-						# bmi.shmem_rois_traces.name,
-						# bmi.shmem_n_ttl.name,
-						# bmi.rois_traces_raw.shape)
+'''  This is the plotting functions that visualize ROI time sries
+'''
+plotter_ = Process(target=PlotROIs, args=(
+										fname_roi_pixels_and_thresholds,
+										bmi.shmem_rois_traces.name,
+										bmi.shmem_n_ttl.name,
+										bmi.rois_traces_raw.shape,
+										bmi.shmem_reward_times.name,
+										bmi.shmem_tone_state.name,
+										bmi.shmem_termination_flag.name,
+										simulation_flag
+										))
+plotter_.start()
 
 
 ###############################################################
@@ -101,18 +86,28 @@ if True:
 	as this is not related to anything else in the BMI class
 '''
 
-if True:
-	if True:
-		print ("RUNNING Tone player in multiprocessing...")
-		tone_player_ = Process(target=PlayTone, args=(fname_roi_pixels_and_thresholds,
-													  bmi.shmem_ensemble_state.name,
-													  bmi.shmem_tone_state.name,))
-		tone_player_.start()
+print ("RUNNING Tone player in multiprocessing...")
+tone_player_ = Process(target=PlayTone, args=(fname_roi_pixels_and_thresholds,
+											  bmi.shmem_ensemble_state.name,
+											  bmi.shmem_tone_state.name,
+											  bmi.shmem_termination_flag.name,
+											  simulation_flag))
+tone_player_.start()
 
-	else:
-		print ("RUNNING Tone player in main process...")
-		tone_player_ = PlayTone(bmi.shmem_ensemble_state.name)
 
+###############################################################
+############## INITIALIZE WATER REWARD ########################
+###############################################################
+'''  Here we pass only the ensemble state (i.e. E1-E2) to the 
+	tone player. The tone player alone then computes the transfer function
+	as this is not related to anything else in the BMI class
+'''
+
+print ("RUNNING Tone player in multiprocessing...")
+water_reward_ = Process(target=WaterReward, args=(bmi.shmem_water_reward.name,
+												  simulation_flag,
+												  bmi.shmem_termination_flag.name,))
+water_reward_.start()
 
 ###############################################################
 #################### INITIALIZE BMI ########################### 
@@ -122,5 +117,10 @@ if True:
 #
 #time.sleep(5)
 bmi.run_BMI()
+
+#
+plotter_.close()
+tone_player_.close()
+water_reward_.close()
 
 quit()

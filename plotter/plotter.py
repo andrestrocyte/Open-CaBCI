@@ -28,10 +28,12 @@ class PlotROIs():
                  shmem_n_ttl,
                  rois_traces_shape,
                  shmem_reward_times,
-                 shmem_tone_state):
+                 shmem_tone_state,
+                 shmem_termination_flag,
+                 simulation_flag):
 
-        #
-        print ("INITALIZED PLOTROIS FUCTIONS...")
+        # this is not really requried for visualizations (at this time anyways)
+        self.simulation_flag = simulation_flag
 
         #
         self.fname_rois = fname_rois
@@ -45,6 +47,9 @@ class PlotROIs():
 
         #
         self.verbose2 = False
+
+        #
+        self.shmem_termination_flag = shmem_termination_flag
 
         #
         self.shmem_rois_traces = shmem_rois_traces
@@ -77,6 +82,9 @@ class PlotROIs():
         self.initalize_reward_times()
 
         #
+        self.initialize_termination_flag()
+
+        #
         self.ctr = 0
 
         # enter plot update condition
@@ -84,8 +92,27 @@ class PlotROIs():
         while True:
             self.update_plots()
 
+            if self.termination_flag:
+                print ("... EXITING PLOTTING CLASS ...")
+                break
             # optional decrease plotting speed, may help in some cases
             # time.sleep()
+
+        quit()
+    #
+    def initialize_termination_flag(self):
+
+        #
+        aa = np.zeros(1, dtype=np.int64)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_termination_flag = shared_memory.SharedMemory(name=self.shmem_termination_flag)
+
+        #
+        self.termination_flag = np.ndarray(aa.shape,
+                                           dtype=aa.dtype,
+                                           buffer=self.existing_shm_termination_flag.buf)
+
     #
     def initalize_reward_times(self):
 
@@ -102,9 +129,6 @@ class PlotROIs():
         self.reward_times = np.ndarray(aa.shape,
                                     dtype=aa.dtype,
                                     buffer=self.existing_shm_reward_times.buf)
-
-        #
-        print ("  loaded rward_times: ", self.reward_times)
 
     #
     def initialize_tone_state(self):

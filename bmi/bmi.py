@@ -56,9 +56,12 @@ class BMI():
             -
 
         TODO: we may want to fix the names of all the shared variables
+              i.e., don't use random variables, just fix them to something that doesn't change
+              - this way, we don't even need to share them between the modules
         TODO:  this way we dont' even have to pass them to the other modules
     '''
 
+    #
     def __init__(self,
                  simulation_mode,
                  fname_root_path,
@@ -109,8 +112,6 @@ class BMI():
         #
         self.rois_smooth_window = 5   				# Number of frames to use to smooth the ROI traces
                                                     # to be developed/changed further
-        # # initialize smoothing fuction kernel
-        # self.initialize_smoothing_kernel()
 
         # start the ttl frame counter at 0
         self.ttl_computed = 0
@@ -119,9 +120,7 @@ class BMI():
         #   this is for the ROI reading step
         self.n_frames_search_forward  = 5
 
-        # initizlie ROIs using either a text file or more specific code
-        #   for now simple version uses some random centres in the imaging file
-        #   MUST CHANGE
+        # initizlie ROIs
         self.initialize_ROIs()
 
         # initizlie the realtime value of the ensembel states (i.e. no history)
@@ -148,6 +147,59 @@ class BMI():
 
         # initialize tone state
         self.initialize_tone_state()
+
+        # initialize the water reward memory variable
+        self.initialize_water_reward()
+
+        #
+        self.initialize_termination_flag()
+
+    #
+    def initialize_termination_flag(self):
+
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int64)
+        self.shmem_termination_flag = shared_memory.SharedMemory(create=True,
+                                                                 size=aa.nbytes)
+
+        #
+        self.termination_flag = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.shmem_termination_flag.buf)
+
+        #
+        self.termination_flag[:] = aa[:]
+
+    #
+    def initialize_water_reward(self):
+
+        '''
+            This variable keeps track of the value of the water spout
+            - 0: no water reward
+            - 1: water reward
+            Note: the duration and timing and lockouts of water rewards are controlled by the
+            waterreward class
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1,dtype=np.float32)
+        self.shmem_water_reward = shared_memory.SharedMemory(create=True,
+                                                              size=aa.nbytes)
+
+        #
+        self.water_reward = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.shmem_water_reward.buf)
+
+        #
+        self.water_reward[:] = aa[:]
 
     #
     def initialize_tone_state(self):
@@ -503,8 +555,20 @@ class BMI():
         self.save_data()
 
         #
-        print("... DONE BMI...")
+        print (" ... SENDING TERMIANTION FLAG SIGNAL TO ALL PROCESSES ...")
+        self.termination_flag[0] = 1
 
+        #
+        print("... EXITING BMI CLASS...")
+
+        # give the rest of the modules a few sec to complete
+        time.sleep(2)
+
+        #
+        print ("... UNLIKING SHARED MEMORY...")
+        shared_memory.unlink()
+
+    #
     def initialize_ttl_reader(self):
 
         #
@@ -661,10 +725,6 @@ class BMI():
                 if self.verbose:
                     print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
 
-    def give_reward(self):
-        print (" generating reward ttl ")
-        pass
-
     #
     def trigger_reward(self):
 
@@ -672,7 +732,7 @@ class BMI():
         print (" giving reward ")
 
         #
-        self.give_reward()
+        self.water_reward[0] = 1
 
         # start a counter that
         self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
@@ -852,7 +912,7 @@ class BMI():
                                   self.ensemble_activity[1, self.n_ttl[0]])
 
         #
-        print ("time: ", self.n_ttl[0]/self.sampleRate_2P, " updated ensembel state: ", self.ensemble_state, "**********************")
+        #print ("time: ", self.n_ttl[0]/self.sampleRate_2P, " updated ensembel state: ", self.ensemble_state, "**********************")
 
     #
     def tone_off(self):
@@ -892,8 +952,7 @@ class BMI():
                  ttl_n_detected = self.ttl_n_detected,
                  abs_times = self.abs_times,
                  ttl_times = self.ttl_times,
-                 rois_traces_raw = self.rois_traces_raw,
-                 rois_traces_smooth = self.rois_traces_smooth,
-
+                 rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
+                 rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object')
                  )
 
