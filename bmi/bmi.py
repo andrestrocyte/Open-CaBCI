@@ -70,6 +70,7 @@ class BMI():
                  fname_freq,
                  fname_ttl,
                  sampleRate_2P,
+                 fname_roi_pixels_and_thresholds,
                  n_seconds_session):
 
         #
@@ -87,8 +88,7 @@ class BMI():
         self.fname_ttl = fname_ttl
 
         #
-        self.fname_rois_pixels_thresholds = os.path.join(fname_root_path,
-                                              'rois_pixels_and_thresholds.npz')
+        self.fname_rois_pixels_thresholds = fname_roi_pixels_and_thresholds
 
         # NOT SURE IF REQUIRED... TO DELETE
         # TODO flag was probably used during development toskip the reading step;
@@ -102,6 +102,10 @@ class BMI():
 
         #
         self.sampleRate_2P = sampleRate_2P	    # Sample rate of BScope
+
+		#
+        self.image_width = 512
+        self.image_length = 512
 
 		#
         self.n_seconds_session = n_seconds_session
@@ -714,9 +718,35 @@ class BMI():
 
             #
             if self.read_data_flag:
+                import mmap
                 ss = time.time()
-                self.newfp = np.memmap(self.fname_fluorescence, dtype='uint16', mode='r',
-                                       shape=(self.n_frames_to_be_acquired,512,512))
+                print ("  setting up memory map: shape: ", (self.n_frames_to_be_acquired,512,512))
+                
+                if False:
+                    self.newfp = np.memmap(self.fname_fluorescence, dtype='uint16', mode='r',
+										   shape=self.n_frames_to_be_acquired*512*512)
+                
+                # TODO: THIS IS RQUIRD BY WINDOWS.
+                #    FOR SOME REASON IT DOESN"T LIKE NUMPY MEMMAP
+                if True:
+                    fp = open(self.fname_fluorescence, "r")
+                    byts = self.n_frames_to_be_acquired*self.image_width*self.image_length
+                    self.newfp = mmap.mmap(fp.fileno(), byts, access=mmap.ACCESS_READ)
+                    # print ("OPTION @@@@@@@@@@@@@@@@: ", self.newfp)
+					
+					#
+                    mview = memoryview(self.newfp)
+                    print (" memroy view: ", mview)
+                    self.newfp = np.asarray(mview).reshape(self.n_frames_to_be_acquired,512,512)
+                    print (" final array view: ", self.newfp.shape)
+
+					
+                # 
+                print ("sefl newfp: ", self.newfp.shape)
+				
+                self.newfp = self.newfp.reshape(self.n_frames_to_be_acquired,512,512)
+				#m.write("Hello world!")                       
+                                       
                 print (" duration to setup memmap: ", time.time()-ss, " sec.")
                 print ("     TODO: work with 1D flattened arrays")
 
@@ -899,6 +929,8 @@ class BMI():
             # TODO: not sure this is the correct function; to check literature
             # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
             roi_sum0 = np.nansum(roi_sum0)
+            		
+			#
             self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0  #- self.roi_f0s[p] NOTE: DO NOT SUBTRACT F0 FROM RAW as it's based on smoothed data
 
         #

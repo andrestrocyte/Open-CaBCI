@@ -204,7 +204,7 @@ class PlotROIs():
     def make_roi_plots(self):
 
         #
-        self.plot_y_scale = 2500
+        self.plot_y_scale = 15
 
         #
         self.fig = plt.figure(figsize=(10,5))

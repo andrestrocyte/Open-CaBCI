@@ -48,7 +48,7 @@ class PlayTone():
         self.shmem_tone_state = shmem_tone_state
 
         # TODO: unclear what these units are?
-        self.amp = 0.1  # tone amplitude in ?
+        self.amp = 0.05  # tone amplitude in ?
 
         # TODO: unclear what the correct duration of tone play and update
         # TODO: for now we update at 10hz

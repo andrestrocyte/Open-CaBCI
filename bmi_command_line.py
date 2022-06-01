@@ -16,7 +16,8 @@ fname_root_path = r'D:\bmi'
 
 #
 fname_fluorescence = os.path.join(fname_root_path, 
-                                  'image_27000frames.raw')
+								  'mouse2_bmi5',
+                                  'Image_001_001.raw')
 
 #
 fname_freq =  os.path.join(fname_root_path,
@@ -33,13 +34,18 @@ fname_ttl = os.path.join(fname_root_path,
 fname_roi_pixels_and_thresholds = os.path.join(fname_root_path,
 						'rois_pixels_and_thresholds.npz')
 
+#
+fname_roi_pixels_and_thresholds = os.path.join(fname_root_path,
+											   'mouse2_calibration',
+											   'rois_pixels_and_thresholds.npz')
+
 #############################################################
 if __name__ ==  '__main__':
 	
 	####################################################################### 			
 	################### DEFAULT PARAMTERS FOR BMI ######################### 			
 	####################################################################### 			
-	sampleRate_2P = 30
+	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
 	n_seconds_session = int(1000/sampleRate_2P + 450/sampleRate_2P)                          # number of seconds to run the BMI 
 	simulation_flag = False							# Run BMI in simulation mode (i.e. don't need Bscope input)
 
@@ -53,6 +59,7 @@ if __name__ ==  '__main__':
 			  fname_freq,
 			  fname_ttl,
 			  sampleRate_2P,
+			  fname_roi_pixels_and_thresholds,
 			  n_seconds_session)
 
 	# for simulation mode we sometimes want to slow down the processing;
