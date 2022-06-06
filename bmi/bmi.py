@@ -71,7 +71,8 @@ class BMI():
                  fname_ttl,
                  sampleRate_2P,
                  fname_roi_pixels_and_thresholds,
-                 n_seconds_session):
+                 n_seconds_session,
+                 n_frames_session):
 
         #
         print ("... initializing BMI parameters...")
@@ -83,8 +84,6 @@ class BMI():
         #
         self.fname_root_path = fname_root_path
         self.fname_fluorescence = fname_fluorescence
-        #self.fname_rois = fname_rois
-        #self.fname_freq = fname_freq
         self.fname_ttl = fname_ttl
 
         #
@@ -111,7 +110,7 @@ class BMI():
         self.n_seconds_session = n_seconds_session
 
         # number of frames to run BMI for
-        self.n_frames = n_seconds_session*sampleRate_2P
+        self.n_frames = n_frames_session # OLD WAY OF COMPUTING n_seconds_session*sampleRate_2P
 
         # TODO: why do we have 2 of these variables?
         self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
@@ -568,7 +567,12 @@ class BMI():
         # save all data acquried during recording
         # TODO: try to save this on the fly if possible to avoid loosing data during crashes
         self.save_data()
-
+        
+    #
+    def close(self):
+        
+        #
+        print (" ... closing BMI, # of ttl pulses processed: ", self.n_ttl)
         #
         print (" ... SENDING TERMIANTION FLAG SIGNAL TO ALL PROCESSES ...")
         self.termination_flag[0] = 1
@@ -729,7 +733,7 @@ class BMI():
                 ss = time.time()
                 print ("  setting up memory map: shape: ", (self.n_frames_to_be_acquired,512,512))
                 
-                if False:
+                if True:
                     self.newfp = np.memmap(self.fname_fluorescence,
                                            dtype='uint16',
                                            mode='r',
@@ -737,10 +741,11 @@ class BMI():
                 
                 # TODO: THIS IS RQUIRD BY WINDOWS.
                 #    FOR SOME REASON IT DOESN"T LIKE NUMPY MEMMAP
-                if True:
+                if False:
                     fp = open(self.fname_fluorescence, "r")
                     byts = self.n_frames_to_be_acquired*self.image_width*self.image_length
-                    self.newfp = mmap.mmap(fp.fileno(), byts, access=mmap.ACCESS_READ)
+                    
+                    self.newfp = mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
                     # print ("OPTION @@@@@@@@@@@@@@@@: ", self.newfp)
 					
 					#
@@ -782,7 +787,7 @@ class BMI():
     def trigger_reward(self):
 
         # generate water reward only if we are not in a reward lockout state
-        print (" giving reward ")
+        print (" giving reward at time: ", self.n_ttl)
 
         #
         self.water_reward[0] = 1
@@ -854,6 +859,7 @@ class BMI():
 
             # decouple tone etc. from feedback
             self.post_reward_state()
+            
         #
         elif (self.ensemble_state >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
 

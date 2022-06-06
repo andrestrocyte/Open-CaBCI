@@ -82,8 +82,8 @@ class ComputeROIs(object):
 		self.fname = fname
 
 		# some of these paramters need to be exposed outside also
-		self.vmin = 500
-		self.vmax = 1500
+		# self.vmin = 500
+		# self.vmax = 1500
 		
 		# 
 		self.binarize_thresh =.05
