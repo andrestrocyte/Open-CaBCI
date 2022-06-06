@@ -25,10 +25,7 @@ if __name__ ==  '__main__':
 	
 	Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 	fname_fluorescence = askopenfilename() # show an "Open" dialog box and return the path to the selected file
-	print(fname_fluorescence)
-	#Tk.destroy()
-
-
+	print(" Fname fluorsecnce: ", fname_fluorescence)
 
 	# FOR LINUX
 	fname_root_path = os.path.split(fname_fluorescence)[0]

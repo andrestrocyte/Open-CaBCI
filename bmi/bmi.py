@@ -787,7 +787,7 @@ class BMI():
     def trigger_reward(self):
 
         # generate water reward only if we are not in a reward lockout state
-        print (" giving reward at time: ", self.n_ttl)
+        print (" ****giving reward at time: ", self.n_ttl)
 
         #
         self.water_reward[0] = 1
