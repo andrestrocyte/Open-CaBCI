@@ -66,8 +66,8 @@ class BMI():
                  simulation_mode,
                  fname_root_path,
                  fname_fluorescence,
-                 fname_rois,
-                 fname_freq,
+                 #fname_rois,
+                 #fname_freq,
                  fname_ttl,
                  sampleRate_2P,
                  fname_roi_pixels_and_thresholds,
@@ -83,8 +83,8 @@ class BMI():
         #
         self.fname_root_path = fname_root_path
         self.fname_fluorescence = fname_fluorescence
-        self.fname_rois = fname_rois
-        self.fname_freq = fname_freq
+        #self.fname_rois = fname_rois
+        #self.fname_freq = fname_freq
         self.fname_ttl = fname_ttl
 
         #
@@ -448,22 +448,29 @@ class BMI():
             TODO: Must properly transfer ROIs to this function not just use a box aroudn a point of interest
         '''
 
-        # load ROI centres from disk;
-        # OLD WAY OF COMPUTING SQUARE AROND CENTRE OF CELL
-        # self.roi_width = 15 # number of pixels around ROI to grab
-
-        # NEW WAY OF LOADING EXACT PIXELS
+        #####################################################
+        # load individual cell ROIs as saved by the calibration step
         # TODO: generalize some of this code to allow different #s of cells; - not a priority
-        data = np.load(self.fname_rois_pixels_thresholds, allow_pickle=True)
+        data = np.load(self.fname_rois_pixels_thresholds,
+                       allow_pickle=True)
         self.rois_pixels = []
         self.rois_pixels.append(data['cell0'])
         self.rois_pixels.append(data['cell1'])
         self.rois_pixels.append(data['cell2'])
         self.rois_pixels.append(data['cell3'])
 
-        # also load the f0 for each cell computed a few minutes earlier
+        # make a default size matrix that will hold [n_rois, n_frames]
+        a = np.zeros((len(self.rois_pixels),self.n_frames),
+                      dtype=np.float32)+1E-8
+
+        # rois traces raw: contains the raw ROIs (i.e. summed pixels etc in each ROI)
+        # these are NOT shared with external classes, unless needed in future
+        self.rois_traces_raw = np.zeros(a.shape, dtype=np.float32)
+
+        # also load the f0 for each cell computed by calibration step (hopefully within a few mins of BMI step)
         # TODO: this calculation is simplified, make sure you don't change power, settings etc.
-        #     TODO: between calibartion seession and BMI session
+        #       between calibartion seession and BMI session
+        #      - to use an identical function between calibration and bmi whenever possible/required
         self.roi_f0s = data['cell_f0s']
 
         #####################################
@@ -471,13 +478,8 @@ class BMI():
         #  track of time series for all the ROIs
         # Note: we have to share this with the plotting function so we use sharedmemory
         # NOTE we want to share the smooth traces with the plotting function as that is what the
-        #      reward condintion computation is based on
+        #      reward condition computation is based on
 
-        #
-        a = np.zeros((len(self.rois_pixels),self.n_frames),
-                      dtype=np.float32)+1E-8
-
-        #
         self.shmem_rois_traces = shared_memory.SharedMemory(create=True,
                                                             size=a.nbytes)
 
@@ -489,10 +491,7 @@ class BMI():
         #
         self.rois_traces_smooth[:] = a[:]
 
-        #####################################################
-        # need separate function to keep track of smooth version of traces
-        # these are the traces shared with visualization tool...
-        self.rois_traces_raw = np.zeros(a.shape,dtype=np.float32)
+
 
     #
     def run_BMI(self):
@@ -648,8 +647,16 @@ class BMI():
 
     def smooth_rois(self):
 
+        ''' Function that smooths the raw roi traces;
+            - this is required for both visualization but also ensemble computations as
+              we do not run algorithms on noisy raw data directly
+
+        '''
+
         # if we made threhsods using smoothing, then need to run them on data also
-        # TODO;
+        # TODO:  IMPORTANT: implement the identical algorithm used in the calibration step to compute
+        #        this step; currently only the smoothing step is shared; need to share DFF0 computation also
+        #
         if self.smooth_diff_function_flag and self.n_ttl[0]>self.rois_smooth_window:
 
             # loop over each cell
@@ -723,7 +730,9 @@ class BMI():
                 print ("  setting up memory map: shape: ", (self.n_frames_to_be_acquired,512,512))
                 
                 if False:
-                    self.newfp = np.memmap(self.fname_fluorescence, dtype='uint16', mode='r',
+                    self.newfp = np.memmap(self.fname_fluorescence,
+                                           dtype='uint16',
+                                           mode='r',
 										   shape=self.n_frames_to_be_acquired*512*512)
                 
                 # TODO: THIS IS RQUIRD BY WINDOWS.
@@ -910,14 +919,9 @@ class BMI():
         # loop over the remaning cells on the last frame 'z'
         for p in range(0,len(self.rois_pixels),1):
 
-            # old way of summin pixels inside square centred on cell
-            # roi_sum0 = self.newfp[self.n_ttl[0]+z,
-            #                       self.rois[p][0]-self.roi_width:self.rois[p][0]+self.roi_width,
-            #                       self.rois[p][1]-self.roi_width:self.rois[p][1]+self.roi_width].sum()
-
             # new way use exact pixel location
-            temp = self.newfp[self.n_ttl[0]+z]
-            temp = temp[self.rois_pixels[p].T[:, 0],
+            temp = self.newfp[self.n_ttl[0]+z]              # take most recent frame
+            temp = temp[self.rois_pixels[p].T[:, 0],        # broadcast/index into the frame as per ROI pixels
                         self.rois_pixels[p].T[:, 1]]
 
             # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
@@ -930,8 +934,9 @@ class BMI():
             # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
             roi_sum0 = np.nansum(roi_sum0)
             		
-			#
-            self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0  #- self.roi_f0s[p] NOTE: DO NOT SUBTRACT F0 FROM RAW as it's based on smoothed data
+			# Note: Do not remove baseline yet; this is done in the smoothing step;
+            # TODO: make sure that this approach is correct
+            self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0
 
         #
         if self.verbose:
@@ -998,6 +1003,7 @@ class BMI():
                  ttl_n_detected = self.ttl_n_detected,
                  abs_times = self.abs_times,
                  ttl_times = self.ttl_times,
+                 rois_pixels = np.hstack(self.rois_pixels),
                  rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
                  rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object')
                  )

@@ -275,13 +275,13 @@ class ComputeROIs(object):
 									 np.median(idx[1])])
 				indexes.append(idx)
 
-		self.rois = np.vstack(roi_centres)
+		self.rois = np.vstack(roi_centres)		
 		self.indexes = indexes
 
 	#
-	def show_contour_map(self, std_map, indexes, new_plot=True):
+	def show_contour_map(self, std_map, indexes, fig=None):
 		
-		if new_plot:
+		if fig is None:
 			plt.figure()
 			
 		plt.imshow(std_map)
