@@ -124,7 +124,7 @@ class BMI():
 
         # number of frames to search forward in time to see if there is any neural data saved
         #   this is for the ROI reading step
-        self.n_frames_search_forward  = 5
+        self.n_frames_search_forward = 5
 
         # initizlie ROIs
         self.initialize_ROIs()
@@ -916,6 +916,10 @@ class BMI():
 
             #
             if roi_sum0 != 0:
+				
+				# TODO: reset the n_ttl value here - check that this is safe!!!
+                # self.n_ttl[0] = self.n_ttl[0]+z
+				
                 break
 
         # TODO: we should reset the n_ttl here

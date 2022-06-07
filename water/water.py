@@ -21,8 +21,9 @@ class WaterReward():
     '''
 
     def __init__(self, shmem_water_reward,
-                       simulation_flag,
-                       shmem_termination_flag):
+                       shmem_termination_flag,
+					   simulation_flag,
+					   ):
 
 
         #
@@ -47,7 +48,7 @@ class WaterReward():
         self.initialize_water_spout()
 
         # TODO: unclear what these units are?
-        self.water_spout_ttl_duration = 10000  # duration of water pulse in microseconds
+        self.water_spout_ttl_duration = 50000  # duration of water pulse in microseconds
 
         #
         self.water_spout_ttl_voltage = 5    # water spout voltage in millivolts (?)
@@ -87,19 +88,6 @@ class WaterReward():
 
         print ("WATER CLASS - DONE termination flag - ")
 
-    #
-    def initialize_water_reward_variable(self):
-
-        #
-        aa = np.zeros((1,), dtype=np.float32)
-
-        # get the rois_traces from the shared memory name
-        self.existing_shm_water_reward = shared_memory.SharedMemory(name=self.shmem_water_reward)
-
-        #
-        self.water_reward = np.ndarray(aa.shape,
-                                       dtype=aa.dtype,
-                                       buffer=self.existing_shm_water_reward.buf)
 
     #
     def initialize_water_reward_variable(self):
@@ -127,7 +115,7 @@ class WaterReward():
 
         #
         self.water_Task.ao_channels.add_ao_voltage_chan('Dev3/ao1')
-        self.water_Task.timing.cfg_samp_clk_timing(rate=1000,
+        self.water_Task.timing.cfg_samp_clk_timing(rate=1000000,
                                               # samps_per_chan=100,  # in continuos mode this is the buffer
                                               sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
                                               # sample_mode=nidaqmx.constants.AcquisitionType.FINITE)
@@ -135,7 +123,6 @@ class WaterReward():
         #
         self.water_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(self.water_Task.out_stream,
                                                                              auto_start=True)
-
                                                                 
     #
     def update_water_spout(self):
@@ -154,8 +141,9 @@ class WaterReward():
 
         # put water state to 5volts
         # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
-        # THIS FUNCTION WRITES 5v to the output 10000 microseconds
+        # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
         for p in range(self.water_spout_ttl_duration):
+            #print ("water rewwrd loop: ", p)
             self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
 		
 		# 

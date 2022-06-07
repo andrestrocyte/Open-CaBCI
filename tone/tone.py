@@ -34,6 +34,7 @@ class PlayTone():
 
         #
         self.simulation_flag = simulation_flag
+        #self.simulation_flag = False
 
         #
         self.fname_roi_pixels_and_thresholds = fname_roi_pixels_and_thresholds

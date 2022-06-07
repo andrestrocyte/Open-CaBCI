@@ -29,11 +29,13 @@ class PlotROIs():
                  rois_traces_shape,
                  shmem_reward_times,
                  shmem_tone_state,
-                 shmem_termination_flag,
-                 simulation_flag):
+                 shmem_termination_flag,):
 
         # this is not really requried for visualizations (at this time anyways)
-        self.simulation_flag = simulation_flag
+        # self.simulation_flag = simulation_flag
+
+		#
+        self.setup_complete = False
 
         #
         self.fname_rois = fname_rois
@@ -86,6 +88,9 @@ class PlotROIs():
 
         #
         self.ctr = 0
+        
+        #
+        self.setup_complete = True
 
         # enter plot update condition
         # optional use sleep to slow down plotting
