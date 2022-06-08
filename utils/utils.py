@@ -191,28 +191,29 @@ class ComputeROIs(object):
 			
 			print ("done window smoothing...")
 				
-		# 
-		print ("staring computing std...")
 		std = np.std(data_sparse,axis=0)
+
+		return std
+
+	def plot_std_map(self, std):
+		# 
+		temp = std.copy()
+		print ("staring computing std...")
 		print ("done computing std...")
 		#
-		std = (std-self.vmin)/(self.vmax-self.vmin)
-		idx = np.where(std<0)
-		std[idx]=0
-		idx = np.where(std>1)
-		std[idx]=1
+		#temp = (temp-self.vmin)/(self.vmax-vmin)
+		idx = np.where(temp<self.vmin)
+		temp[idx]=self.vmin
+		idx = np.where(temp>self.vmax)
+		temp[idx]=self.vmax
 
 		# 
 		plt.figure()
-		plt.imshow(std,
-				   #vmin=vmin,
-				   #vmax=vmax
+		plt.imshow(temp,
 				  )
 		plt.show()
 		
-		self.std_map = std
-		
-		return std
+		return temp
 
 	def area_inside_convex_hull(self, pts):
 		lines = np.hstack([pts,np.roll(pts,-1,axis=0)])
@@ -222,23 +223,22 @@ class ComputeROIs(object):
 	def binarize_data(self, img, thresh):
 		
 		#thresh = .15
-		idx = np.where(img>thresh)
-		img[idx]=1
-		idx = np.where(img<=thresh)
-		img[idx]=0
+		idx1 = np.where(img>thresh)
+		idx2 = np.where(img<=thresh)
+		img[idx1]=1
+		img[idx2]=0
 			
 		return img
 
 	#
-	def find_roi_boundaries(self, image):
+	def find_roi_boundaries(self, data):
 
-		for k in range(self.n_smooth_steps):
-			image = scipy.ndimage.gaussian_filter(image, 
-												  self.sigma, 
-												  self.order)
+		#
+		image = data.copy()
 
-			image = self.binarize_data(image, self.binarize_thresh)
-		
+		#
+		image = self.binarize_data(image, self.vmin)
+
 		#
 		image = image.astype('int32')
 						
@@ -332,9 +332,9 @@ class ComputeROIs(object):
 			plt.text(np.median(z[:,1]), np.median(z[:,0]), str(p),c='red')
 
 		plt.show()
-    
+
 	#
-	def compute_traces2(self):
+	def compute_traces2(self, std_map):
 		''' Same as below but visualize every single frame
 		'''
 		
@@ -408,7 +408,7 @@ class ComputeROIs(object):
         # 
 		ax=plt.subplot(122)
 		new_plot = False
-		self.show_contour_map(self.std_map,self.indexes, new_plot)
+		self.show_contour_map(std_map,self.indexes, new_plot)
 
 		plt.show()
 		

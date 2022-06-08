@@ -305,7 +305,7 @@ class PlayTone():
 
         #
         self.water_Task.ao_channels.add_ao_voltage_chan('Dev3/ao1')
-        self.water_Task.timing.cfg_samp_clk_timing(rate=1000000,
+        self.water_Task.timing.cfg_samp_clk_timing(rate=1000,
                                                    # samps_per_chan=100,  # in continuos mode this is the buffer
                                                    sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
         # sample_mode=nidaqmx.constants.AcquisitionType.FINITE)
@@ -340,17 +340,15 @@ class PlayTone():
         # put water state to 5volts
         # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
         # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
+        start = time.time()
         for p in range(self.water_spout_ttl_duration):
-            print ("water reward loop: ", p)
+            #print ("water reward loop: ", p)
             self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
-
-        #
-        print(" turned water reward OFF")
+        print (" >>>>>>>>>>>>>>>>>>>>>>>>>>>>released water for: ", time.time()-start, " sec. (Closing water port)")
 
         # return water ttl state to 0volts
-        self.water_Writer.write_one_sample(0)
-
-        print (">>>>>TODO: TURN OFF TONE PLAYER WHILE PLAYING WATER, TURN IT BACK ON AFTER<<<<<<<")
+        for p in range(self.water_spout_ttl_duration):
+            self.water_Writer.write_one_sample(0)
 
         # close water writer
         self.close_water_writer()
