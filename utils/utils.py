@@ -277,6 +277,33 @@ class ComputeROIs(object):
 
 		self.rois = np.vstack(roi_centres)		
 		self.indexes = indexes
+		
+	# 
+	def compute_contour_map(self, std_map, cell_ids):
+		''' Compute contours and save them to disk also
+		
+		'''
+		
+		# 
+		contour_array = []
+		for cell_id in cell_ids:
+			temp = np.zeros(std_map.shape, dtype='uint8')
+			temp[self.indexes[cell_id]]=1
+			#temp = temp.astype('uint8')
+			
+			#
+			contour, _ = cv2.findContours(temp, 
+											cv2.RETR_TREE, 
+											cv2.CHAIN_APPROX_SIMPLE)
+			contour = contour[0].squeeze()
+			contour = np.vstack((contour, contour[0]))
+
+			# 
+			contour_array.append(contour)
+	
+
+		return contour_array
+		
 
 	#
 	def show_contour_map(self, std_map, indexes, fig=None):
@@ -300,7 +327,7 @@ class ComputeROIs(object):
 				plt.plot([contour[k][0], contour[k+1][0]],
 						 [contour[k][1], contour[k+1][1]],
 						c='white')
-			#print (indexes[p])
+			# 
 			z = np.vstack(indexes[p]).T
 			plt.text(np.median(z[:,1]), np.median(z[:,0]), str(p),c='red')
 

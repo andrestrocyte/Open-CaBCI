@@ -130,8 +130,8 @@ class WaterReward():
         if self.water_reward==0:
             return
 
-        print('   releasing water for ', self.water_spout_ttl_duration,
-              "microsec, at ", self.water_spout_ttl_voltage, " mV")
+        #print('   releasing water for ', self.water_spout_ttl_duration,
+        #      "microsec, at ", self.water_spout_ttl_voltage, " mV")
 
         #
         self.water_reward[0] = 0

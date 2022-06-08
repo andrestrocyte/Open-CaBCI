@@ -78,7 +78,7 @@ class PlayTone():
         self.initialize_ensemble_state()
 
         #
-        self.initialize_tone_playback()
+        self.initialize_audio_writer()
 
         #
         self.initialize_termination_flag()
@@ -86,8 +86,8 @@ class PlayTone():
         #
         self.initialize_water_reward_variable()
 
-        #
-        self.initialize_water_spout()
+        # ONLY initialize when reward is present
+        # self.initialize_water_spout()
 
         #
         while True:
@@ -102,6 +102,20 @@ class PlayTone():
             if self.termination_flag:
                 print ("...EXITING TONE CLASS...")
                 break
+
+    #
+    def close_audio_writer(self):
+
+        #
+        self.audio_Task.stop()
+        self.audio_Task.close()
+
+    #
+    def close_water_writer(self):
+
+        #
+        self.water_Task.stop()
+        self.water_Task.close()
 
     #
     def initialize_octave_frequencies(self):
@@ -169,11 +183,11 @@ class PlayTone():
 
         # compute the tone state in Hz
         self.tone_state[0] = ensemble_to_tone_transfer_function(self.ensemble_state,
-                                                                 self.low_freq,
-                                                                 self.high_freq,
-                                                                 self.low_threshold,
-                                                                 self.high_threshold
-                                                                 )
+                                                                self.low_freq,
+                                                                self.high_freq,
+                                                                self.low_threshold,
+                                                                self.high_threshold
+                                                                )
         #print ("tone: ", self.tone_state)
 
     #
@@ -201,9 +215,10 @@ class PlayTone():
         self.audio_Writer.write_many_sample(tone_data.squeeze())
 
     #
-    def initialize_tone_playback(self):
+    def initialize_audio_writer(self):
 
-        self.compute_ensemble_to_tone_state()
+        # is this required here???
+        # self.compute_ensemble_to_tone_state()
 
         #
         if self.simulation_flag:
@@ -217,9 +232,6 @@ class PlayTone():
         self.audio_Task.timing.cfg_samp_clk_timing(rate=200000,
                                                   # samps_per_chan=100,  # in continuos mode this is the buffer
                                                   sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
-
-        #
-        # sample_mode=nidaqmx.constants.AcquisitionType.FINITE)
 
         #
         self.audio_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(self.audio_Task.out_stream,
@@ -282,7 +294,7 @@ class PlayTone():
                                        buffer=self.existing_shm_water_reward.buf)
 
     #
-    def initialize_water_spout(self):
+    def initialize_water_writer(self):
 
         #
         if self.simulation_flag:
@@ -311,19 +323,25 @@ class PlayTone():
         print('   releasing water for ', self.water_spout_ttl_duration,
               "microsec, at ", self.water_spout_ttl_voltage, " mV")
 
-        #
+        # what is the point of this?
         self.water_reward[0] = 0
-
-        print (">>>>>TODO: TURN OFF TONE PLAYER WHILE PLAYING WATER, TURN IT BACK ON AFTER<<<<<<<")
 
         if self.simulation_flag:
             return
+
+        # close the audio writer
+        print ("closeing audio writer")
+        self.close_audio_writer()
+
+        # initialize the output function for water dispesning
+        print ("initilizeding water writer")
+        self.initialize_water_writer()
 
         # put water state to 5volts
         # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
         # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
         for p in range(self.water_spout_ttl_duration):
-            # print ("water rewwrd loop: ", p)
+            print ("water reward loop: ", p)
             self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
 
         #
@@ -331,3 +349,13 @@ class PlayTone():
 
         # return water ttl state to 0volts
         self.water_Writer.write_one_sample(0)
+
+        print (">>>>>TODO: TURN OFF TONE PLAYER WHILE PLAYING WATER, TURN IT BACK ON AFTER<<<<<<<")
+
+        # close water writer
+        self.close_water_writer()
+
+        #
+        self.initialize_audio_writer()
+
+

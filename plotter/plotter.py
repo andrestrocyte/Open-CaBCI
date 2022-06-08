@@ -24,23 +24,18 @@ class PlotROIs():
 
     #
     def __init__(self,
-                 fname_rois,
+                 fname_rois_pixels_and_thresholds,
                  shmem_rois_traces,
                  shmem_n_ttl,
                  rois_traces_shape,
                  shmem_reward_times,
                  shmem_tone_state,
                  shmem_live_frame,
-                 shmem_termination_flag,):
-
-        # this is not really requried for visualizations (at this time anyways)
-        # self.simulation_flag = simulation_flag
-
-		#
-        self.setup_complete = False
+                 shmem_termination_flag,
+                 ):
 
         #
-        self.fname_rois = fname_rois
+        self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
 
         #
         self.sampleRate_2P = 30
@@ -48,6 +43,22 @@ class PlotROIs():
 
         #
         self.plotting_window_width = 30
+
+        # No. of frames to use for the live image averaging
+        self.live_image_average_n_frames = 30
+
+        # How many frames must go by before updating
+        self.live_image_update_n_frames = 1
+
+        #
+        self.live_image_vmin = 700
+        self.live_image_vmax = 1200
+
+        #
+        self.show_contours_on_image = False
+
+        #
+        self.live_image_counter = 0
 
         #
         self.verbose2 = False
@@ -74,6 +85,9 @@ class PlotROIs():
         self.shmem_tone_state = shmem_tone_state
 
         #
+        self.initialize_ROIs_contours()
+
+        #
         self.initialize_live_frame_shared_memory()
 
         #
@@ -85,7 +99,7 @@ class PlotROIs():
         #
         self.initalize_n_ttl()
 
-        # #
+        #
         self.make_roi_plots()
 
         #
@@ -94,13 +108,12 @@ class PlotROIs():
         #
         self.initialize_termination_flag()
 
+        #
+        self.initialize_live_image_array()
 
         #
         self.ctr = 0
         
-        #
-        self.setup_complete = True
-
         # enter plot update condition
         # optional use sleep to slow down plotting
         while True:
@@ -109,10 +122,30 @@ class PlotROIs():
             if self.termination_flag:
                 print ("... EXITING PLOTTING CLASS ...")
                 break
-            # optional decrease plotting speed, may help in some cases
-            # time.sleep()
 
-        quit()
+            # optional decrease plotting speed, may help in some cases
+            # time.sleep(self.plotter_sleep_time_between_updates)
+
+    #
+    def initialize_ROIs_contours(self):
+
+        #####################################################
+        # load individual cell ROIs as saved by the calibration step
+        # TODO: generalize some of this code to allow different #s of cells; - not a priority
+        data = np.load(self.fname_rois_pixels_and_thresholds,
+                       allow_pickle=True)
+        self.rois_contours = []
+        self.rois_contours.append(data['cell0_contour'])
+        self.rois_contours.append(data['cell1_contour'])
+        self.rois_contours.append(data['cell2_contour'])
+        self.rois_contours.append(data['cell3_contour'])
+
+    #
+    def initialize_live_image_array(self):
+
+        # save the images as they come in so we can just plot averages not individual frames
+        self.live_image_array = np.zeros((30,512,512), dtype=np.uint16)
+
     #
     def initialize_termination_flag(self):
 
@@ -172,7 +205,7 @@ class PlotROIs():
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros((1,512,512), dtype=np.int64)
+        aa = np.zeros((1,512,512), dtype=np.uint16)
 
         # get the rois_traces from the shared memory name
         self.existing_shm_live_frame = shared_memory.SharedMemory(name=self.shmem_live_frame)
@@ -228,7 +261,7 @@ class PlotROIs():
                                        dtype=np.float32,
                                        buffer=self.existing_shm_rois_traces.buf)
         #
-        data = np.load(self.fname_rois)
+        data = np.load(self.fname_rois_pixels_and_thresholds)
         self.cell_f0s = data['cell_f0s']
 
 
@@ -248,9 +281,20 @@ class PlotROIs():
         #########################################################
         # TODO: refactor this plot to another function
         self.ax_image = self.fig.add_subplot(self.grid[:, 3:])
-        print ("self.live frame: ", self.live_frame.shape)
-        #self.ax_iamge.imshow(self.live_frame[0])
 
+        #
+        self.image_obj = self.ax_image.imshow(self.live_frame[0],
+                                              vmin=self.live_image_vmin,
+                                              vmax=self.live_image_vmax)
+        self.ax_image.set_xlim(0,512)
+        self.ax_image.set_ylim(512,0)
+
+        # add contours on top of cells
+        for c in range(len(self.rois_contours)):
+            for k in range(len(self.rois_contours[c])-1):
+                self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k+1][0]],
+                                   [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
+        					        c='red')
 
 
         #########################################################
@@ -307,7 +351,9 @@ class PlotROIs():
         #self.fig.clf()
 
         # cache the background
-        self.axbackground = self.fig.canvas.copy_from_bbox(self.ax_traces.bbox)
+        self.axbackground = []
+        self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_traces.bbox))
+        self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
 
         #
         plt.show(block=False)
@@ -332,9 +378,59 @@ class PlotROIs():
         if self.verbose2:
             start = time.time()
 
-        # restore background
-        self.fig.canvas.restore_region(self.axbackground)
+        # restore background for all plots
+        for k in range(len(self.axbackground)):
+            self.fig.canvas.restore_region(self.axbackground[k])
 
+
+        ####################################
+        ########### UPDATE IMAGE ###########
+        ####################################
+        # TODO: note this takes 10ms of time to update,
+        #     may wish to plot it only 1 - 5 x per second, no  real information here aside from nasty drift
+        #start = time.time()
+
+        # shift all the data one image over
+        self.live_image_array[:-1] = self.live_image_array[1:]
+
+        # add current image frame
+        self.live_image_array[-1] = self.live_frame[0]
+
+        if self.live_image_counter> self.live_image_update_n_frames:
+
+            # reset counter
+            self.live_image_counter = 0
+
+            # compute mean over last n_frames
+            temp = np.mean(self.live_image_array[-self.live_image_average_n_frames:],axis=0)
+            idx = np.where(temp<self.live_image_vmin)
+            temp[idx] = self.live_image_vmin
+            idx = np.where(temp>self.live_image_vmax)
+            temp[idx] = self.live_image_vmax
+            self.image_obj.set_data(temp)
+
+            # replot contours
+            # TODO: THIS IS the incorrect way to update the plots!!
+            #    must just renew the previous contour plots saved in a list somewhere
+            # NOT NECESSARY !!!! seems the contours remain on from previous frames
+           # if self.show_contours_on_image:
+           #     for c in range(len(self.rois_contours)):
+           #         for k in range(len(self.rois_contours[c])-1):
+           #             self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k + 1][0]],
+           #                                [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
+           #                                c='red')
+        else:
+            self.live_image_counter+=1
+
+
+        #z = np.vstack(indexes[p]).T
+        #plt.text(np.median(z[:,1]), np.median(z[:,0]), str(p),c='red')
+
+    #
+        #print ("time to compute image update: ", time.time()-start)
+        #########################################
+        #########################################
+        #########################################
         # make t=0 tick to the current timer in seconds
         x_ticks = np.arange(-30,0.1,5)
         x_ticks_new = np.arange(-30,0.1,5)
@@ -376,7 +472,8 @@ class PlotROIs():
                           " "+str(idx2.shape[0]) + "\n Freq: " +str(int(self.tone_state[0]))+"hz")
 
                 #
-        self.fig.canvas.restore_region(self.axbackground)
+        for k in range(len(self.axbackground)):
+            self.fig.canvas.restore_region(self.axbackground[k])
 
         # fill in the axes rectangle
         self.fig.canvas.blit(self.ax_traces.bbox)
@@ -388,6 +485,7 @@ class PlotROIs():
 
         #
         self.fig.canvas.blit(self.ax_traces.bbox)
+        #self.fig.canvas.blit(self.ax_image.bbox)
 
         #
         self.fig.canvas.flush_events()

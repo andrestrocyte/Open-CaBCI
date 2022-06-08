@@ -31,31 +31,30 @@ if __name__ ==  '__main__':
 	simulation_flag_tone = True        # Runs the tone class in simulation mode
 	simulation_flag_water = True       # Runs the water class in simulation mode
 	
-	sleep_time_sec = 0.01
+	sleep_time_sec = 0.001
 
 	##########################################################################
 	#################### LOAD FILE/DIRECTORY LOCATIONS ####################### 
 	##########################################################################
-	
-	Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
-	
+	# TODO: build a better gui that also takes as input the # of frames
+	Tk().withdraw()
+
+	#
 	fname_root_path = askdirectory()
 	
-	#fname_fluorescence = askopenfilename() # show an "Open" dialog box and return the path to the selected file
+	#
 	fname_fluorescence = os.path.join(fname_root_path,
 									  'data_000',                   # this is the root directory of the .raw file saved by bscope
 									  'Image_001_001.raw')
+	#
 	print(" Fname fluorsecnce: ", fname_fluorescence)
-	
-	# 
-	#fname_root_path = os.path.split(fname_fluorescence)[0]
 
-	# required for simulation mode
+	# required for bmi simulation mode as there are no ttl -pulses being read
 	fname_ttl = os.path.join(fname_root_path,
 							 "ttl_pulses.npy")
 							 
 	#
-	fname_roi_pixels_and_thresholds = os.path.join(fname_root_path,
+	fname_rois_pixels_and_thresholds = os.path.join(fname_root_path,
 								'rois_pixels_and_thresholds.npz')
 
 	###############################################################
@@ -66,7 +65,7 @@ if __name__ ==  '__main__':
 			  fname_fluorescence,
 			  fname_ttl,
 			  sampleRate_2P,
-			  fname_roi_pixels_and_thresholds,
+			  fname_rois_pixels_and_thresholds,
 			  n_seconds_session,
 			  n_frames_session)
 
@@ -87,7 +86,7 @@ if __name__ ==  '__main__':
 	'''
 	#
 	if True:
-		tone_player_ = Process(target=PlayTone, args=(fname_roi_pixels_and_thresholds,
+		tone_player_ = Process(target=PlayTone, args=(fname_rois_pixels_and_thresholds,
 													  bmi.shmem_ensemble_state.name,
 													  bmi.shmem_tone_state.name,
 													  bmi.shmem_termination_flag.name,
@@ -102,16 +101,17 @@ if __name__ ==  '__main__':
 	'''  Here we pass only the ensemble state (i.e. E1-E2) to the 
 		tone player. The tone player alone then computes the transfer function
 		as this is not related to anything else in the BMI class
-		- not used currently as it is combined with the TONE player for sequential/serial activation
+		- NOT USED  used currently as it is combined with the TONE player for sequential/serial activation
+		  of NI Card as we only have one of those 
 	'''
 	
-	#
-	if False:
-		water_reward_ = Process(target=WaterReward, args=(bmi.shmem_water_reward.name,
-														  bmi.shmem_termination_flag.name,
-														  simulation_flag_water,
-														  ))
-		water_reward_.start()
+	# #
+	# if False:
+	# 	water_reward_ = Process(target=WaterReward, args=(bmi.shmem_water_reward.name,
+	# 													  bmi.shmem_termination_flag.name,
+	# 													  simulation_flag_water,
+	# 													  ))
+	# 	water_reward_.start()
 
 	###############################################################
 	############## INITIALIZE PLOTTER ############################# 
@@ -121,7 +121,7 @@ if __name__ ==  '__main__':
 	#print ("RUNNING plotter in multiplrocessing ...")
 	if True:
 		plotter_ = Process(target=PlotROIs, args=(
-												fname_roi_pixels_and_thresholds,
+												fname_rois_pixels_and_thresholds,
 												bmi.shmem_rois_traces.name,
 												bmi.shmem_n_ttl.name,
 												bmi.rois_traces_raw.shape,

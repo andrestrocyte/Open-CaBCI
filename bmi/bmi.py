@@ -415,7 +415,7 @@ class BMI():
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros((1,512,512), dtype=np.int64)-1
+        aa = np.zeros((1,512,512), dtype=np.uint16)
         self.shmem_live_frame = shared_memory.SharedMemory(create=True,
                                                              size=aa.nbytes)
 
@@ -429,7 +429,6 @@ class BMI():
 
         #
         #print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
-
 
     #
     def initialize_n_ttl(self):
@@ -466,6 +465,7 @@ class BMI():
 
     #
     def initialize_ROIs(self):
+
         '''
             Initialize the ROIs and ensemble arrays to be used below
 
@@ -478,10 +478,10 @@ class BMI():
         data = np.load(self.fname_rois_pixels_thresholds,
                        allow_pickle=True)
         self.rois_pixels = []
-        self.rois_pixels.append(data['cell0'])
-        self.rois_pixels.append(data['cell1'])
-        self.rois_pixels.append(data['cell2'])
-        self.rois_pixels.append(data['cell3'])
+        self.rois_pixels.append(data['cell0_footprint'])
+        self.rois_pixels.append(data['cell1_footprint'])
+        self.rois_pixels.append(data['cell2_footprint'])
+        self.rois_pixels.append(data['cell3_footprint'])
 
         # make a default size matrix that will hold [n_rois, n_frames]
         a = np.zeros((len(self.rois_pixels),self.n_frames),
