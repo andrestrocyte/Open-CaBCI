@@ -27,7 +27,8 @@ class PlayTone():
                         shmem_ensemble_state,
                         shmem_tone_state,
                         shmem_termination_flag,
-                        simulation_flag):
+                        shmem_water_reward,
+                        simulation_flag,):
 
         #
         self.shmem_termination_flag = shmem_termination_flag
@@ -48,12 +49,21 @@ class PlayTone():
         #
         self.shmem_tone_state = shmem_tone_state
 
+        #
+        self.shmem_water_reward = shmem_water_reward
+
         # TODO: unclear what these units are?
         self.amp = 0.05  # tone amplitude in ?
 
         # TODO: unclear what the correct duration of tone play and update
         # TODO: for now we update at 10hz
         self.duration = 0.1
+
+        # TODO: unclear what these units are?
+        self.water_spout_ttl_duration = 50000  # duration of water pulse in microseconds
+
+        #
+        self.water_spout_ttl_voltage = 5    # water spout voltage in millivolts (?)
 
         #
         self.initialize_tone_state()
@@ -74,16 +84,24 @@ class PlayTone():
         self.initialize_termination_flag()
 
         #
+        self.initialize_water_reward_variable()
+
+        #
+        self.initialize_water_spout()
+
+        #
         while True:
-            #start = time.time()
+
+            #
+            self.update_water_spout()
+
+            #
             self.update_tone()
-            #time.sleep(0.01)
+
+            #
             if self.termination_flag:
                 print ("...EXITING TONE CLASS...")
                 break
-
-        #
-        quit()
 
     #
     def initialize_octave_frequencies(self):
@@ -249,3 +267,67 @@ class PlayTone():
         #
         self.ensemble_state_last = self.ensemble_state[0].copy()
 
+    #
+    def initialize_water_reward_variable(self):
+
+        #
+        aa = np.zeros((1,), dtype=np.float32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_water_reward = shared_memory.SharedMemory(name=self.shmem_water_reward)
+
+        #
+        self.water_reward = np.ndarray(aa.shape,
+                                       dtype=aa.dtype,
+                                       buffer=self.existing_shm_water_reward.buf)
+
+    #
+    def initialize_water_spout(self):
+
+        #
+        if self.simulation_flag:
+            return
+
+        #  Initialize water task
+        self.water_Task = nidaqmx.Task()
+
+        #
+        self.water_Task.ao_channels.add_ao_voltage_chan('Dev3/ao1')
+        self.water_Task.timing.cfg_samp_clk_timing(rate=1000000,
+                                                   # samps_per_chan=100,  # in continuos mode this is the buffer
+                                                   sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+        # sample_mode=nidaqmx.constants.AcquisitionType.FINITE)
+
+        #
+        self.water_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(self.water_Task.out_stream,
+                                                                             auto_start=True)
+
+    #
+    def update_water_spout(self):
+
+        if self.water_reward[0] == 0:
+            return
+
+        print('   releasing water for ', self.water_spout_ttl_duration,
+              "microsec, at ", self.water_spout_ttl_voltage, " mV")
+
+        #
+        self.water_reward[0] = 0
+
+        print (">>>>>TODO: TURN OFF TONE PLAYER WHILE PLAYING WATER, TURN IT BACK ON AFTER<<<<<<<")
+
+        if self.simulation_flag:
+            return
+
+        # put water state to 5volts
+        # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
+        # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
+        for p in range(self.water_spout_ttl_duration):
+            # print ("water rewwrd loop: ", p)
+            self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
+
+        #
+        print(" turned water reward OFF")
+
+        # return water ttl state to 0volts
+        self.water_Writer.write_one_sample(0)

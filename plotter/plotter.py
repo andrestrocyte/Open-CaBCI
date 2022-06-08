@@ -8,6 +8,7 @@ import time
 import numpy as np
 from multiprocessing import shared_memory
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 plt.ion()
 
@@ -29,6 +30,7 @@ class PlotROIs():
                  rois_traces_shape,
                  shmem_reward_times,
                  shmem_tone_state,
+                 shmem_live_frame,
                  shmem_termination_flag,):
 
         # this is not really requried for visualizations (at this time anyways)
@@ -54,6 +56,9 @@ class PlotROIs():
         self.shmem_termination_flag = shmem_termination_flag
 
         #
+        self.shmem_live_frame = shmem_live_frame
+
+        #
         self.shmem_rois_traces = shmem_rois_traces
 
         #
@@ -67,6 +72,9 @@ class PlotROIs():
 
         #
         self.shmem_tone_state = shmem_tone_state
+
+        #
+        self.initialize_live_frame_shared_memory()
 
         #
         self.initialize_tone_state()
@@ -85,6 +93,7 @@ class PlotROIs():
 
         #
         self.initialize_termination_flag()
+
 
         #
         self.ctr = 0
@@ -156,6 +165,24 @@ class PlotROIs():
 
 
     #
+    def initialize_live_frame_shared_memory(self):
+
+        ''' shared variable that keeps current image in memeory for plotter to visualize
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((1,512,512), dtype=np.int64)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_live_frame = shared_memory.SharedMemory(name=self.shmem_live_frame)
+
+        #
+        self.live_frame = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shm_live_frame.buf)
+
+    #
     def initalize_n_ttl(self):
 
         #
@@ -214,13 +241,27 @@ class PlotROIs():
         #
         self.fig = plt.figure(figsize=(10,5))
 
-        self.ax = self.fig.add_subplot(111)
-        #self.ax.set_ylim(0, self.plot_y_scale*len(self.rois_traces)*1.1)
-        self.ax.set_ylim(0, self.plot_y_scale*4.5)
-        self.ax.set_xlim(-self.plotting_window_width,0)
-        self.ax.set_xlabel("Time (sec)")
-        #self.ax.set_title("T=0: "+str(round(self.n_ttl2[0]/self.sampleRate_2P,2)))
-        #self.ax.set_yticks([])
+        self.grid = GridSpec(5, 6)#, left=0.55, right=0.98, hspace=0.05)
+
+        #########################################################
+        #########################################################
+        #########################################################
+        # TODO: refactor this plot to another function
+        self.ax_image = self.fig.add_subplot(self.grid[:, 3:])
+        print ("self.live frame: ", self.live_frame.shape)
+        #self.ax_iamge.imshow(self.live_frame[0])
+
+
+
+        #########################################################
+        #########################################################
+        #########################################################
+        # TODO: refactor this plot to another function
+        self.ax_traces = self.fig.add_subplot(self.grid[:, :3])
+
+        self.ax_traces.set_ylim(0, self.plot_y_scale*4.5)
+        self.ax_traces.set_xlim(-self.plotting_window_width,0)
+        self.ax_traces.set_xlabel("Time (sec)")
 
         self.plot_times = np.arange(-self.plotting_window_width*self.sampleRate_2P,0,1)/self.sampleRate_2P
 
@@ -234,7 +275,7 @@ class PlotROIs():
             y_values = self.rois_traces[k,:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*k
 
             #
-            lineobject, = self.ax.plot(self.plot_times,
+            lineobject, = self.ax_traces.plot(self.plot_times,
                                        #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                        y_values,  # plot last X values depending on length of plttimes
                                        #'r-'
@@ -244,7 +285,7 @@ class PlotROIs():
 
             #
             # also draw the f0 baseline of each cell!!
-            f0object, = self.ax.plot([self.plot_times[0],self.plot_times[-1]],
+            f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
                                        # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                        [0+self.plot_y_scale*k,0+self.plot_y_scale*k],  # plot last X values depending on length of plttimes
                                        'g--'
@@ -252,11 +293,6 @@ class PlotROIs():
             self.f0_objects.append(f0object)
 
 
-
-        # self.ax.clear()
-
-        #
-        #self.ax.set_title("(if closed, can't reopen")
 
         #
         self.fig.canvas.flush_events()
@@ -271,7 +307,7 @@ class PlotROIs():
         #self.fig.clf()
 
         # cache the background
-        self.axbackground = self.fig.canvas.copy_from_bbox(self.ax.bbox)
+        self.axbackground = self.fig.canvas.copy_from_bbox(self.ax_traces.bbox)
 
         #
         plt.show(block=False)
@@ -303,7 +339,7 @@ class PlotROIs():
         x_ticks = np.arange(-30,0.1,5)
         x_ticks_new = np.arange(-30,0.1,5)
         x_ticks_new[-1] = round(self.n_ttl2[0]/self.sampleRate_2P,2)
-        self.ax.set_xticks(x_ticks, x_ticks_new)
+        self.ax_traces.set_xticks(x_ticks, x_ticks_new)
 
         #
         self.n_ttl_last = self.n_ttl_current.copy()
@@ -336,33 +372,22 @@ class PlotROIs():
         #
         idx1 = np.where(self.reward_times[0]>-1)[0]
         idx2 = np.where(self.reward_times[1]>-1)[0]
-        self.ax.set_title(" # rewards : "+str(idx1.shape[0])+
+        self.ax_traces.set_title(" # rewards : "+str(idx1.shape[0])+
                           " "+str(idx2.shape[0]) + "\n Freq: " +str(int(self.tone_state[0]))+"hz")
 
-        # Try to visualize rewarded state/time
-        # TODO: this is a bit tricky and cumbersome as fast plotting requires
-        #   declaraing these lines prior to starting (i.e. before there were any plots)
-        # # show last rewarded time
-        # if idx1.shape[0]>0:
-        #
-        #     # grab last rewarded time for high state reward
-        #     high_state_time = self.reward_times[0,idx1[-1]]
-        #     if high_state_time>x_values[0] and high_state_time<=x_values[-1]
-        #         plt.plot([])
-
-        #
+                #
         self.fig.canvas.restore_region(self.axbackground)
 
         # fill in the axes rectangle
-        self.fig.canvas.blit(self.ax.bbox)
+        self.fig.canvas.blit(self.ax_traces.bbox)
 
         # add the drawn lines to the plot
         for k in range(len(self.rois_traces)):
-            self.ax.draw_artist(self.time_course_objects[k])
-            self.ax.draw_artist(self.f0_objects[k])
+            self.ax_traces.draw_artist(self.time_course_objects[k])
+            self.ax_traces.draw_artist(self.f0_objects[k])
 
         #
-        self.fig.canvas.blit(self.ax.bbox)
+        self.fig.canvas.blit(self.ax_traces.bbox)
 
         #
         self.fig.canvas.flush_events()

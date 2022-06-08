@@ -66,8 +66,6 @@ class BMI():
                  simulation_mode,
                  fname_root_path,
                  fname_fluorescence,
-                 #fname_rois,
-                 #fname_freq,
                  fname_ttl,
                  sampleRate_2P,
                  fname_roi_pixels_and_thresholds,
@@ -159,6 +157,9 @@ class BMI():
 
         #
         self.initialize_termination_flag()
+
+        #
+        self.initialize_live_frame_shared_memory()
 
     #
     def initialize_termination_flag(self):
@@ -405,6 +406,30 @@ class BMI():
 
         #
         print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
+
+    #
+    def initialize_live_frame_shared_memory(self):
+
+        ''' shared variable that keeps current image in memeory for plotter to visualize
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((1,512,512), dtype=np.int64)-1
+        self.shmem_live_frame = shared_memory.SharedMemory(create=True,
+                                                             size=aa.nbytes)
+
+        #
+        self.live_frame = np.ndarray(aa.shape,
+                                dtype=aa.dtype,
+                                buffer=self.shmem_live_frame.buf)
+
+        #
+        self.live_frame[:] = aa[:]
+
+        #
+        #print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
+
 
     #
     def initialize_n_ttl(self):
@@ -921,6 +946,9 @@ class BMI():
                 # self.n_ttl[0] = self.n_ttl[0]+z
 				
                 break
+
+        # TODO: update latest image for imaging purposese
+        self.live_frame[0] = self.newfp[self.n_ttl[0]+z].copy()
 
         # TODO: we should reset the n_ttl here
         # - if we find that we needed to search x steps forward,
