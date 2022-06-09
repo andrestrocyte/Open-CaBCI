@@ -306,13 +306,14 @@ class ComputeROIs(object):
 		
 
 	#
-	def show_contour_map(self, std_map, indexes, fig=None):
+	def show_contour_map(self, std_map, indexes, cell_ids, fig=False):
 		
-		if fig is None:
+		if fig is True:
 			plt.figure()
 			
 		plt.imshow(std_map)
-		for p in range(len(indexes)):
+#		for p in range(len(indexes)):
+		for p in cell_ids:
 			temp = np.zeros(std_map.shape)
 			temp[indexes[p]]=1
 			temp = temp.astype('uint8')
@@ -333,11 +334,16 @@ class ComputeROIs(object):
 
 		plt.show()
 
-	#
-	def compute_traces2(self, std_map):
+	#	def show_contour_map(self, std_map, indexes, cell_ids, fig=None):
+
+	def compute_traces2(self, std_map, cell_ids=None, fig=None):
 		''' Same as below but visualize every single frame
 		'''
 		
+		if cell_ids is None:
+			cell_ids = np.arange(len(self.indexes))
+		print ("plotting cells: ", cell_ids)
+           
 		data = np.memmap(self.fname, dtype='uint16', mode='r')
 		data = data.reshape(-1,512,512)
 		print ("memmap : ", data.shape)
@@ -348,18 +354,18 @@ class ComputeROIs(object):
 		ctr=0
 		ax=plt.subplot(121)
 		roi_traces = []
-		for k in range(len(self.rois)):
+		for k in range(len(cell_ids)):
 			roi_traces.append([])
 		
 		# loop over each frame
-		#skip = 1
 		for p in trange(0, data.shape[0], self.trace_subsample):
 
 			# grab frame
 			frame = data[p]
 
 			# loop over ROIS
-			for k in range(0,len(self.indexes)):
+			ctr = 0
+			for k in cell_ids:
 				#loc = np.int32(np.array(self.rois[k])/1.5)  # why are we dividing by 1/5?  Is this due to smoothign!?
 				#loc = np.int32(np.array(self.rois[k]))  # why are we dividing by 1/5?  Is this due to smoothign!?
 
@@ -374,8 +380,10 @@ class ComputeROIs(object):
 				temp = np.nansum(temp)
 
 				# save
-				roi_traces[k].append(temp)
-				
+				roi_traces[ctr].append(temp)
+				ctr+=1
+		for k in range(len(roi_traces)):
+			print ("roi traces: ", len(roi_traces[k]))
 		#
 		roi_traces = np.array(roi_traces)
 		self.roi_traces = roi_traces
@@ -398,17 +406,20 @@ class ComputeROIs(object):
 			ctr+=1
 
 		#
-		labels = np.arange(len(self.rois))
+		labels = str(cell_ids)
 		labels_old = np.arange(0,ctr*self.scale,self.scale)
+		print (labels)
+		print (labels_old)
 		
 		#
-		plt.yticks(labels_old, labels)
+		#plt.yticks(labels_old, labels)
 		plt.xlabel("Time (sec)")
         
         # 
 		ax=plt.subplot(122)
 		new_plot = False
-		self.show_contour_map(std_map,self.indexes, new_plot)
+		print (cell_ids)
+		self.show_contour_map(std_map,self.indexes, cell_ids, new_plot)
 
 		plt.show()
 		
@@ -441,70 +452,70 @@ class ComputeROIs(object):
 		
 		
 		
-	def compute_traces(self):
+# 	def compute_traces(self):
 		
-		data = np.memmap(self.fname, dtype='uint16', mode='r')
-		data = data.reshape(-1,512,512)
-		print ("memmap : ", data.shape)
+# 		data = np.memmap(self.fname, dtype='uint16', mode='r')
+# 		data = data.reshape(-1,512,512)
+# 		print ("memmap : ", data.shape)
 			
-		#  
-		plt.figure()
-		traces = []
-		ctr=0
-		ax=plt.subplot(121)
-		roi_traces = []
+# 		#  
+# 		plt.figure()
+# 		traces = []
+# 		ctr=0
+# 		ax=plt.subplot(121)
+# 		roi_traces = []
 		
 		
-		for k in trange(0,len(self.rois)):
-			loc = np.int32(np.array(self.rois[k])/1.5)
+# 		for k in trange(0,len(self.rois)):
+# 			loc = np.int32(np.array(self.rois[k])/1.5)
 			
-			# check every .3 secs
-			t = np.arange(0, data.shape[0], 10)/30.
-			traces = []
-			# step in time
-			for p in range(0, data.shape[0], 10):
+# 			# check every .3 secs
+# 			t = np.arange(0, data.shape[0], 10)/30.
+# 			traces = []
+# 			# step in time
+# 			for p in range(0, data.shape[0], 10):
 				
-				# grab frame
-				temp = data[p]
+# 				# grab frame
+# 				temp = data[p]
 				
-				# grab roi
-				temp = temp[self.indexes[k]]
+# 				# grab roi
+# 				temp = temp[self.indexes[k]]
 				
-				# normalize by surface area
-				if True:
-					temp = temp/self.indexes[k][0].shape[0]
+# 				# normalize by surface area
+# 				if True:
+# 					temp = temp/self.indexes[k][0].shape[0]
 				
-				# add data inside roi
-				temp = np.nansum(temp)
+# 				# add data inside roi
+# 				temp = np.nansum(temp)
 				
-				# save
-				traces.append(temp)
+# 				# save
+# 				traces.append(temp)
 
-			#
-			traces = np.array(traces)
-			traces = traces- np.median(traces)
+# 			#
+# 			traces = np.array(traces)
+# 			traces = traces- np.median(traces)
 
-			#
-			roi_traces.append(traces)
+# 			#
+# 			roi_traces.append(traces)
 			
-			plt.plot(t, traces+ctr*self.scale)
-			ctr+=1
+# 			plt.plot(t, traces+ctr*self.scale)
+# 			ctr+=1
 			
-		labels = np.arange(len(self.rois))
-		labels_old = np.arange(0,ctr*self.scale,self.scale)
-		plt.yticks(labels_old, labels)
-		plt.xlabel("Time (sec)")
+# 		labels = np.arange(len(self.rois))
+# 		labels_old = np.arange(0,ctr*self.scale,self.scale)
+# 		plt.yticks(labels_old, labels)
+# 		plt.xlabel("Time (sec)")
         
-		#
-		ax=plt.subplot(122)
-		new_plot = False
-		self.show_contour_map(self.std_map,self.indexes, new_plot)
+# 		#
+# 		ax=plt.subplot(122)
+# 		new_plot = False
+# 		self.show_contour_map(self.std_map,self.indexes, new_plot, np.arange(len(self.indexes)))
 
-		plt.show()
+# 		plt.show()
 		
-		self.roi_traces = roi_traces
+# 		self.roi_traces = roi_traces
 		
-		return roi_traces
+# 		return roi_traces
 
 	#
 	def find_reward_thresholds_high(self):
