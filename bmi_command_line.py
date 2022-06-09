@@ -20,9 +20,10 @@ if __name__ ==  '__main__':
 	################### DEFAULT PARAMTERS FOR BMI ######################### 			
 	####################################################################### 			
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
-	n_seconds_session = int(20000/sampleRate_2P)                          # number of seconds to run the BMI
-	n_frames_session = 20000
-	simulation_flag_bmi = True         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
+	n_frames_session = 10000
+	
+	#
+	simulation_flag_bmi = False         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
 										#  - set to true unless we have a real mouse in the BScope to get
 										#    real time data from; otherwise data is read from disk at some location
 										# TODO: in non simulation mode - have slightly different panels for 
@@ -31,6 +32,7 @@ if __name__ ==  '__main__':
 	simulation_flag_tone = False        # Runs the tone class in simulation mode
 	simulation_flag_water = False       # Runs the water class in simulation mode
 	
+	# parameter used for simulation mode to add a delay instead of waiting for ttl pulse
 	sleep_time_sec = 0.01
 
 	##########################################################################
@@ -46,8 +48,6 @@ if __name__ ==  '__main__':
 	fname_fluorescence = os.path.join(fname_root_path,
 									  'data',                   # this is the root directory of the .raw file saved by bscope
 									  'Image_001_001.raw')
-	#
-	print(" Fname fluorsecnce: ", fname_fluorescence)
 
 	# required for bmi simulation mode as there are no ttl -pulses being read
 	fname_ttl = os.path.join(fname_root_path,
@@ -60,13 +60,17 @@ if __name__ ==  '__main__':
 	###############################################################
 	#################### INITIALIZE BMI ########################### 
 	###############################################################
+	# compute the maximum number of seconds the session will run before existing in case there are no more TTL Pulses
+	
+	max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 120  # gives 2 extra minutes at the end in case insufficient frames are detected
+	
 	bmi = BMI(simulation_flag_bmi,
 			  fname_root_path,
 			  fname_fluorescence,
 			  fname_ttl,
 			  sampleRate_2P,
 			  fname_rois_pixels_and_thresholds,
-			  n_seconds_session,
+			  max_n_seconds_session,
 			  n_frames_session)
 
 	# for simulation mode we sometimes want to slow down the processing;

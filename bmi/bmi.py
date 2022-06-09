@@ -1,14 +1,14 @@
 '''
   
-  C. Mitelut; github: "catubc"; mitelutco@gmail.com
+  Catalin Mitelut; github: "catubc"; mitelutco@gmail.com
 
 '''
 
 import matplotlib.pyplot as plt
 import nidaqmx
-from nidaqmx.constants import (AcquisitionType)  # https://nidaqmx-python.readthedocs.io/en/latest/constants.html
+from nidaqmx.constants import (AcquisitionType)  
 from nidaqmx.constants import TerminalConfiguration
-import tqdm # tdqm
+import tqdm 
 import os
 import time
 import numpy as np
@@ -69,7 +69,7 @@ class BMI():
                  fname_ttl,
                  sampleRate_2P,
                  fname_roi_pixels_and_thresholds,
-                 n_seconds_session,
+                 max_n_seconds_session,
                  n_frames_session):
 
         #
@@ -108,10 +108,10 @@ class BMI():
         self.image_length = 512
 
 		#
-        self.n_seconds_session = n_seconds_session
+        self.max_n_seconds_session = max_n_seconds_session
 
         # number of frames to run BMI for
-        self.n_frames = n_frames_session # OLD WAY OF COMPUTING n_seconds_session*sampleRate_2P
+        self.n_frames = n_frames_session # OLD WAY OF COMPUTING max_n_seconds_session*sampleRate_2P
 
         # TODO: why do we have 2 of these variables?
         self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
@@ -136,6 +136,9 @@ class BMI():
         # initizlie the realtime value of the ensembel states (i.e. no history)
         # TODO: may wish to hold history somewhere also
         self.ensemble_activity = np.zeros((2, self.n_frames_to_be_acquired))
+        
+        # this is the differences of the 2 ensemble
+        self.ensemble_diff_array = np.zeros(self.n_frames_to_be_acquired)
 
         # initailize the realtime roi states; these hold the smooth/processed version of the realtime roi
         self.rois_activity_realtime = np.zeros(len(self.rois_pixels),dtype=np.float32)
@@ -291,7 +294,7 @@ class BMI():
         self.max_reward_window = 30
 
         # similar to post-reward lockout
-        self.missed_reward_lockout = 10
+        self.missed_reward_lockout = 0
 
     #
     def initialize_ensemble_state(self):
@@ -596,10 +599,10 @@ class BMI():
             self.prev_min = self.min_
             self.prev_max = self.max_
 
-            # exit OPTION 2 check if recording time has finished
-            if (time.time() - self.start_time_acquisition)>self.n_seconds_session:
+            # exit OPTION 2 check if estimated recording time + 2mins have been completed
+            if (time.time() - self.start_time_acquisition)>self.max_n_seconds_session:
                 print ("Duration of BMI loop: ", time.time() - self.start_time_acquisition, 'sec',
-                       "  , total requested: ", self.n_seconds_session)
+                       "  , total requested: ", self.max_n_seconds_session)
                 break
 
         # save all data acquried during recording
@@ -1034,6 +1037,7 @@ class BMI():
                                      self.ensemble_activity[1, self.n_ttl[0]])
 
         #
+        self.ensemble_diff_array[self.n_ttl[0]] = self.ensemble_state[0]
         #print ("time: ", self.n_ttl[0]/self.sampleRate_2P, " updated ensembel state: ", self.ensemble_state, "**********************")
 
     #
@@ -1075,6 +1079,25 @@ class BMI():
                  ttl_times = self.ttl_times,
                  rois_pixels = np.hstack(self.rois_pixels),
                  rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
-                 rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object')
+                 rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
+                 reward_times = self.reward_times,
+                 ensemble_activity = self.ensemble_activity,
+                 ensemble_diff_array = self.ensemble_diff_array,
+				 received_reward_lockout = self.received_reward_lockout,
+ 				 max_reward_window = self.max_reward_window,
+				 missed_reward_lockout = self.missed_reward_lockout,
+				 
+				 sampleRate_NI = self.sampleRate_NI, 
+				 ttl_pts = self.ttl_pts,
+				 sampleRate_2P = self.sampleRate_2P,
+				 image_width = self.image_width,
+				 image_length = self.image_length ,
+ 				 n_seconds_session = self.n_seconds_session,
+ 				 
+ 				 n_frames = self.n_frames,
+				 n_frames_to_be_acquired = self.n_frames_to_be_acquired,				#
+				 rois_smooth_window = self.rois_smooth_window,
+				 n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
+				 n_frames_search_forward = self.n_frames_search_forward,
                  )
 

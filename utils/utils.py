@@ -405,8 +405,6 @@ class ComputeROIs(object):
 				# save
 				roi_traces[ctr].append(temp)
 				ctr+=1
-		for k in range(len(roi_traces)):
-			print ("roi traces: ", len(roi_traces[k]))
 		#
 		roi_traces = np.array(roi_traces)
 		self.roi_traces = roi_traces
@@ -429,13 +427,13 @@ class ComputeROIs(object):
 			ctr+=1
 
 		#
-		labels = str(cell_ids)
+		labels = cell_ids
 		labels_old = np.arange(0,ctr*self.scale,self.scale)
-		print (labels)
-		print (labels_old)
+		#print (labels)
+		#print (labels_old)
 		
 		#
-		#plt.yticks(labels_old, labels)
+		plt.yticks(labels_old, labels)
 		plt.xlabel("Time (sec)")
         
         # 
