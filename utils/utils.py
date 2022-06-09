@@ -81,10 +81,6 @@ class ComputeROIs(object):
 		#
 		self.fname = fname
 
-		# some of these paramters need to be exposed outside also
-		# self.vmin = 500
-		# self.vmax = 1500
-		
 		# 
 		self.binarize_thresh =.05
 		self.sigma = .5
@@ -112,8 +108,6 @@ class ComputeROIs(object):
 		# 
 		plt.figure()
 		plt.imshow(img,
-				   #vmin=vmin,
-				   #vmax=vmax
 				  )
 		plt.show()
 		
@@ -201,9 +195,8 @@ class ComputeROIs(object):
 		print ("staring computing std...")
 		print ("done computing std...")
 		#
-		#temp = (temp-self.vmin)/(self.vmax-vmin)
 		idx = np.where(temp<self.vmin)
-		temp[idx]=self.vmin
+		temp[idx]=0
 		idx = np.where(temp>self.vmax)
 		temp[idx]=self.vmax
 
@@ -236,6 +229,13 @@ class ComputeROIs(object):
 		#
 		image = data.copy()
 
+		for k in range(self.n_smooth_steps):
+			image = scipy.ndimage.gaussian_filter(image, 
+												  self.sigma, 
+												  self.order)
+
+		image = image.astype('int32')
+        
 		#
 		image = self.binarize_data(image, self.vmin)
 
@@ -245,7 +245,7 @@ class ComputeROIs(object):
 		# run watershed segmentation
 		distance = ndi.distance_transform_edt(image)
 		coords = peak_local_max(distance, 
-								footprint=np.ones((17, 17)), 
+								footprint=np.ones((1, 1)), 
 								labels=image)
 
 		# 
@@ -259,8 +259,8 @@ class ComputeROIs(object):
 		labels = labels.astype('float32')
 
 		# remove very small and very large ROIs
-		min_size = 15
-		max_size = 250 #???
+		min_size = self.min_size_roi
+		max_size = self.max_size_roi
 		roi_centres = []
 		indexes = []
 		for k in np.unique(labels):

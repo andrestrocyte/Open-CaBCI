@@ -83,6 +83,9 @@ class BMI():
         self.fname_root_path = fname_root_path
         self.fname_fluorescence = fname_fluorescence
         self.fname_ttl = fname_ttl
+        
+        #
+        self.fname_save_data = os.path.split(fname_fluorescence)[0]+"bmi_results.npz"
 
         #
         self.fname_rois_pixels_thresholds = fname_roi_pixels_and_thresholds
@@ -1034,8 +1037,7 @@ class BMI():
         print("...Saving BMI metadata...")
 
         #
-        np.savez(os.path.join(self.fname_root_path,
-                             "bmi_results.npz"),
+        np.savez(self.fname_save_data,
                  ttl_voltages = self.ttl_voltages,
                  ttl_n_computed = self.ttl_n_computed,
                  ttl_n_detected = self.ttl_n_detected,

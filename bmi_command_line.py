@@ -22,7 +22,7 @@ if __name__ ==  '__main__':
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
 	n_seconds_session = int(20000/sampleRate_2P)                          # number of seconds to run the BMI
 	n_frames_session = 20000
-	simulation_flag_bmi = False         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
+	simulation_flag_bmi = True         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
 										#  - set to true unless we have a real mouse in the BScope to get
 										#    real time data from; otherwise data is read from disk at some location
 										# TODO: in non simulation mode - have slightly different panels for 
