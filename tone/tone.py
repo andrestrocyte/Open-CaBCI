@@ -122,8 +122,8 @@ class PlayTone():
 
         #
         self.octave_freqs = get_octave_frequencies(self.low_freq,
-                                         self.high_freq,
-                                         self.octave_step)
+												   self.high_freq,
+												   self.octave_step)
 
     #
     def initialize_termination_flag(self):
@@ -260,13 +260,13 @@ class PlayTone():
     #
     def initialize_ensemble_state(self):
         #
-        print("  ensemble state memory name : ", self.shmem_ensemble_state)
+        #print("  ensemble state memory name : ", self.shmem_ensemble_state)
 
         aa = np.zeros((1,), dtype=np.float32)
 
         # get the rois_traces from the shared memory name
         self.existing_shm_ensemble_state = shared_memory.SharedMemory(name=self.shmem_ensemble_state)
-        print("existing shm: ", self.existing_shm_ensemble_state)
+        #print("existing shm: ", self.existing_shm_ensemble_state)
 
         #
         self.ensemble_state = np.ndarray(aa.shape,
@@ -274,10 +274,10 @@ class PlayTone():
                                  buffer=self.existing_shm_ensemble_state.buf)
 
         #
-        print("  TONE CLASS loaded ensemble_state: ", self.ensemble_state)
+        #print("  TONE CLASS loaded ensemble_state: ", self.ensemble_state)
 
         #
-        self.ensemble_state_last = self.ensemble_state[0].copy()
+        #self.ensemble_state_last = self.ensemble_state[0].copy()
 
     #
     def initialize_water_reward_variable(self):

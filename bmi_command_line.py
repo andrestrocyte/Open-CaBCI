@@ -31,7 +31,7 @@ if __name__ ==  '__main__':
 	simulation_flag_tone = False        # Runs the tone class in simulation mode
 	simulation_flag_water = False       # Runs the water class in simulation mode
 	
-	sleep_time_sec = 0.001
+	sleep_time_sec = 0.01
 
 	##########################################################################
 	#################### LOAD FILE/DIRECTORY LOCATIONS ####################### 
@@ -128,6 +128,8 @@ if __name__ ==  '__main__':
 												bmi.shmem_reward_times.name,
 												bmi.shmem_tone_state.name,
 												bmi.shmem_live_frame.name,
+												bmi.shmem_ensemble_state.name,
+												bmi.high_threshold,
 												bmi.shmem_termination_flag.name,
 												))
 		plotter_.start()

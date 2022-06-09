@@ -27,7 +27,30 @@ def convolve_parallel(idx, data_sparse):
 
 	return data_sparse
 
+# get baseline f0 after smoothing
+def compute_dff0(data):
+	
+	f0 = np.median(data, axis=0)
+	
+	#
+	dff0 = (data-f0)/f0
+	
+	return f0, dff0
 
+# get baseline f0 after smoothing
+def compute_dff0_with_reference(data, reference_data):
+	
+	''' same as above function but uses the reerence data to compute baseline not the fed in time series
+	'''
+	
+	f0 = np.median(reference_data, axis=0)
+	
+	#
+	dff0 = (data-f0)/f0
+	
+	return f0, dff0
+
+	
 def get_octave_frequencies(low_freq,
 						   high_freq,
 						   octave_size=0.25):
@@ -55,7 +78,7 @@ def ensemble_to_tone_transfer_function(ensemble_state,
 	# for now do a linear projection between the neural states and the
 	# TODO: calibrate the speaker so that it macthes the assumed playback states
 	#
-	high_threshold = 1500
+	#high_threshold = 1500
 	# scale from 0..1
 	tone = (ensemble_state)/(high_threshold)
 	# map onto frequencies selected
@@ -435,7 +458,7 @@ class ComputeROIs(object):
 		ctr = 0
 		for k in ids:
 
-			temp = self.roi_traces[k]
+			temp = self.roi_traces[ctr]
 			temp = temp- np.median(temp)
 			plt.plot(t, temp+ctr*self.scale)
 		
@@ -449,79 +472,112 @@ class ComputeROIs(object):
 		plt.xlabel("Time (sec)")
         
 		plt.show()
-		
-		
-		
-# 	def compute_traces(self):
-		
-# 		data = np.memmap(self.fname, dtype='uint16', mode='r')
-# 		data = data.reshape(-1,512,512)
-# 		print ("memmap : ", data.shape)
-			
-# 		#  
-# 		plt.figure()
-# 		traces = []
-# 		ctr=0
-# 		ax=plt.subplot(121)
-# 		roi_traces = []
-		
-		
-# 		for k in trange(0,len(self.rois)):
-# 			loc = np.int32(np.array(self.rois[k])/1.5)
-			
-# 			# check every .3 secs
-# 			t = np.arange(0, data.shape[0], 10)/30.
-# 			traces = []
-# 			# step in time
-# 			for p in range(0, data.shape[0], 10):
-				
-# 				# grab frame
-# 				temp = data[p]
-				
-# 				# grab roi
-# 				temp = temp[self.indexes[k]]
-				
-# 				# normalize by surface area
-# 				if True:
-# 					temp = temp/self.indexes[k][0].shape[0]
-				
-# 				# add data inside roi
-# 				temp = np.nansum(temp)
-				
-# 				# save
-# 				traces.append(temp)
 
-# 			#
-# 			traces = np.array(traces)
-# 			traces = traces- np.median(traces)
-
-# 			#
-# 			roi_traces.append(traces)
-			
-# 			plt.plot(t, traces+ctr*self.scale)
-# 			ctr+=1
-			
-# 		labels = np.arange(len(self.rois))
-# 		labels_old = np.arange(0,ctr*self.scale,self.scale)
-# 		plt.yticks(labels_old, labels)
-# 		plt.xlabel("Time (sec)")
-        
-# 		#
-# 		ax=plt.subplot(122)
-# 		new_plot = False
-# 		self.show_contour_map(self.std_map,self.indexes, new_plot, np.arange(len(self.indexes)))
-
-# 		plt.show()
+	#
+	def find_reward_thresholds_absolute(self, normalize_peaks=True):
+		'''  Computes the aboslute |E1-E2|
+		     and rewards anytime the ensembel goes above this value
+		     Note that self.roi_traces contains only the 4 neurons from the ensembes selected
+		     now
+		     - TODO: change this for the high and high_low functions also
 		
-# 		self.roi_traces = roi_traces
+		'''
 		
-# 		return roi_traces
+		# TODO: refactor this part and send it to the BMI session code
+		
+		# run smoothing on each ensemble
+		if self.smooth_diff_function_flag:
+
+			# ensemble #1
+			for p in range(2):
+				smooth = np.zeros(self.roi_traces[p].shape)
+				for k in trange(self.rois_smooth_window, self.roi_traces[p].shape[0], 1):
+					smooth[k] = smooth_ca_time_series(self.roi_traces[p][k - self.rois_smooth_window:k])
+				#
+				self.roi_traces[p] = smooth
+
+			# ensemble #2
+			for p in range(2,4,1):
+				smooth = np.zeros(self.roi_traces[p].shape)
+				for k in trange(self.rois_smooth_window, self.roi_traces[p].shape[0], 1):
+					smooth[k] = smooth_ca_time_series(self.roi_traces[p][k - self.rois_smooth_window:k])
+				#
+				self.roi_traces[p] = smooth
+			
+		#
+		self.roi_f0s = []
+		self.dff0 = []
+		for k in range(len(self.roi_traces)):
+			f0, dff0 = compute_dff0(self.roi_traces[k])
+			self.roi_f0s.append(f0)
+			self.dff0.append(dff0)
+
+		# compute ensembles using the smooth + baseline removed values
+		E1 = self.dff0[0] - self.dff0[1]
+		E2 = self.dff0[2] - self.dff0[3]
+
+		# initialize the max and min values
+		max_E1 = np.max(E1)
+		max_E2 = np.max(E2)
+
+		print ("TODO: Normalize the peaks of the 2 Ensembles so the mice don't learn to use aginst the other!!!!")
+		low = np.nan
+		high = min(max_E1, max_E2)
+
+		print("low, high: ", low, high)
+		# difference between ensemble
+		diff = np.abs(E1 - E2)
+
+		#
+		n_sec_recording = int(diff.shape[0] / self.sample_rate)
+		n_rewards_random = n_sec_recording // self.sample_rate
+		print("nsec recording: ", n_sec_recording,
+			  "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
+
+		# loop over time series decreasing the rewards until we hit the random #
+		n_rewards = 0
+		stepper = 0.95
+		while n_rewards < n_rewards_random:
+
+			# run inside while loop for eveyr setting of low and high until we hit
+			#   exact number of random rewards
+			k = 0
+			n_rewards = 0
+			reward_times = []
+			while k < diff.shape[0]:
+
+				temp_diff = diff[k]
+
+				if temp_diff >= high:
+					# high reward state reached
+					n_rewards += 1
+					reward_times.append([k, 1])
+					k += int(self.post_reward_lockout * self.sample_rate)
+				else:
+					k += 1
+
+			# print ("Reard times: ", reward_times)
+			# check exit condition otherwise decrase thresholds
+			if len(reward_times) > 1:
+				rewarded_times = np.vstack(reward_times)
+				high *= stepper
+			else:
+				high *= stepper
+
+		print("updated rwards #: ", n_rewards, low, high)
+
+		self.reward_times = np.vstack(reward_times)
+
+		self.low = np.nan
+		self.high = high
+		self.E1 = E1
+		self.E2 = E2
+		self.diff = diff
+
+		
 
 	#
 	def find_reward_thresholds_high(self):
-
-		# TODO: Make sure that these functions are identical to those being used inside the BMI!!!
-
 
 		# run smoothing on each ensemble
 		if self.smooth_diff_function_flag:
@@ -739,21 +795,22 @@ class ComputeROIs(object):
 		plt.plot(t, self.diff,c='black', alpha=.8, label='Difference')
 		plt.plot([t[0],t[-1]], [0, 0], c='black', linewidth=3)
 
+		ymaxes = np.max(np.abs(self.diff))
 		#
 		for k in range(len(self.reward_times)):
 			temp = self.reward_times[k]
 
 			if temp[1]==0:
-				plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='red')
+				plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='red')
 			else:
-				plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='blue')
+				plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='blue')
 
 		# replot two random rewards just to make nice legend
 		idx1 = np.where(self.reward_times[:,1]==0)[0].shape[0]
 		idx2 = np.where(self.reward_times[:,1]==1)[0].shape[0]
 
-		plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='red', label='E1 rewarded # '+str(idx1),)
-		plt.plot([t[temp[0]], t[temp[0]]], [-5000,5000], '--', c='blue', label='E2 rewarded # '+str(idx2),)
+		plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='red', label='E1 rewarded # '+str(idx1),)
+		plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='blue', label='E2 rewarded # '+str(idx2),)
 		plt.legend()
 
 		plt.title("Rec duration: " + str(int(t[-1])) + " sec; expected # of random rewards: "+str(int(t[-1]/30)))

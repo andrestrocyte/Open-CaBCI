@@ -13,7 +13,7 @@ import os
 import time
 import numpy as np
 from multiprocessing import shared_memory
-from utils.utils import smooth_ca_time_series
+from utils.utils import smooth_ca_time_series, compute_dff0, compute_dff0_with_reference
 
 #################################################
 ############# SIMULATION CLASS ##################
@@ -119,6 +119,9 @@ class BMI():
         #
         self.rois_smooth_window = 5   				# Number of frames to use to smooth the ROI traces
                                                     # to be developed/changed further
+
+		# complicated paramter which turns on realitime DFF0 computation only after a certain period of time
+        self.n_ttl_to_start_applying_DFF0_computation = 30 *self.sampleRate_2P
 
         # start the ttl frame counter at 0
         self.ttl_computed = 0
@@ -313,9 +316,9 @@ class BMI():
         self.ensemble_state [:] = aa[:]
 
         #
-        print (" ensemble states initialized: ",
-               self.ensemble_state,
-               self.shmem_ensemble_state.name)
+        #print (" ensemble states initialized: ",
+        #       self.ensemble_state,
+        #       self.shmem_ensemble_state.name)
 
     #
     def initialize_pbar(self):
@@ -493,11 +496,18 @@ class BMI():
         # rois traces raw: contains the raw ROIs (i.e. summed pixels etc in each ROI)
         # these are NOT shared with external classes, unless needed in future
         self.rois_traces_raw = np.zeros(a.shape, dtype=np.float32)
+        
+        # these are the (raw - F0)/F0 traces
+        # note the calibration class also shares code
+        # do not change their computation without changing it also in the calibration class
+        self.rois_traces_dff0 = np.zeros(a.shape, dtype=np.float32)
+        
 
         # also load the f0 for each cell computed by calibration step (hopefully within a few mins of BMI step)
         # TODO: this calculation is simplified, make sure you don't change power, settings etc.
         #       between calibartion seession and BMI session
         #      - to use an identical function between calibration and bmi whenever possible/required
+        # NOTE June 9 - NOT SURE WE WANT TO RESUSE CALIBRATION TIME F0s anylonger
         self.roi_f0s = data['cell_f0s']
 
         #####################################
@@ -688,7 +698,7 @@ class BMI():
         # if we made threhsods using smoothing, then need to run them on data also
         # TODO:  IMPORTANT: implement the identical algorithm used in the calibration step to compute
         #        this step; currently only the smoothing step is shared; need to share DFF0 computation also
-        #
+		#
         if self.smooth_diff_function_flag and self.n_ttl[0]>self.rois_smooth_window:
 
             # loop over each cell
@@ -696,8 +706,23 @@ class BMI():
                 #
                 temp = self.rois_traces_raw[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
 
-                # subtract f0 from this
-                temp = temp - self.roi_f0s[p]
+                # There are two options for deterneding and computing a DFF0 
+                # option 1: use the calibration time roi_f0s
+                #  Note: this is risky to do:
+                #          - sometimes there is signficant drift which we don't correct for (yet!)
+                #          - or the laser power changes a bit 
+                if False or self.n_ttl[0]<self.n_ttl_to_start_applying_DFF0_computation:
+                    temp = (temp - self.roi_f0s[p])/self.roi_f0s[p]
+                # Recompute baseline dynamically to ensure alignemtn of data
+                # Note: this is also risky as some of the thresholds computed in the calibration step
+                #        might not be completely accurate any longer
+                else:
+                    # so here we feed current chunk of data going back n frames
+                    #  plus the refrenc trace which should be the last n frames of raw data; usually take at least 30 seconds
+                    _, temp = compute_dff0_with_reference(temp,
+                                self.rois_traces_raw[p,self.n_ttl[0]-self.n_ttl_to_start_applying_DFF0_computation:
+                                                        self.n_ttl[0]]
+                                                        )
 
                 #
                 self.rois_traces_smooth[p,self.n_ttl[0]] = smooth_ca_time_series(temp)
@@ -866,34 +891,39 @@ class BMI():
         '''
 
         # IF E1 reward state reached
-        if (self.ensemble_state <= self.low_threshold) and (self.reward_lockout_counter[0]<=0):
+        # if (self.ensemble_state >= self.low_threshold) and (self.reward_lockout_counter[0]<=0):
 
-            # low reward state reached
-            # search for the first empty slot in the reward times list
-            for k in range(self.reward_times.shape[1]):
-                if self.reward_times[0,k]==-1:
-                    self.reward_times[0,k] = self.n_ttl[0]     # save current reward time
-                    break
+            # # low reward state reached
+            # # search for the first empty slot in the reward times list
+            # for k in range(self.reward_times.shape[1]):
+                # if self.reward_times[0,k]==-1:
+                    # self.reward_times[0,k] = self.n_ttl[0]     # save current reward time
+                    # break
 
-            # same variable as above; probably need to reduce osme of this redundancy at some point
-            # - this is a list though, more useful for other things also
-            self.rewarded_times.append([0, self.n_ttl[0], self.abs_times])
+            # # same variable as above; probably need to reduce osme of this redundancy at some point
+            # # - this is a list though, more useful for other things also
+            # self.rewarded_times.append([0, self.n_ttl[0], self.abs_times])
 
-            # reset last reward time to current time
-            self.last_reward_ttl[0] = self.n_ttl[0]
+            # # reset last reward time to current time
+            # self.last_reward_ttl[0] = self.n_ttl[0]
 
-            #
-            self.trigger_reward()
+            # #
+            # self.trigger_reward()
 
-            # decouple tone etc. from feedback
-            self.post_reward_state()
+            # # decouple tone etc. from feedback
+            # self.post_reward_state()
             
         #
-        elif (self.ensemble_state >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
+        if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
+			
+			#
+            print (" reached high reward conition: ")
+            print (" ensemble state: ", self.ensemble_state)
+            print (" high_threshold: ", self.high_threshold)
 
             # search for the first empty slot in the reward times list
             for k in range(self.reward_times.shape[1]):
-                if self.reward_times[1, k] ==-1:
+                if self.reward_times[1, k] == -1:
                     self.reward_times[1, k] = self.n_ttl[0]  # save current reward time
                     break
             #
@@ -918,12 +948,12 @@ class BMI():
                " computed_frame : ", self.ttl_computed)
 
         # update ROIS
-        # for the very first ROI: we loop over the data from -1 frames back to up to n_frames_search_forward in the future
+        # for the first ROI: we loop over the data from -1 frames back to up to n_frames_search_forward in the future
         #  - we are looking for the last frame that has data in it;
         #    we then exit and keep the counter in memroy
 
         # IMPORTANT #1
-        # TODO: 2 options for computing activity in a cell ROI: sum vs. mean (there are others of course
+        # TODO: 2 options for computing activity in a cell ROI: sum vs. mean (there are others 
         # IMPORTANT #2
         # TODO: this algorithm essentially uses empirical data to check how far our imaging system has gone
         # - it is probably the best way to ensure that we are up todate with real time (at least realtime with the 2p + writing times
@@ -1000,8 +1030,8 @@ class BMI():
 
         # Compute the E1-E2 for current time point
         # this value goes to the tone package which converts it into a tone
-        self.ensemble_state[0] = (self.ensemble_activity[0, self.n_ttl[0]] -
-                                  self.ensemble_activity[1, self.n_ttl[0]])
+        self.ensemble_state[0] = abs(self.ensemble_activity[0, self.n_ttl[0]] -
+                                     self.ensemble_activity[1, self.n_ttl[0]])
 
         #
         #print ("time: ", self.n_ttl[0]/self.sampleRate_2P, " updated ensembel state: ", self.ensemble_state, "**********************")
