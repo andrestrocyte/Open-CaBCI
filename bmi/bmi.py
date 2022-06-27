@@ -245,14 +245,29 @@ class BMI():
                self.tone_state,
                self.shmem_tone_state.name)
 
-
     #
-    def drift_correction(self):
+    def initialize_drift_correction(self):
 
-        ''' Unclear if this is needed for our application,
-
+        ''' These 2 variables keep track of the x and y drift
+            - template is computed in the calibration step
+            - drift gets computed in the Drift class using phase correlation
+              between the template and the live image
+            - here we just initialize the variables that can be shared with rest of code
         '''
-        pass
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(2, dtype=np.float32)
+        self.shmem_drift_xy_values = shared_memory.SharedMemory(create=True,
+                                                       size=aa.nbytes)
+
+        #
+        self.drift_xy_values = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.shmem_drift_xy_values.buf)
+
+        #
+        self.drift_xy_values[:] = aa[:]
+
 
     #
     def initialize_reward_conditions_and_parameters(self):
@@ -1092,7 +1107,7 @@ class BMI():
 				 sampleRate_2P = self.sampleRate_2P,
 				 image_width = self.image_width,
 				 image_length = self.image_length ,
- 				 n_seconds_session = self.n_seconds_session,
+ 				 max_n_seconds_session = self.max_n_seconds_session,
  				 
  				 n_frames = self.n_frames,
 				 n_frames_to_be_acquired = self.n_frames_to_be_acquired,				#

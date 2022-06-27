@@ -61,9 +61,9 @@ if __name__ ==  '__main__':
 	#################### INITIALIZE BMI ########################### 
 	###############################################################
 	# compute the maximum number of seconds the session will run before existing in case there are no more TTL Pulses
-	
 	max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 120  # gives 2 extra minutes at the end in case insufficient frames are detected
-	
+
+	#
 	bmi = BMI(simulation_flag_bmi,
 			  fname_root_path,
 			  fname_fluorescence,
@@ -102,13 +102,15 @@ if __name__ ==  '__main__':
 	###############################################################
 	############## INITIALIZE WATER REWARD ########################
 	###############################################################
-	'''  Here we pass only the ensemble state (i.e. E1-E2) to the 
-		tone player. The tone player alone then computes the transfer function
-		as this is not related to anything else in the BMI class
-		- NOT USED  used currently as it is combined with the TONE player for sequential/serial activation
-		  of NI Card as we only have one of those 
-	'''
-	
+	#  ################# DO NOT DELETE ########################
+	# '''  Here we pass only the ensemble state (i.e. E1-E2) to the
+	# 	tone player. The tone player alone then computes the transfer function
+	# 	as this is not related to anything else in the BMI class
+	# 	- NOT USED  used currently as it is combined with the TONE player for sequential/serial activation
+	# 	  of NI Card as we only have one of those
+	# 	- TODO : use digital output on the NI card to asynchronosly send singals to both speaker/water valve
+	# '''
+	#
 	# #
 	# if False:
 	# 	water_reward_ = Process(target=WaterReward, args=(bmi.shmem_water_reward.name,
@@ -122,7 +124,7 @@ if __name__ ==  '__main__':
 	###############################################################
 	'''  This is the plotting functions that visualize ROI time sries
 	'''
-	#print ("RUNNING plotter in multiplrocessing ...")
+	#
 	if True:
 		plotter_ = Process(target=PlotROIs, args=(
 												fname_rois_pixels_and_thresholds,
@@ -139,7 +141,21 @@ if __name__ ==  '__main__':
 		plotter_.start()
 
 	###############################################################
-	#################### INITIALIZE BMI ########################### 
+	############## INITIALIZE DRIFT CORRECTION ####################
+	###############################################################
+	'''  This is the plotting functions that visualize ROI time sries
+	'''
+	#
+	if True:
+		plotter_ = Process(target=DriftCorrection, args=(
+												fname_rois_pixels_and_thresholds,
+												bmi.shmem_live_frame.name,
+												bmi.shmem_drift_xy_values.name
+												))
+		plotter_.start()
+
+	###############################################################
+	######################### RUN BMI #############################
 	###############################################################
 
 	# loop to wait 2 sec until plotting is initialized:
