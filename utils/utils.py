@@ -11,6 +11,7 @@ import scipy.ndimage
 
 import cv2
 
+
 #
 def smooth_ca_time_series(diff):
 	#
@@ -140,7 +141,7 @@ class BMICalibration(object):
 		
 	
 		return img
-	
+
 	#
 	def correct_drift(self, shifts):
 
@@ -154,10 +155,10 @@ class BMICalibration(object):
 			#
 			temp = self.data[k].copy()
 
-			#
-			#print (x,y)
-			self.data[k] = np.roll(temp, x, axis=0)
-			self.data[k] = np.roll(temp, y, axis=1)
+			self.data[k] = apply_shifts(temp,
+										 x,
+										 y)
+
 
 	#
 	def make_std_map(self):

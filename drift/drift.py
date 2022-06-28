@@ -8,6 +8,9 @@ import numpy as np
 from tqdm import tqdm, trange
 import matplotlib.pyplot as plt
 import parmap
+from multiprocessing import shared_memory
+import time
+
 #from scipy import ndimage as ndi
 #from skimage.segmentation import watershed
 #from skimage.feature import peak_local_max
@@ -15,6 +18,135 @@ import parmap
 #import os
 #import time
 
+######################################################################################
+class DriftCorrection():
+
+    ''' Class that implements ONLINE drift correction of imaging data using phase correlation
+
+        Input: ....
+        Output: ...
+
+    '''
+
+    def __init__(self,
+				 fname_rois_pixels_and_thresholds,
+				 shmem_live_frame,
+                 shmem_drift_xy_values,
+                 shmem_termination_flag,
+                 ):
+
+        self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
+        self.shmem_live_frame = shmem_live_frame
+
+        self.shmem_termination_flag = shmem_termination_flag
+
+
+        self.shmem_drift_xy_values = shmem_drift_xy_values
+        self.load_template()
+        self.initialize_drift_xy_state()
+
+        self.initialize_live_frame_shared_memory()
+
+        #        #
+        self.initialize_termination_flag()
+
+        while True:
+            #
+            #time.sleep(3)
+
+            #
+            self.detect_drift()
+
+            #
+            if self.termination_flag[0]:
+                break
+
+            #
+
+    def initialize_termination_flag(self):
+        #
+        aa = np.zeros((1,), dtype=np.int64)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_termination_flag = shared_memory.SharedMemory(name=self.shmem_termination_flag)
+
+        #
+        self.termination_flag = np.ndarray(aa.shape,
+                                           dtype=aa.dtype,
+                                           buffer=self.existing_shm_termination_flag.buf)
+
+
+
+    #
+    def initialize_drift_xy_state(self):
+
+        #
+        aa = np.zeros(2, dtype=np.int32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shmem_drift_xy_values = shared_memory.SharedMemory(name=
+                                                                         self.shmem_drift_xy_values)
+
+        #
+        self.drift_xy_values = np.ndarray(aa.shape,
+                                          dtype=aa.dtype,
+                                          buffer=self.existing_shmem_drift_xy_values.buf)
+
+    #
+    def initialize_live_frame_shared_memory(self):
+
+        ''' shared variable that keeps current image in memeory for plotter to visualize
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((1,512,512), dtype=np.uint16)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_live_frame = shared_memory.SharedMemory(name=self.shmem_live_frame)
+
+        #
+        self.live_frame = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shm_live_frame.buf)
+    #
+    def load_template(self):
+        ''' Load template computed in the calibration step
+
+        '''
+
+        #####################################################
+        #
+        data = np.load(self.fname_rois_pixels_and_thresholds,
+                       allow_pickle=True)
+        #
+        self.template = data['calibration_template']
+
+    #
+    def detect_drift(self):
+
+        # take live image
+        r, c = compute_drift_single_frame(self.template,
+                                          self.live_frame)
+
+        #
+        #print ("LIVE IMAGE ROI DETECTION: ", r, c)
+
+        #
+        self.drift_xy_values[0] = r
+        self.drift_xy_values[1] = c
+
+
+#
+def apply_shifts(img, x, y):
+
+    #
+	img = np.roll(img, int(x), axis=0)
+	img = np.roll(img, int(y), axis=1)
+
+	return img
+
+#
 def phase_correlation(a, b):
     G_a = np.fft.fft2(a)
     G_b = np.fft.fft2(b)
@@ -35,8 +167,8 @@ def pad_data(img):
     return img
 
 #
-def get_drift_xy(data, 
-                 x_drift_max, 
+def get_drift_xy(data,
+                 x_drift_max,
                  y_drift_max):
 
     # make random shift array
@@ -146,9 +278,17 @@ def make_template(data,
                   n_cores=1):
 
     # find best correlation map first
-    idx_imgs = np.random.choice(np.arange(data.shape[0]),
+    # don't pick random frames, much harder to find matchin frames
+    if False:
+        idx_imgs = np.random.choice(np.arange(data.shape[0]),
                                 n_imgs_to_sample,
                                 replace=False)
+    else:
+        idx_start = np.random.choice(np.arange(data.shape[0])-
+                                        n_imgs_to_sample)
+        idx_imgs = np.arange(idx_start,
+                             n_imgs_to_sample,
+                             1)
 
     # make temporary template to match to
     template = np.mean(data[idx_imgs],axis=0)
@@ -227,7 +367,6 @@ def make_template(data,
     #
     return corr_maxs, template, idx_imgs
 
-
 #
 def compute_drift_multi_frames(data,
                                fname,
@@ -285,8 +424,9 @@ def compute_drift_multi_frames(data,
 
 #
 def compute_drift_single_frame(template, image):
+
     # compute phase correlation to the template.
-    img_corr = phase_correlation(template, image)
+    img_corr = phase_correlation(template, image[0])
 
     # find peak
     r,c = np.unravel_index(img_corr.argmax(), img_corr.shape)
@@ -299,97 +439,9 @@ def compute_drift_single_frame(template, image):
     if c > 512/2:
         c = c-512
             #
-    return r,c
-
-######################################################################################
-class DriftCorrection():
-
-    ''' Class that implements ONLINE drift correction of imaging data using phase correlation
-
-        Input: ....
-        Output: ...
-
-    '''
-
-    def __init__(self,
-				 fname_roi_pixels_and_thresholds,
-				 shmem_live_frame,
-                 shmem_drift_xy_values):
-
-        self.fname_roi_pixels_and_thresholds = fname_roi_pixels_and_thresholds
-        self.shmem_live_frame = shmem_live_frame
-
-        self.shmem_drift_xy_values = shmem_drift_xy_values
-        self.load_template()
-        self.initialize_drift_xy_state()
-
-
-        while True:
-
-            #
-            self.detect_drift()
-
-            #
 
     #
-    def initialize_drift_xy_state(self):
-
-        #
-        aa = np.zeros(2, dtype=np.float32)
-
-        # get the rois_traces from the shared memory name
-        self.existing_shmem_drift_xy_values = shared_memory.SharedMemory(name=
-                                                                         self.shmem_drift_xy_values)
-
-        #
-        self.drift_xy_values = np.ndarray(aa.shape,
-                                          dtype=aa.dtype,
-                                          buffer=self.existing_shmem_drift_xy_values.buf)
-
-    #
-    def initialize_live_frame_shared_memory(self):
-
-        ''' shared variable that keeps current image in memeory for plotter to visualize
-
-        '''
-
-        # make a numpy array to hold the rois_traces
-        aa = np.zeros((1,512,512), dtype=np.uint16)
-
-        # get the rois_traces from the shared memory name
-        self.existing_shm_live_frame = shared_memory.SharedMemory(name=self.shmem_live_frame)
-
-        #
-        self.live_frame = np.ndarray(aa.shape,
-                                 dtype=aa.dtype,
-                                 buffer=self.existing_shm_live_frame.buf)
-    #
-    def load_template(self):
-        ''' Load template computed in the calibration step
-
-        '''
-
-        #####################################################
-        #
-        data = np.load(self.fname_rois_pixels_and_thresholds,
-                       allow_pickle=True)
-        #
-        self.template = data['calibration_template']
-
-    def detect_drift(self):
-
-        # take live image
-        r, c = compute_drift_single_frame(self.template, self.live_frame)
-
-        #
-        self.drift_xy_values[0] = r.copy()
-        self.drift_xy_values[0] = c.copy()
-
-
-
-
-
-
+    return int(r), int(c)
 
 
 

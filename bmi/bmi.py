@@ -14,6 +14,8 @@ import time
 import numpy as np
 from multiprocessing import shared_memory
 from utils.utils import smooth_ca_time_series, compute_dff0, compute_dff0_with_reference
+from drift.drift import apply_shifts
+
 
 #################################################
 ############# SIMULATION CLASS ##################
@@ -170,6 +172,9 @@ class BMI():
         #
         self.initialize_live_frame_shared_memory()
 
+        #
+        self.initialize_drift_correction()
+
     #
     def initialize_termination_flag(self):
 
@@ -256,7 +261,7 @@ class BMI():
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros(2, dtype=np.float32)
+        aa = np.zeros(2, dtype=np.int32)
         self.shmem_drift_xy_values = shared_memory.SharedMemory(create=True,
                                                        size=aa.nbytes)
 
@@ -267,7 +272,6 @@ class BMI():
 
         #
         self.drift_xy_values[:] = aa[:]
-
 
     #
     def initialize_reward_conditions_and_parameters(self):
@@ -546,8 +550,6 @@ class BMI():
         #
         self.rois_traces_smooth[:] = a[:]
 
-
-
     #
     def run_BMI(self):
 
@@ -678,6 +680,9 @@ class BMI():
         #
         self.compute_frame_number()
 
+        #
+        self.load_current_frame_and_apply_drift_correction()
+
         # load the [ca] imaging and compute activity in each ROI
         self.update_rois()
 
@@ -731,6 +736,7 @@ class BMI():
                 #          - or the laser power changes a bit 
                 if False or self.n_ttl[0]<self.n_ttl_to_start_applying_DFF0_computation:
                     temp = (temp - self.roi_f0s[p])/self.roi_f0s[p]
+                
                 # Recompute baseline dynamically to ensure alignemtn of data
                 # Note: this is also risky as some of the thresholds computed in the calibration step
                 #        might not be completely accurate any longer
@@ -957,7 +963,15 @@ class BMI():
             self.post_reward_state()
 
     #
-    def update_rois(self):
+    def load_current_frame_and_apply_drift_correction(self):
+
+        ''' This is an overkill function which cheks whether the n_ttl detected from TTL pulses
+            doe sindeed have values in it, if so it
+
+            TODO: either drop this first check - or implement it in full - which means going forward in time
+                  until we get zeros in the data
+
+        '''
 
         #
         if self.verbose:
@@ -965,7 +979,7 @@ class BMI():
             print("  detected frame #: ", self.n_ttl,
                " computed_frame : ", self.ttl_computed)
 
-        # update ROIS
+        # Before updating ROIS - must find the correct frame number and load the frame
         # for the first ROI: we loop over the data from -1 frames back to up to n_frames_search_forward in the future
         #  - we are looking for the last frame that has data in it;
         #    we then exit and keep the counter in memroy
@@ -998,20 +1012,33 @@ class BMI():
 				
                 break
 
-        # TODO: update latest image for imaging purposese
-        self.live_frame[0] = self.newfp[self.n_ttl[0]+z].copy()
-
         # TODO: we should reset the n_ttl here
         # - if we find that we needed to search x steps forward,
         #   we should then add x to n_ttl - and vice versa
+
+        # TODO: update latest image for imaging purposese
+        # this raw frame is fed to the drift correction algorithm (anywhere else!?)
+        self.live_frame[0] = self.newfp[self.n_ttl[0]+z].copy()
+
+        # this is the same raw frame but now it is fixed for purpose of computing ROIs!!
+        #  - we need to shift it based on
+        self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
+
+        # correct drift in live_frame_local
+        #print (" self.drift_xy_values SENT TO FUNCTION: ", self.drift_xy_values)
+        self.live_frame_local_drift_corrected = apply_shifts(self.live_frame_local,
+                                                             self.drift_xy_values[0],
+                                                             self.drift_xy_values[1])
+
+    #
+    def update_rois(self):
 
         # loop over the remaning cells on the last frame 'z'
         for p in range(0,len(self.rois_pixels),1):
 
             # new way use exact pixel location
-            temp = self.newfp[self.n_ttl[0]+z]              # take most recent frame
-            temp = temp[self.rois_pixels[p].T[:, 0],        # broadcast/index into the frame as per ROI pixels
-                        self.rois_pixels[p].T[:, 1]]
+            temp = self.live_frame_local_drift_corrected[self.rois_pixels[p].T[:, 0],        # broadcast/index into the frame as per ROI pixels
+                                                         self.rois_pixels[p].T[:, 1]]
 
             # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
             # TODO: these algorithms must match the default water disposal algorithms

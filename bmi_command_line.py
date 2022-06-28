@@ -23,17 +23,17 @@ if __name__ ==  '__main__':
 	n_frames_session = 10000
 	
 	#
-	simulation_flag_bmi = False         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
+	simulation_flag_bmi = True         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
 										#  - set to true unless we have a real mouse in the BScope to get
 										#    real time data from; otherwise data is read from disk at some location
 										# TODO: in non simulation mode - have slightly different panels for 
 										#       reading directories of the data as Bscope does not make them until 
 										#       it starts up
-	simulation_flag_tone = False        # Runs the tone class in simulation mode
-	simulation_flag_water = False       # Runs the water class in simulation mode
+	simulation_flag_tone = True        # Runs the tone class in simulation mode
+	simulation_flag_water = True       # Runs the water class in simulation mode
 	
 	# parameter used for simulation mode to add a delay instead of waiting for ttl pulse
-	sleep_time_sec = 0.01
+	sleep_time_sec = 0.001
 
 	##########################################################################
 	#################### LOAD FILE/DIRECTORY LOCATIONS ####################### 
@@ -147,12 +147,13 @@ if __name__ ==  '__main__':
 	'''
 	#
 	if True:
-		plotter_ = Process(target=DriftCorrection, args=(
+		drift_ = Process(target=DriftCorrection, args=(
 												fname_rois_pixels_and_thresholds,
 												bmi.shmem_live_frame.name,
-												bmi.shmem_drift_xy_values.name
+												bmi.shmem_drift_xy_values.name,
+												bmi.shmem_termination_flag.name,
 												))
-		plotter_.start()
+		drift_.start()
 
 	###############################################################
 	######################### RUN BMI #############################
