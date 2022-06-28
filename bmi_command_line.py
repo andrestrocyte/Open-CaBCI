@@ -7,7 +7,7 @@ from bmi.bmi import BMI
 from plotter.plotter import PlotROIs
 from tone.tone import PlayTone
 from water.water import WaterReward
-
+from drift.drift import DriftCorrection
 from tkinter import Tk #for Python 3.x
 from tkinter.filedialog import askopenfilename, askdirectory
 

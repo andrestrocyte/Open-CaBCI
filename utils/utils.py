@@ -96,7 +96,7 @@ def ensemble_to_tone_transfer_function(ensemble_state,
 	return tone
 
 ##############################
-class ComputeROIs(object):
+class BMICalibration(object):
 	
 	#
 	def __init__(self, fname):
@@ -111,7 +111,7 @@ class ComputeROIs(object):
 		self.n_smooth_steps = 1
 
 		#
-		data = np.memmap(self.fname, dtype='uint16', mode='r')
+		data = np.memmap(self.fname, dtype='uint16', mode='r+')
 		self.data = data.reshape(-1,512,512)
 		print ("memmap : ", self.data.shape)
 	
@@ -141,12 +141,28 @@ class ComputeROIs(object):
 	
 		return img
 	
-	
-	# 
+	#
+	def correct_drift(self, shifts):
+
+		#
+		for k in trange(self.data.shape[0], desc='fixing drift calibration data'):
+
+			#
+			x = shifts[k][0]
+			y = shifts[k][0]
+
+			#
+			temp = self.data[k].copy()
+
+			#
+			#print (x,y)
+			self.data[k] = np.roll(temp, x, axis=0)
+			self.data[k] = np.roll(temp, y, axis=1)
+
+	#
 	def make_std_map(self):
 
-
-
+		#
 		data_sparse = self.data[::self.subsample]
 		print ("data into analysis: ", data_sparse.shape)
 
@@ -375,9 +391,12 @@ class ComputeROIs(object):
 			
 		#  
 		plt.figure()
-		traces = []
-		ctr=0
-		ax=plt.subplot(121)
+		#traces = []
+		#ctr=0
+		ax = plt.subplot(121)
+		ax.tick_params(axis='both', which='both', labelsize=20)
+		plt.ylabel("Neuron ID ", fontsize=20)
+		#ax.yaxis.tick.set_size(20)
 		roi_traces = []
 		for k in range(len(cell_ids)):
 			roi_traces.append([])
@@ -428,6 +447,7 @@ class ComputeROIs(object):
 		
 			ctr+=1
 
+
 		#
 		labels = cell_ids
 		labels_old = np.arange(0,ctr*self.scale,self.scale)
@@ -436,10 +456,10 @@ class ComputeROIs(object):
 		
 		#
 		plt.yticks(labels_old, labels)
-		plt.xlabel("Time (sec)")
+		plt.xlabel("Time (sec)",fontsize=20)
         
         # 
-		ax=plt.subplot(122)
+		ax2=plt.subplot(122)
 		new_plot = False
 		print (cell_ids)
 		self.show_contour_map(std_map,self.indexes, cell_ids, new_plot)
@@ -458,7 +478,7 @@ class ComputeROIs(object):
 		ctr = 0
 		for k in ids:
 
-			temp = self.roi_traces[ctr]
+			temp = self.roi_traces[k]
 			temp = temp- np.median(temp)
 			plt.plot(t, temp+ctr*self.scale)
 		
@@ -520,24 +540,26 @@ class ComputeROIs(object):
 		max_E1 = np.max(E1)
 		max_E2 = np.max(E2)
 
-		print ("TODO: Normalize the peaks of the 2 Ensembles so the mice don't learn to use aginst the other!!!!")
+		print ("TODO: Normalize the peaks of the 2 Ensembles so the mice don't learn to use one esnemble against the other!!!!")
 		low = np.nan
-		high = min(max_E1, max_E2)
+		high = min(max_E1, max_E2)*3
 
 		print("low, high: ", low, high)
 		# difference between ensemble
 		diff = np.abs(E1 - E2)
 
 		#
-		n_sec_recording = int(diff.shape[0] / self.sample_rate)
-		n_rewards_random = n_sec_recording // self.sample_rate
-		print("nsec recording: ", n_sec_recording,
-			  "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
+		self.n_sec_recording = int(diff.shape[0] / self.sample_rate)
+		self.n_rewards_random = self.n_sec_recording // self.sample_rate
+		self.n_rewards_default = int(self.n_rewards_random*0.3)
+		print("nsec recording: ", self.n_sec_recording,
+			  "max # of random rewards (i.e. every 30sec) ", self.n_rewards_random,
+			  "# of rewards for 30% of the time: ", self.n_rewards_default)
 
 		# loop over time series decreasing the rewards until we hit the random #
 		n_rewards = 0
 		stepper = 0.95
-		while n_rewards < n_rewards_random:
+		while n_rewards < self.n_rewards_default:
 
 			# run inside while loop for eveyr setting of low and high until we hit
 			#   exact number of random rewards
@@ -558,11 +580,11 @@ class ComputeROIs(object):
 
 			# print ("Reard times: ", reward_times)
 			# check exit condition otherwise decrase thresholds
-			if len(reward_times) > 1:
-				rewarded_times = np.vstack(reward_times)
-				high *= stepper
-			else:
-				high *= stepper
+			#if len(reward_times) > 1:
+			# 	rewarded_times = np.vstack(reward_times)
+			#	high *= stepper
+			#else:
+			high *= stepper
 
 		print("updated rwards #: ", n_rewards, low, high)
 
@@ -813,5 +835,7 @@ class ComputeROIs(object):
 		plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='blue', label='E2 rewarded # '+str(idx2),)
 		plt.legend()
 
-		plt.title("Rec duration: " + str(int(t[-1])) + " sec; expected # of random rewards: "+str(int(t[-1]/30)))
+		plt.title("Rec duration: " + str(int(t[-1])) + " sec "+
+				  "\n expected # of random rewards: "+str(int(t[-1]/30))+
+				  "\n actual # of provided rewards: "+str(self.n_rewards_default))
 		plt.show()

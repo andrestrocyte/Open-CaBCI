@@ -65,6 +65,9 @@ def phase_correlation_parallel(idx_parmap,
     shifts = np.zeros((data.shape[0],2))
 
     #
+    subtract_flag = True
+
+    #
     a = template.copy()
     if idx_parmap[0]==0:
         for idx in tqdm(idx_parmap, desc="phase corr computation"):
@@ -88,11 +91,12 @@ def phase_correlation_parallel(idx_parmap,
             corr_maxs[idx] = surface[r, c]
 
             # convert to roll function which has negative and positive values
-            if r > 512 / 2:
-                r = r - 512
+            if subtract_flag:
+                if r > 512 / 2:
+                    r = r - 512
 
-            if c > 512 / 2:
-                c = r - 512
+                if c > 512 / 2:
+                    c = c - 512
 
             #
             shifts[idx] = [r, c]
@@ -119,18 +123,19 @@ def phase_correlation_parallel(idx_parmap,
             corr_maxs[idx] = surface[r, c]
 
             # convert to roll function which has negative and positive values
-            if r > 512 / 2:
-                r = r - 512
+            if subtract_flag:
+                if r > 512 / 2:
+                    r = r - 512
 
-            if c > 512 / 2:
-                c = r - 512
+                if c > 512 / 2:
+                    c = c - 512
 
             #
             shifts[idx] = [r, c]
 
 
     #
-    return shifts, corr_maxs
+    return np.int32(shifts), corr_maxs
 
 #
 def make_template(data,
@@ -185,7 +190,7 @@ def make_template(data,
             corr_maxs = corr_maxs + res[k][1]
 
         # select only the values chose
-        shifts = shifts[idx_imgs]
+        #shifts = shifts[idx_imgs]
         corr_maxs = corr_maxs[idx_imgs]
 
     #
@@ -202,15 +207,18 @@ def make_template(data,
         temp = data[idx_imgs].mean(0)
         plt.title("Average map over " + str(idx_imgs.shape[0]) + " images")
         plt.imshow(temp,
-                   vmin=0,
-                   vmax=1500)
+                   #vmin=0,
+                   #vmax=1500
+                   #
+                   )
 
         #
         plt.subplot(1, 2, 2)
         plt.title("Average map over highest correlated " + str(n_best_imgs) + " images")
         plt.imshow(template,
-                   vmin=0,
-                   vmax=1500)
+                   #vmin=0,
+                   #vmax=1500
+                   )
 
         #
         plt.show()
@@ -273,7 +281,7 @@ def compute_drift_multi_frames(data,
         print ("non parallel version not implemented")
 
     #
-    return shifts, corr_maxs
+    return np.int32(shifts), corr_maxs
 
 #
 def compute_drift_single_frame(template, image):
@@ -289,7 +297,7 @@ def compute_drift_single_frame(template, image):
         r = r-512
 
     if c > 512/2:
-        c = r-512
+        c = c-512
             #
     return r,c
 
