@@ -5,12 +5,15 @@
 '''
 
 import numpy as np
-from scipy import ndimage as ndi
-from skimage.segmentation import watershed
-from skimage.feature import peak_local_max
-import scipy
-import os
-import time
+from tqdm import tqdm, trange
+import matplotlib.pyplot as plt
+import parmap
+#from scipy import ndimage as ndi
+#from skimage.segmentation import watershed
+#from skimage.feature import peak_local_max
+#import scipy
+#import os
+#import time
 
 def phase_correlation(a, b):
     G_a = np.fft.fft2(a)
@@ -20,6 +23,7 @@ def phase_correlation(a, b):
     R /= np.absolute(R)
     r = np.fft.ifft2(R).real
     return r
+
 
 #
 def pad_data(img):
@@ -39,16 +43,102 @@ def get_drift_xy(data,
     x_shifts = np.random.randint(low=-x_drift_max,
                                  high = x_drift_max,
                                  size = data.shape[0])
-    y_shifts = np.random.randint(low=-x_drift_max,
-                                 high = x_drift_max,
+    y_shifts = np.random.randint(low=-y_drift_max,
+                                 high = y_drift_max,
                                  size = data.shape[0])
 
     return x_shifts, y_shifts
-    
+
+
+def phase_correlation_parallel(idx_parmap,
+                               template,
+                               fname):
+    # load the data as mmap;
+    # - this should avoid memmory crash issues
+    # TODO: can even have this mmap reset every 1000 frames so that
+    #   any size data can be processed!!
+    data = np.memmap(fname, dtype='uint16', mode='r')
+    data = data.reshape(-1, 512, 512)
+
+    #
+    corr_maxs = np.zeros(data.shape[0])
+    shifts = np.zeros((data.shape[0],2))
+
+    #
+    a = template.copy()
+    if idx_parmap[0]==0:
+        for idx in tqdm(idx_parmap, desc="phase corr computation"):
+
+            # seelct an image
+            #print ('idx: ', idx, data.shape)
+            b = data[idx]
+
+            #
+            G_a = np.fft.fft2(a)
+            G_b = np.fft.fft2(b)
+            conj_b = np.ma.conjugate(G_b)
+            R = G_a * conj_b
+            R /= np.absolute(R)
+            surface = np.fft.ifft2(R).real
+
+            # compute peak location for row and column
+            r, c = np.unravel_index(surface.argmax(), surface.shape)
+
+            #
+            corr_maxs[idx] = surface[r, c]
+
+            # convert to roll function which has negative and positive values
+            if r > 512 / 2:
+                r = r - 512
+
+            if c > 512 / 2:
+                c = r - 512
+
+            #
+            shifts[idx] = [r, c]
+
+    else:
+        for idx in idx_parmap:
+
+            # seelct an image
+            # print ('idx: ', idx, data.shape)
+            b = data[idx]
+
+            #
+            G_a = np.fft.fft2(a)
+            G_b = np.fft.fft2(b)
+            conj_b = np.ma.conjugate(G_b)
+            R = G_a * conj_b
+            R /= np.absolute(R)
+            surface = np.fft.ifft2(R).real
+
+            # compute peak location for row and column
+            r, c = np.unravel_index(surface.argmax(), surface.shape)
+
+            #
+            corr_maxs[idx] = surface[r, c]
+
+            # convert to roll function which has negative and positive values
+            if r > 512 / 2:
+                r = r - 512
+
+            if c > 512 / 2:
+                c = r - 512
+
+            #
+            shifts[idx] = [r, c]
+
+
+    #
+    return shifts, corr_maxs
+
 #
 def make_template(data,
+                  fname_mmap,
                   n_imgs_to_sample = 500,
-                  n_best_imgs = 100):
+                  n_best_imgs = 100,
+                  plotting=False,
+                  n_cores=1):
 
     # find best correlation map first
     idx_imgs = np.random.choice(np.arange(data.shape[0]),
@@ -58,19 +148,46 @@ def make_template(data,
     # make temporary template to match to
     template = np.mean(data[idx_imgs],axis=0)
 
-    #
-    corr_maxs = np.zeros(idx_imgs.shape[0])
-    ctr=0
-    for k in tqdm(idx_imgs, desc="computing phase correlations"):
+    # parallelize
+    if n_cores==1:
+        corr_maxs = np.zeros(idx_imgs.shape[0])
+        ctr=0
+        for k in tqdm(idx_imgs, desc="computing phase correlations"):
 
+            #
+            temp = phase_correlation(data[k], template)
+
+            r,c = np.unravel_index(temp.argmax(), temp.shape)
+
+            maxcorr = temp[r,c]
+            corr_maxs[ctr] = maxcorr
+            ctr+=1
+    else:
+        # split the image indexes into gropus
+        idx_parmap = np.array_split(idx_imgs,
+                                    n_cores)
         #
-        temp = phase_correlation(data[k], template)
+        res = parmap.map(phase_correlation_parallel,
+                         idx_parmap,   # indexes of each image to process
+                         template,     # defatul template
+                         fname_mmap,   # place where to load data from
+                         pm_pbar = True,
+                         pm_processes = n_cores
+                         )
 
-        r,c = np.unravel_index(temp.argmax(), temp.shape)
+        # initialize arrays
+        shifts = np.zeros((data.shape[0], 2))
+        corr_maxs = np.zeros(data.shape[0])
 
-        maxcorr = temp[r,c]
-        corr_maxs[ctr] = maxcorr
-        ctr+=1
+        # merge the shifts:
+        for k in range(len(res)):
+            shifts = shifts + res[k][0]
+            corr_maxs = corr_maxs + res[k][1]
+
+        # select only the values chose
+        shifts = shifts[idx_imgs]
+        corr_maxs = corr_maxs[idx_imgs]
+
     #
     idx = np.argsort(corr_maxs)[::-1]
 
@@ -79,9 +196,87 @@ def make_template(data,
     template = data[idx_imgs[idx_best]].mean(0)
 
     #
+    if plotting:
+        plt.figure()
+        plt.subplot(1, 2, 1)
+        temp = data[idx_imgs].mean(0)
+        plt.title("Average map over " + str(idx_imgs.shape[0]) + " images")
+        plt.imshow(temp,
+                   vmin=0,
+                   vmax=1500)
+
+        #
+        plt.subplot(1, 2, 2)
+        plt.title("Average map over highest correlated " + str(n_best_imgs) + " images")
+        plt.imshow(template,
+                   vmin=0,
+                   vmax=1500)
+
+        #
+        plt.show()
+
+
+    #
     return corr_maxs, template, idx_imgs
 
-def compute_drift(template, image):
+
+#
+def compute_drift_multi_frames(data,
+                               fname,
+                               template,
+                               subsample=1,
+                               n_cores=1):
+
+    #
+    if n_cores>1:
+        idx_all = np.arange(data.shape[0])
+
+        # subsample data
+        idx_all = idx_all[::subsample]
+
+        #
+        idx_parmap = np.array_split(idx_all,
+                                    n_cores)
+        #
+        res = parmap.map(phase_correlation_parallel,
+                         idx_parmap,  # indexes of each image to process
+                         template,  # defatul template
+                         fname,  # place where to load data from
+                         pm_pbar=True,
+                         pm_processes=n_cores
+                         )
+
+        # initialize arrays
+        shifts = np.zeros((data.shape[0], 2))
+        corr_maxs = np.zeros(data.shape[0])
+
+        #p
+        #print ("res: ", res)
+        #print ("res: ", len(res))
+
+        # merge the shifts:
+        for k in range(len(res)):
+            shifts = shifts + res[k][0]
+            corr_maxs = corr_maxs + res[k][1]
+
+        # fix any subsmapled frame by taking previous:
+        for k in range(shifts.shape[0]):
+            if shifts[k][0]==0 and shifts[k][1]==0:
+                shifts[k] = shifts[k-1]
+                corr_maxs[k] = corr_maxs[k-1]
+
+        # select only the values chose
+        #shifts = shifts[idx_imgs]
+        #corr_maxs = corr_maxs[idx_imgs]
+
+    else:
+        print ("non parallel version not implemented")
+
+    #
+    return shifts, corr_maxs
+
+#
+def compute_drift_single_frame(template, image):
     # compute phase correlation to the template.
     img_corr = phase_correlation(template, image)
 
@@ -101,41 +296,32 @@ def compute_drift(template, image):
 ######################################################################################
 class DriftCorrection():
 
-    ''' Class that implements drift correction of imaging data using phase correlation
+    ''' Class that implements ONLINE drift correction of imaging data using phase correlation
 
         Input: ....
         Output: ...
 
     '''
 
-    def __init__(self, 
+    def __init__(self,
 				 fname_roi_pixels_and_thresholds,
 				 shmem_live_frame,
                  shmem_drift_xy_values):
 
-        #
         self.fname_roi_pixels_and_thresholds = fname_roi_pixels_and_thresholds
+        self.shmem_live_frame = shmem_live_frame
 
-        #
-	    self.shmem_live_frame = shmem_live_frame
-
-        #
-	    self.shmem_drift_xy_values = shmem_drift_xy_values
-
-        #
+        self.shmem_drift_xy_values = shmem_drift_xy_values
         self.load_template()
-
-        #
         self.initialize_drift_xy_state()
 
-        #
+
         while True:
 
             #
             self.detect_drift()
 
             #
-
 
     #
     def initialize_drift_xy_state(self):
@@ -182,13 +368,10 @@ class DriftCorrection():
         #
         self.template = data['calibration_template']
 
-        #
-
-
-	def detect_drift(self):
+    def detect_drift(self):
 
         # take live image
-        r, c = compute_drift(self.template, self.live_frame)
+        r, c = compute_drift_single_frame(self.template, self.live_frame)
 
         #
         self.drift_xy_values[0] = r.copy()

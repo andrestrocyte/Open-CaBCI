@@ -109,7 +109,11 @@ class ComputeROIs(object):
 		self.sigma = .5
 		self.order = 0
 		self.n_smooth_steps = 1
-	
+
+		#
+		data = np.memmap(self.fname, dtype='uint16', mode='r')
+		self.data = data.reshape(-1,512,512)
+		print ("memmap : ", self.data.shape)
 	
 	def make_corr_map(self):
 		''' Not yet working or tested etc.
@@ -141,11 +145,9 @@ class ComputeROIs(object):
 	# 
 	def make_std_map(self):
 
-		data = np.memmap(self.fname, dtype='uint16', mode='r')
-		data = data.reshape(-1,512,512)
-		print ("memmap : ", data.shape)
 
-		data_sparse = data[::self.subsample]
+
+		data_sparse = self.data[::self.subsample]
 		print ("data into analysis: ", data_sparse.shape)
 
 		# filter once to remove much of the white noise
