@@ -82,6 +82,9 @@ class BMI():
         self.simulation_mode = simulation_mode
 
         #
+        self.apply_drift_flag = False
+
+        #
         self.fname_root_path = fname_root_path
         self.fname_fluorescence = fname_fluorescence
         self.fname_ttl = fname_ttl
@@ -123,6 +126,10 @@ class BMI():
                                                     # to be developed/changed further
 
 		# complicated paramter which turns on realitime DFF0 computation only after a certain period of time
+        # TODO: determine if online DFF0 is required:
+        #  things to evaluate: bleaching type of slow baseline drift...
+        #     but for this slow drift we can use very long windows (like 2mins or more)
+        # - for faster update not sure this is correct
         self.n_ttl_to_start_applying_DFF0_computation = 30 *self.sampleRate_2P
 
         # start the ttl frame counter at 0
@@ -272,6 +279,9 @@ class BMI():
 
         #
         self.drift_xy_values[:] = aa[:]
+
+        # a list to save all the realtime applied drift
+        self.drift_array = []
 
     #
     def initialize_reward_conditions_and_parameters(self):
@@ -733,13 +743,15 @@ class BMI():
                 # option 1: use the calibration time roi_f0s
                 #  Note: this is risky to do:
                 #          - sometimes there is signficant drift which we don't correct for (yet!)
-                #          - or the laser power changes a bit 
-                if False or self.n_ttl[0]<self.n_ttl_to_start_applying_DFF0_computation:
+                # WE FIXED THIS NOW
+                #if False or self.n_ttl[0]<self.n_ttl_to_start_applying_DFF0_computation:
+                if True:
                     temp = (temp - self.roi_f0s[p])/self.roi_f0s[p]
                 
                 # Recompute baseline dynamically to ensure alignemtn of data
-                # Note: this is also risky as some of the thresholds computed in the calibration step
+                # Note: this is also risky as this means the thresholds computed in the calibration step
                 #        might not be completely accurate any longer
+                #
                 else:
                     # so here we feed current chunk of data going back n frames
                     #  plus the refrenc trace which should be the last n frames of raw data; usually take at least 30 seconds
@@ -1025,10 +1037,15 @@ class BMI():
         self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
 
         # correct drift in live_frame_local
-        #print (" self.drift_xy_values SENT TO FUNCTION: ", self.drift_xy_values)
-        self.live_frame_local_drift_corrected = apply_shifts(self.live_frame_local,
+        self.drift_array.append(self.drift_xy_values)
+
+        #
+        if self.apply_drift_flag:
+            self.live_frame_local_drift_corrected = apply_shifts(self.live_frame_local,
                                                              self.drift_xy_values[0],
                                                              self.drift_xy_values[1])
+        else:
+            self.live_frame_local_drift_corrected = self.live_frame_local
 
     #
     def update_rois(self):
@@ -1141,5 +1158,6 @@ class BMI():
 				 rois_smooth_window = self.rois_smooth_window,
 				 n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
 				 n_frames_search_forward = self.n_frames_search_forward,
+                 drift_array = self.drift_array,
                  )
 

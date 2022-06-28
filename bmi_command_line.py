@@ -33,7 +33,7 @@ if __name__ ==  '__main__':
 	simulation_flag_water = True       # Runs the water class in simulation mode
 	
 	# parameter used for simulation mode to add a delay instead of waiting for ttl pulse
-	sleep_time_sec = 0.001
+	sleep_time_sec = 0.01
 
 	##########################################################################
 	#################### LOAD FILE/DIRECTORY LOCATIONS ####################### 

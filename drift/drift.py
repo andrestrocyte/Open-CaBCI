@@ -18,6 +18,47 @@ import time
 #import os
 #import time
 
+#
+def apply_shifts(img, x, y):
+
+    #
+	img = np.roll(img, x, axis=0)
+	img = np.roll(img, y, axis=1)
+
+	return img
+
+def correct_drift_single_frame(img, shift):
+
+    #
+    x = shift[0]
+    y = shift[1]
+
+    #
+    img = apply_shifts(img,
+                           x,
+                           y)
+    #
+    return img
+
+
+def correct_drift(data, shifts):
+
+	#
+	for k in trange(data.shape[0], desc='fixing drift calibration data'):
+
+		#
+		x = shifts[k][0]
+		y = shifts[k][1]
+
+		#
+		temp = data[k].copy()
+
+		data[k] = apply_shifts(temp,
+						       x,
+							   y)
+
+	return data
+
 ######################################################################################
 class DriftCorrection():
 
@@ -135,16 +176,6 @@ class DriftCorrection():
         #
         self.drift_xy_values[0] = r
         self.drift_xy_values[1] = c
-
-
-#
-def apply_shifts(img, x, y):
-
-    #
-	img = np.roll(img, int(x), axis=0)
-	img = np.roll(img, int(y), axis=1)
-
-	return img
 
 #
 def phase_correlation(a, b):
@@ -284,11 +315,12 @@ def make_template(data,
                                 n_imgs_to_sample,
                                 replace=False)
     else:
-        idx_start = np.random.choice(np.arange(data.shape[0])-
-                                        n_imgs_to_sample)
+        idx_start = np.random.choice(np.arange(data.shape[0]-n_imgs_to_sample))
         idx_imgs = np.arange(idx_start,
-                             n_imgs_to_sample,
+                             idx_start+n_imgs_to_sample,
                              1)
+    #
+    #print ("idx imgs; ", idx_imgs)
 
     # make temporary template to match to
     template = np.mean(data[idx_imgs],axis=0)
@@ -309,11 +341,12 @@ def make_template(data,
             ctr+=1
     else:
         # split the image indexes into gropus
-        idx_parmap = np.array_split(idx_imgs,
+        imgs_split = np.array_split(idx_imgs,
                                     n_cores)
+
         #
         res = parmap.map(phase_correlation_parallel,
-                         idx_parmap,   # indexes of each image to process
+                         imgs_split,   # indexes of each image to process
                          template,     # defatul template
                          fname_mmap,   # place where to load data from
                          pm_pbar = True,
