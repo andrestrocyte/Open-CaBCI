@@ -26,10 +26,13 @@ class BMICalibration(object):
 		self.n_smooth_steps = 1
 
 		#
-		data = np.memmap(self.fname, dtype='uint16', mode='r+')
+		#data = np.memmap(self.fname, dtype='uint16', mode='r+')
+		#data = np.memmap(self.fname, dtype='uint16', mode='r')
+		data = np.fromfile(self.fname, dtype='uint16')
 		self.data = data.reshape(-1,512,512)
 		print ("memmap : ", self.data.shape)
-	
+		
+	#	
 	def make_corr_map(self):
 		''' Not yet working or tested etc.
 

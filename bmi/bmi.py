@@ -82,7 +82,7 @@ class BMI():
         self.simulation_mode = simulation_mode
 
         #
-        self.apply_drift_flag = False
+        self.apply_drift_flag = True
 
         #
         self.fname_root_path = fname_root_path
@@ -324,6 +324,9 @@ class BMI():
 
         # similar to post-reward lockout
         self.missed_reward_lockout = 0
+        
+        #
+        self.template = data['calibration_template']
 
     #
     def initialize_ensemble_state(self):
@@ -1030,22 +1033,33 @@ class BMI():
 
         # TODO: update latest image for imaging purposese
         # this raw frame is fed to the drift correction algorithm (anywhere else!?)
-        self.live_frame[0] = self.newfp[self.n_ttl[0]+z].copy()
 
         # this is the same raw frame but now it is fixed for purpose of computing ROIs!!
-        #  - we need to shift it based on
+        #  - this is the latest frame extracted
         self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
 
-        # correct drift in live_frame_local
-        self.drift_array.append(self.drift_xy_values)
-
+		# motion detector gets this frame; and returns drift_xy_values
+		self.live_frame_motion_detector[0] = self.live_frame_local.copy()
+        
         #
         if self.apply_drift_flag:
-            self.live_frame_local_drift_corrected = apply_shifts(self.live_frame_local,
-                                                             self.drift_xy_values[0],
-                                                             self.drift_xy_values[1])
+            #print ("LIVE IMAGE BMI*  motion detection self.drift_xy_values: ", self.drift_xy_values)
+        
+			# save most recent drift values from drift module
+            self.drift_array.append([self.drift_xy_values[0],
+									 self.drift_xy_values[1]])
+			
+			# NOTE: the drift_xy values could be the previously saved ones
+            self.live_frame_local_drift_corrected = apply_shifts(self.live_frame_local.copy(),
+                                                                 self.drift_xy_values[0],
+                                                                 self.drift_xy_values[1])
+
         else:
-            self.live_frame_local_drift_corrected = self.live_frame_local
+            self.live_frame_local_drift_corrected = self.live_frame_local.copy()
+
+        # this is the frame that the plotting function sees
+        self.live_frame[0] = self.live_frame_local_drift_corrected.copy()
+
 
     #
     def update_rois(self):
@@ -1128,6 +1142,7 @@ class BMI():
 
         '''
         print("...Saving BMI metadata...")
+        print ("DRIFT ARRAY: ", self.drift_array)
 
         #
         np.savez(self.fname_save_data,
@@ -1159,5 +1174,6 @@ class BMI():
 				 n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
 				 n_frames_search_forward = self.n_frames_search_forward,
                  drift_array = self.drift_array,
+                 template = self.template,
                  )
 

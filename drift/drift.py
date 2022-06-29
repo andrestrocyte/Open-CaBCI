@@ -41,23 +41,28 @@ def correct_drift_single_frame(img, shift):
     return img
 
 
-def correct_drift(data, shifts):
+def correct_drift(iter_number,
+				  bmi_c, 
+				  shifts):
 
 	#
-	for k in trange(data.shape[0], desc='fixing drift calibration data'):
+	for k in trange(bmi_c.data.shape[0], desc='fixing drift calibration data'):
 
 		#
 		x = shifts[k][0]
 		y = shifts[k][1]
 
 		#
-		temp = data[k].copy()
+		temp = bmi_c.data[k].copy()
 
-		data[k] = apply_shifts(temp,
+		bmi_c.data[k] = apply_shifts(temp,
 						       x,
 							   y)
+							   
+							   
+	bmi_c.data.flatten().tofile(bmi_c.fname.replace('.raw','_'+str(iter_number)+'.raw'))
 
-	return data
+	return bmi_c
 
 ######################################################################################
 class DriftCorrection():
@@ -160,6 +165,7 @@ class DriftCorrection():
         #
         data = np.load(self.fname_rois_pixels_and_thresholds,
                        allow_pickle=True)
+                       
         #
         self.template = data['calibration_template']
 
@@ -167,11 +173,12 @@ class DriftCorrection():
     def detect_drift(self):
 
         # take live image
+        #print (self.template.shape, self.live_frame.shape)
         r, c = compute_drift_single_frame(self.template,
                                           self.live_frame)
 
         #
-        #print ("LIVE IMAGE ROI DETECTION: ", r, c)
+        print ("DRIFT CLASS motion detection (r,c): ", r, c)
 
         #
         self.drift_xy_values[0] = r
@@ -305,25 +312,32 @@ def make_template(data,
                   fname_mmap,
                   n_imgs_to_sample = 500,
                   n_best_imgs = 100,
+                  template = None,
+                  idx_imgs = None,
+                  random_img_sample_flag = True,
                   plotting=False,
                   n_cores=1):
 
     # find best correlation map first
     # don't pick random frames, much harder to find matchin frames
-    if False:
-        idx_imgs = np.random.choice(np.arange(data.shape[0]),
-                                n_imgs_to_sample,
-                                replace=False)
-    else:
-        idx_start = np.random.choice(np.arange(data.shape[0]-n_imgs_to_sample))
-        idx_imgs = np.arange(idx_start,
-                             idx_start+n_imgs_to_sample,
-                             1)
+
+    if idx_imgs is None:
+        if random_img_sample_flag:
+            idx_imgs = np.random.choice(np.arange(data.shape[0]),
+                                    n_imgs_to_sample,
+                                    replace=False)
+        else:
+            idx_start = np.random.choice(np.arange(data.shape[0]-n_imgs_to_sample))
+            idx_imgs = np.arange(idx_start,
+                                 idx_start+n_imgs_to_sample,
+                                 1)
+
     #
     #print ("idx imgs; ", idx_imgs)
 
     # make temporary template to match to
-    template = np.mean(data[idx_imgs],axis=0)
+    if template is None:
+        template = np.mean(data[idx_imgs],axis=0)
 
     # parallelize
     if n_cores==1:
@@ -369,43 +383,31 @@ def make_template(data,
     #
     idx = np.argsort(corr_maxs)[::-1]
 
-    # take the n best images and compute template
+    # take the n best images and recompute template
     idx_best = idx[:n_best_imgs]
     template = data[idx_imgs[idx_best]].mean(0)
-
-    #
-    if plotting:
-        plt.figure()
-        plt.subplot(1, 2, 1)
-        temp = data[idx_imgs].mean(0)
-        plt.title("Average map over " + str(idx_imgs.shape[0]) + " images")
-        plt.imshow(temp,
-                   #vmin=0,
-                   #vmax=1500
-                   #
-                   )
-
-        #
-        plt.subplot(1, 2, 2)
-        plt.title("Average map over highest correlated " + str(n_best_imgs) + " images")
-        plt.imshow(template,
-                   #vmin=0,
-                   #vmax=1500
-                   )
-
-        #
-        plt.show()
-
 
     #
     return corr_maxs, template, idx_imgs
 
 #
-def compute_drift_multi_frames(data,
-                               fname,
-                               template,
+def compute_drift_multi_frames(iter_number,
+							   bmi_c,
                                subsample=1,
                                n_cores=1):
+	
+	#							   
+    template = bmi_c.template
+    data = bmi_c.data
+    fname = bmi_c.fname
+	
+	# make sure to save different files each time a step is processed
+	# TODO: no need to work with the entire dataset here, could just do a subset
+    if iter_number >0:
+        fname = fname.replace('.raw','_'+str(iter_number-1)+".raw")
+	
+	#
+    print ("computing motion on: ", fname)
 
     #
     if n_cores>1:
@@ -430,24 +432,18 @@ def compute_drift_multi_frames(data,
         shifts = np.zeros((data.shape[0], 2))
         corr_maxs = np.zeros(data.shape[0])
 
-        #p
-        #print ("res: ", res)
-        #print ("res: ", len(res))
-
         # merge the shifts:
         for k in range(len(res)):
             shifts = shifts + res[k][0]
             corr_maxs = corr_maxs + res[k][1]
 
         # fix any subsmapled frame by taking previous:
+        # TODO: this looks dangerous... it replaces 0,0 detected drift by previous val
+        print ("TODO: undo interpolation for drift with better function")
         for k in range(shifts.shape[0]):
             if shifts[k][0]==0 and shifts[k][1]==0:
                 shifts[k] = shifts[k-1]
                 corr_maxs[k] = corr_maxs[k-1]
-
-        # select only the values chose
-        #shifts = shifts[idx_imgs]
-        #corr_maxs = corr_maxs[idx_imgs]
 
     else:
         print ("non parallel version not implemented")
