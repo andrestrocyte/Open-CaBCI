@@ -82,7 +82,7 @@ class BMI():
         self.simulation_mode = simulation_mode
 
         #
-        self.apply_drift_flag = False
+        self.apply_drift_flag = True
 
         #
         self.fname_root_path = fname_root_path
