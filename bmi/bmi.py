@@ -1156,8 +1156,7 @@ class BMI():
              - treadmill/ball walking distance
 
         '''
-        print("...Saving BMI metadata...")
-        print ("DRIFT ARRAY: ", self.drift_array)
+        print("...Saving BMI meta/data...")
 
         #
         np.savez(self.fname_save_data,

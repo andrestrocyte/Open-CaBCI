@@ -9,6 +9,7 @@ import numpy as np
 from multiprocessing import shared_memory
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from matplotlib.widgets import Slider, Button, RadioButtons
 
 plt.ion()
 
@@ -47,10 +48,11 @@ class PlotROIs():
         self.plotting_window_width = 30
 
         # No. of frames to use for the live image averaging
-        self.live_image_average_n_frames = 30
+        self.live_image_average_n_frames = 5
 
         # How many frames must go by before updating
-        self.live_image_update_n_frames = 1
+        # TODO: not clear why we need 2 of these variables
+        self.live_image_update_n_frames = 5
 
         #
         self.live_image_vmin = 700
@@ -323,7 +325,7 @@ class PlotROIs():
         self.grid = GridSpec(5, 6)#, left=0.55, right=0.98, hspace=0.05)
 
         #########################################################
-        #########################################################
+        ######################### PLOT CA IMAGE #################
         #########################################################
         # TODO: refactor this plot to another function
         self.ax_image = self.fig.add_subplot(self.grid[:, 3:])
@@ -332,6 +334,25 @@ class PlotROIs():
         self.image_obj = self.ax_image.imshow(self.live_frame[0],
                                               vmin=self.live_image_vmin,
                                               vmax=self.live_image_vmax)
+
+        #
+        axcolor = 'lightgoldenrodyellow'
+        axmin = self.fig.add_axes([0.55, 0.0, 0.30, 0.03])
+        axmax  = self.fig.add_axes([0.55, 0.05, 0.30, 0.03])
+
+        self.smin = Slider(axmin, 'Min', 0, 2048, valinit=self.live_image_vmin)
+        self.smax = Slider(axmax, 'Max', 0, 2048, valinit=self.live_image_vmax)
+
+        def update(val):
+            self.image_obj.set_clim([self.smin.val,
+                                     self.smax.val])
+
+		#S
+        self.smin.on_changed(update)
+        self.smax.on_changed(update)
+
+		
+		#
         self.ax_image.set_xlim(0,512)
         self.ax_image.set_ylim(512,0)
 
@@ -344,7 +365,7 @@ class PlotROIs():
 
 
         #########################################################
-        #########################################################
+        ##################### PLOT ROI TRACES ###################
         #########################################################
         # TODO: refactor this plot to another function
         self.ax_traces = self.fig.add_subplot(self.grid[:, :3])
@@ -480,7 +501,7 @@ class PlotROIs():
         self.live_image_array[:-1] = self.live_image_array[1:]
 
         # add current image frame
-        self.live_image_array[-1] = self.live_frame[0]
+        self.live_image_array[-1] = self.live_frame[0].copy()
 
         # dont' update thelive image frame until we have at least min # of frams
         if self.live_image_counter> self.live_image_update_n_frames:
@@ -490,10 +511,14 @@ class PlotROIs():
 
             # compute mean over last n_frames
             temp = np.mean(self.live_image_array[-self.live_image_average_n_frames:],axis=0)
-            idx = np.where(temp<self.live_image_vmin)
-            temp[idx] = self.live_image_vmin
-            idx = np.where(temp>self.live_image_vmax)
-            temp[idx] = self.live_image_vmax
+            
+            if False:
+                idx = np.where(temp<self.live_image_vmin)
+                temp[idx] = self.live_image_vmin
+                idx = np.where(temp>self.live_image_vmax)
+                temp[idx] = self.live_image_vmax
+                    
+            #
             self.image_obj.set_data(temp)
 
         else:
