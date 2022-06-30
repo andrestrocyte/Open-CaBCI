@@ -337,19 +337,25 @@ class PlotROIs():
 
         #
         axcolor = 'lightgoldenrodyellow'
-        axmin = self.fig.add_axes([0.55, 0.0, 0.30, 0.03])
-        axmax  = self.fig.add_axes([0.55, 0.05, 0.30, 0.03])
-
+        axmin = self.fig.add_axes([0.55, 0.0, 0.15, 0.03])
+        axmax  = self.fig.add_axes([0.55, 0.03, 0.15, 0.03])
+        n_frame_ave  = self.fig.add_axes([0.83, 0.03, 0.10, 0.03])
+        
         self.smin = Slider(axmin, 'Min', 0, 2048, valinit=self.live_image_vmin)
         self.smax = Slider(axmax, 'Max', 0, 2048, valinit=self.live_image_vmax)
+        self.n_frame_ave = Slider(n_frame_ave, 'nFrames', 1, 30, valinit=self.live_image_average_n_frames)
 
-        def update(val):
+        #
+        def update_clim(val):
             self.image_obj.set_clim([self.smin.val,
                                      self.smax.val])
-
-		#S
-        self.smin.on_changed(update)
-        self.smax.on_changed(update)
+        def update_n_frames_average(val):
+            self.live_image_average_n_frames = int(self.n_frame_ave.val)
+            
+        #S
+        self.smin.on_changed(update_clim)
+        self.smax.on_changed(update_clim)
+        self.n_frame_ave.on_changed(update_n_frames_average)
 
 		
 		#
@@ -504,10 +510,10 @@ class PlotROIs():
         self.live_image_array[-1] = self.live_frame[0].copy()
 
         # dont' update thelive image frame until we have at least min # of frams
-        if self.live_image_counter> self.live_image_update_n_frames:
+        if self.live_image_counter> self.live_image_average_n_frames:
 
             # reset counter
-            self.live_image_counter = 0
+            #self.live_image_counter = 0
 
             # compute mean over last n_frames
             temp = np.mean(self.live_image_array[-self.live_image_average_n_frames:],axis=0)
@@ -521,8 +527,10 @@ class PlotROIs():
             #
             self.image_obj.set_data(temp)
 
-        else:
-            self.live_image_counter+=1
+        #else:
+        self.live_image_counter+=1
+
+
 
         #print ("time to compute image update: ", time.time()-start)
         #########################################
