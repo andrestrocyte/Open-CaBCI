@@ -133,7 +133,7 @@ if __name__ ==  '__main__':
 												bmi.rois_traces_raw.shape,
 												bmi.shmem_reward_times.name,
 												bmi.shmem_tone_state.name,
-												bmi.shmem_live_frame.name,
+												bmi.shmem_live_frame_plotter.name,
 												bmi.shmem_ensemble_state.name,
 												bmi.high_threshold,
 												bmi.shmem_termination_flag.name,
@@ -149,7 +149,7 @@ if __name__ ==  '__main__':
 	if True:
 		drift_ = Process(target=DriftCorrection, args=(
 												fname_rois_pixels_and_thresholds,
-												bmi.shmem_live_frame.name,
+												bmi.shmem_live_frame_motion_detector.name,
 												bmi.shmem_drift_xy_values.name,
 												bmi.shmem_termination_flag.name,
 												))

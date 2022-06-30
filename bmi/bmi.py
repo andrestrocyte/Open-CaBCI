@@ -82,7 +82,7 @@ class BMI():
         self.simulation_mode = simulation_mode
 
         #
-        self.apply_drift_flag = True
+        self.apply_drift_flag = False
 
         #
         self.fname_root_path = fname_root_path
@@ -108,11 +108,11 @@ class BMI():
         #
         self.sampleRate_2P = sampleRate_2P	    # Sample rate of BScope
 
-		#
+        #
         self.image_width = 512
         self.image_length = 512
 
-		#
+        #
         self.max_n_seconds_session = max_n_seconds_session
 
         # number of frames to run BMI for
@@ -125,7 +125,7 @@ class BMI():
         self.rois_smooth_window = 5   				# Number of frames to use to smooth the ROI traces
                                                     # to be developed/changed further
 
-		# complicated paramter which turns on realitime DFF0 computation only after a certain period of time
+        # complicated paramter which turns on realitime DFF0 computation only after a certain period of time
         # TODO: determine if online DFF0 is required:
         #  things to evaluate: bleaching type of slow baseline drift...
         #     but for this slow drift we can use very long windows (like 2mins or more)
@@ -452,22 +452,36 @@ class BMI():
     def initialize_live_frame_shared_memory(self):
 
         ''' shared variable that keeps current image in memeory for plotter to visualize
-
+            NOTE: We actually need 2 independent ones (for now) to send to plotter
+            and motion detection algorithm independently.
         '''
 
         # make a numpy array to hold the rois_traces
         aa = np.zeros((1,512,512), dtype=np.uint16)
-        self.shmem_live_frame = shared_memory.SharedMemory(create=True,
+        self.shmem_live_frame_plotter = shared_memory.SharedMemory(create=True,
                                                              size=aa.nbytes)
 
         #
-        self.live_frame = np.ndarray(aa.shape,
-                                dtype=aa.dtype,
-                                buffer=self.shmem_live_frame.buf)
+        self.live_frame_plotter = np.ndarray(aa.shape,
+                                        dtype=aa.dtype,
+                                        buffer=self.shmem_live_frame_plotter.buf)
 
         #
-        self.live_frame[:] = aa[:]
+        self.live_frame_plotter[:] = aa[:]
 
+        # Also initialize a live frame for the
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((1,512,512), dtype=np.uint16)
+        self.shmem_live_frame_motion_detector = shared_memory.SharedMemory(create=True,
+                                                             size=aa.nbytes)
+
+        #
+        self.live_frame_motion_detector = np.ndarray(aa.shape,
+                                        dtype=aa.dtype,
+                                        buffer=self.shmem_live_frame_motion_detector.buf)
+
+        #
+        self.live_frame_motion_detector[:] = aa[:]
         #
         #print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
 
@@ -662,7 +676,7 @@ class BMI():
         if self.simulation_mode == True:
             self.task_ttl = Simulation(self.fname_ttl)
         else:
-			
+
             #print ("  RESETTING DEV3 ")
             #dev_name = "Dev3"
             #dev_name=dev_name.strip("/")
@@ -671,8 +685,8 @@ class BMI():
             
             #
             # time.sleep(3)
-            			
-			#			
+
+            #
             self.task_ttl = nidaqmx.Task('bmi_online')
             print ("iniitlied bmi online")
             # set TTL pulse reader from 2p system
@@ -734,7 +748,7 @@ class BMI():
         # if we made threhsods using smoothing, then need to run them on data also
         # TODO:  IMPORTANT: implement the identical algorithm used in the calibration step to compute
         #        this step; currently only the smoothing step is shared; need to share DFF0 computation also
-		#
+        #
         if self.smooth_diff_function_flag and self.n_ttl[0]>self.rois_smooth_window:
 
             # loop over each cell
@@ -829,7 +843,7 @@ class BMI():
                     self.newfp = np.memmap(self.fname_fluorescence,
                                            dtype='uint16',
                                            mode='r',
-										   shape=self.n_frames_to_be_acquired*512*512)
+                                           shape=self.n_frames_to_be_acquired*512*512)
                 
                 # TODO: THIS IS RQUIRD BY WINDOWS.
                 #    FOR SOME REASON IT DOESN"T LIKE NUMPY MEMMAP
@@ -839,19 +853,19 @@ class BMI():
                     
                     self.newfp = mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
                     # print ("OPTION @@@@@@@@@@@@@@@@: ", self.newfp)
-					
-					#
+
+                    #
                     mview = memoryview(self.newfp)
                     print (" memroy view: ", mview)
                     self.newfp = np.asarray(mview).reshape(self.n_frames_to_be_acquired,512,512)
                     print (" final array view: ", self.newfp.shape)
 
-					
+
                 # 
                 print ("sefl newfp: ", self.newfp.shape)
-				
+
                 self.newfp = self.newfp.reshape(self.n_frames_to_be_acquired,512,512)
-				#m.write("Hello world!")                       
+                #m.write("Hello world!")
                                        
                 print (" duration to setup memmap: ", time.time()-ss, " sec.")
                 print ("     TODO: work with 1D flattened arrays")
@@ -954,8 +968,8 @@ class BMI():
             
         #
         if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
-			
-			#
+
+            #
             print (" reached high reward conition: ")
             print (" ensemble state: ", self.ensemble_state)
             print (" high_threshold: ", self.high_threshold)
@@ -1021,10 +1035,10 @@ class BMI():
 
             #
             if roi_sum0 != 0:
-				
-				# TODO: reset the n_ttl value here - check that this is safe!!!
+
+                # TODO: reset the n_ttl value here - check that this is safe!!!
                 # self.n_ttl[0] = self.n_ttl[0]+z
-				
+
                 break
 
         # TODO: we should reset the n_ttl here
@@ -1036,20 +1050,21 @@ class BMI():
 
         # this is the same raw frame but now it is fixed for purpose of computing ROIs!!
         #  - this is the latest frame extracted
+        # NOTE: outside functions do not see it unless explicitly copied
         self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
 
-		# motion detector gets this frame; and returns drift_xy_values
-		self.live_frame_motion_detector[0] = self.live_frame_local.copy()
+        # motion detector gets this frame; and returns drift_xy_values
+        self.live_frame_motion_detector[0] = self.live_frame_local.copy()
         
         #
         if self.apply_drift_flag:
             #print ("LIVE IMAGE BMI*  motion detection self.drift_xy_values: ", self.drift_xy_values)
         
-			# save most recent drift values from drift module
+            # save most recent drift values from drift module
             self.drift_array.append([self.drift_xy_values[0],
-									 self.drift_xy_values[1]])
-			
-			# NOTE: the drift_xy values could be the previously saved ones
+                                     self.drift_xy_values[1]])
+
+            # NOTE: the drift_xy values could be the previously saved ones
             self.live_frame_local_drift_corrected = apply_shifts(self.live_frame_local.copy(),
                                                                  self.drift_xy_values[0],
                                                                  self.drift_xy_values[1])
@@ -1058,7 +1073,7 @@ class BMI():
             self.live_frame_local_drift_corrected = self.live_frame_local.copy()
 
         # this is the frame that the plotting function sees
-        self.live_frame[0] = self.live_frame_local_drift_corrected.copy()
+        self.live_frame_plotter[0] = self.live_frame_local_drift_corrected.copy()
 
 
     #
@@ -1080,8 +1095,8 @@ class BMI():
             # TODO: not sure this is the correct function; to check literature
             # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
             roi_sum0 = np.nansum(roi_sum0)
-            		
-			# Note: Do not remove baseline yet; this is done in the smoothing step;
+
+            # Note: Do not remove baseline yet; this is done in the smoothing step;
             # TODO: make sure that this approach is correct
             self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0
 
@@ -1157,22 +1172,22 @@ class BMI():
                  reward_times = self.reward_times,
                  ensemble_activity = self.ensemble_activity,
                  ensemble_diff_array = self.ensemble_diff_array,
-				 received_reward_lockout = self.received_reward_lockout,
- 				 max_reward_window = self.max_reward_window,
-				 missed_reward_lockout = self.missed_reward_lockout,
-				 
-				 sampleRate_NI = self.sampleRate_NI, 
-				 ttl_pts = self.ttl_pts,
-				 sampleRate_2P = self.sampleRate_2P,
-				 image_width = self.image_width,
-				 image_length = self.image_length ,
- 				 max_n_seconds_session = self.max_n_seconds_session,
- 				 
- 				 n_frames = self.n_frames,
-				 n_frames_to_be_acquired = self.n_frames_to_be_acquired,				#
-				 rois_smooth_window = self.rois_smooth_window,
-				 n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
-				 n_frames_search_forward = self.n_frames_search_forward,
+                 received_reward_lockout = self.received_reward_lockout,
+                 max_reward_window = self.max_reward_window,
+                 missed_reward_lockout = self.missed_reward_lockout,
+
+                 sampleRate_NI = self.sampleRate_NI,
+                 ttl_pts = self.ttl_pts,
+                 sampleRate_2P = self.sampleRate_2P,
+                 image_width = self.image_width,
+                 image_length = self.image_length ,
+                 max_n_seconds_session = self.max_n_seconds_session,
+
+                 n_frames = self.n_frames,
+                 n_frames_to_be_acquired = self.n_frames_to_be_acquired,				#
+                 rois_smooth_window = self.rois_smooth_window,
+                 n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
+                 n_frames_search_forward = self.n_frames_search_forward,
                  drift_array = self.drift_array,
                  template = self.template,
                  )

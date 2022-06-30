@@ -172,13 +172,12 @@ class DriftCorrection():
     #
     def detect_drift(self):
 
-        # take live image
-        #print (self.template.shape, self.live_frame.shape)
+       #print (self.template.shape, self.live_frame.shape)
         r, c = compute_drift_single_frame(self.template,
                                           self.live_frame)
 
         #
-        print ("DRIFT CLASS motion detection (r,c): ", r, c)
+        #print ("DRIFT CLASS motion detection (r,c): ", r, c)
 
         #
         self.drift_xy_values[0] = r
