@@ -103,12 +103,12 @@ class BMI():
         self.sampleRate_NI = 1E3     # Sample rate of NI card
 
         #
-        self.ttl_pts = 1  			 # number of values to read from NI card - usually we read a single value to avoid buffering issues
+        self.ttl_pts = 1             # number of values to read from NI card - usually we read a single value to avoid buffering issues
 
         #
-        self.sampleRate_2P = sampleRate_2P	    # Sample rate of BScope
+        self.sampleRate_2P = sampleRate_2P      # Sample rate of BScope
 
-        #
+        # TODO: externalize these parameters
         self.image_width = 512
         self.image_length = 512
 
@@ -122,7 +122,7 @@ class BMI():
         self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
 
         #
-        self.rois_smooth_window = 5   				# Number of frames to use to smooth the ROI traces
+        self.rois_smooth_window = 5                 # Number of frames to use to smooth the ROI traces
                                                     # to be developed/changed further
 
         # complicated paramter which turns on realitime DFF0 computation only after a certain period of time
@@ -181,6 +181,13 @@ class BMI():
 
         #
         self.initialize_drift_correction()
+        
+        # start reading the ttl pulses from the 2p scope
+        self.initialize_bscope_ttl_pulse_reader()
+
+        # start reading the lick detector piezzo reader
+        self.initalize_lick_detector_reader()
+
 
     #
     def initialize_termination_flag(self):
@@ -369,16 +376,16 @@ class BMI():
 
         '''
         #
-        self.ttl_values = []			# array to hold ttl data being read
-        self.ttl_n_computed = []	    # number of ttl pulses computed based on time elapsed
+        self.ttl_values = []            # array to hold ttl data being read
+        self.ttl_n_computed = []        # number of ttl pulses computed based on time elapsed
         self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
         self.inter_ttl_time = []        # computed time between each detected TTL pluse
-        self.abs_times = [0] 			# NOT SURE REQUIRED ANYMORE; keeps track of every TTLL read outside the main BMI
+        self.abs_times = [0]            # NOT SURE REQUIRED ANYMORE; keeps track of every TTLL read outside the main BMI
                                         # loop;   might be useful for debugging later on kernel interuptions etc.
-        self.ttl_times = []				# ttl times to be saved
-        self.previous_trigger=0			# time of the previous TTL trigger to be used to determine if next trigger etc
-        self.prev_max = 0 				# TTL pulse previous read max value
-        self.prev_min = 0				# TTL pulse previous read min value
+        self.ttl_times = []             # ttl times to be saved
+        self.previous_trigger=0         # time of the previous TTL trigger to be used to determine if next trigger etc
+        self.prev_max = 0               # TTL pulse previous read max value
+        self.prev_min = 0               # TTL pulse previous read min value
         self.ttl_voltages = []          # ttl_voltages
 
         #self.initialize_n_ttl()
@@ -582,17 +589,7 @@ class BMI():
 
         #
         print('Running BMI (ctrl-c to stop)')
-
-        #
-        self.initialize_ttl_reader()
-
-        # # set time to auto finish the acquisition;
-        # #    TODO: automate acquisition end if no TTL pulses for X seconds
-        # t_end = (time.perf_counter() +
-        #          self.n_frames_to_be_acquired/self.sampleRate_2P+
-        #          5)
-
-      
+     
         #
         self.now = time.perf_counter() #time.perf_counter_ns()/1E9
         self.previous_trigger = time.perf_counter()-2 # set the previous tirgger 2 sec prior to start
@@ -608,22 +605,11 @@ class BMI():
         # TODO: merge ttl pulse counting and time tracking into a single while statement
         while self.ttl_computed < self.n_frames_to_be_acquired - 1:
 
-            ttl_value = self.task_ttl.read(number_of_samples_per_channel=self.ttl_pts)
+            # read next bscope ttl pulse
+            self.read_bscope_ttl()
 
-            #  leave these in just in case we end up reading at higher bit rates and multiple samples at a atime
-            #print ("READ: TTL: ", ttl_value)
-            self.min_ = np.min(ttl_value)
-            self.max_ = np.max(ttl_value)
-            self.ttl_voltages.append(ttl_value)
             #
-
-            # get time of ttl pulse
-            self.now = time.perf_counter() #perf_counter_ns()/1E9
-
-            # this helps us figure out how fast this loop runs
-            # TODO: we may want to introduce a delay of 5ms or so so we don't constanly read TTL pulses
-            #     but this is probably not necessary as the NIDAQMX package was made to be pinged a lot
-            self.abs_times.append(self.now)
+            self.read_lick_detector_ttl()
 
             # check of ttl pulse when from high ~5 to low ~0
             if self.min_<1 and self.prev_max>=1:
@@ -636,8 +622,6 @@ class BMI():
 
                 #
                 self.pbar.update(n=1)
-            #else:
-            #    print (" no pulse...")
 
             #
             self.prev_min = self.min_
@@ -652,7 +636,40 @@ class BMI():
         # save all data acquried during recording
         # TODO: try to save this on the fly if possible to avoid loosing data during crashes
         self.save_data()
+
+    def read_lick_detector_ttl(self):
         
+        # get current lick detector state from NI card output port
+        self.lick_detector_ttl_value = self.lick_detector_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
+
+        # this saves a triple: [lick_detector_ttl_value, 
+        #                       self.now, 
+        #                       n_ttl_counter]
+        self.lick_detector_value_abstime_nttl.append([self.lick_detector_ttl_value,
+                                                      self.now,
+                                                      self.n_ttl])
+
+    #
+    def read_bscope_ttl(self):
+
+        # get current bscope ttl pulse value from NI card output port
+        ttl_value = self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
+
+        #  leave these in just in case we end up reading at higher bit rates and multiple samples at a atime
+        #print ("READ: TTL: ", ttl_value)
+        self.min_ = np.min(ttl_value)
+        self.max_ = np.max(ttl_value)
+        self.ttl_voltages.append(ttl_value)
+        #
+
+        # get time of ttl pulse
+        self.now = time.perf_counter() #perf_counter_ns()/1E9
+
+        # this helps us figure out how fast this loop runs
+        # TODO: we may want to introduce a delay of 5ms or so so we don't constanly read TTL pulses
+        #     but this is probably not necessary as the NIDAQMX package was made to be pinged a lot
+        self.abs_times.append(self.now)
+
     #
     def close(self):
         
@@ -668,13 +685,37 @@ class BMI():
         # give the rest of the modules a few sec to complete
         time.sleep(2)
 
-     
     #
-    def initialize_ttl_reader(self):
+    def initalize_lick_detector_reader(self):
+      #
+        if self.simulation_mode == True:
+            self.lick_detector_ttl_task = Simulation(self.fname_ttl)
+        else:
+
+            #
+            self.lick_detector_ttl_task = nidaqmx.Task('bmi_online')
+            print ("iniitlied bmi online")
+            # set TTL pulse reader from 2p system
+            self.lick_detector_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai0",
+                                                          terminal_config=TerminalConfiguration.NRSE)
+
+            #
+            self.lick_detector_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
+                                                     # samps_per_chan=pointsToPlot*2,
+                                                     sample_mode=AcquisitionType.CONTINUOUS)
+
+            # start the TTL reader (not required in simulation mode)
+            self.lick_detector_ttl_task.start()
+            
+        # list that holds all the lick detector infor + meta data
+        self.lick_detector_value_abstime_nttl = []
+            
+    #
+    def initialize_bscope_ttl_pulse_reader(self):
 
         #
         if self.simulation_mode == True:
-            self.task_ttl = Simulation(self.fname_ttl)
+            self.bscope_ttl_task = Simulation(self.fname_ttl)
         else:
 
             #print ("  RESETTING DEV3 ")
@@ -687,19 +728,18 @@ class BMI():
             # time.sleep(3)
 
             #
-            self.task_ttl = nidaqmx.Task('bmi_online')
-            print ("iniitlied bmi online")
+            self.bscope_ttl_task = nidaqmx.Task('bmi_online')
             # set TTL pulse reader from 2p system
-            self.task_ttl.ai_channels.add_ai_voltage_chan("Dev3/ai0",
+            self.bscope_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai0",
                                                           terminal_config=TerminalConfiguration.NRSE)
 
             #
-            self.task_ttl.timing.cfg_samp_clk_timing(self.sampleRate_NI,
+            self.bscope_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
                                                      # samps_per_chan=pointsToPlot*2,
                                                      sample_mode=AcquisitionType.CONTINUOUS)
 
             # start the TTL reader (not required in simulation mode)
-            self.task_ttl.start()
+            self.bscope_ttl_task.start()
 
     #
     def bmi_update(self):
@@ -1183,11 +1223,12 @@ class BMI():
                  max_n_seconds_session = self.max_n_seconds_session,
 
                  n_frames = self.n_frames,
-                 n_frames_to_be_acquired = self.n_frames_to_be_acquired,				#
+                 n_frames_to_be_acquired = self.n_frames_to_be_acquired,                #
                  rois_smooth_window = self.rois_smooth_window,
                  n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
                  n_frames_search_forward = self.n_frames_search_forward,
                  drift_array = self.drift_array,
                  template = self.template,
+                 lick_detector_value_abstime_nttl = self.lick_detector_value_abstime_nttl
                  )
 
