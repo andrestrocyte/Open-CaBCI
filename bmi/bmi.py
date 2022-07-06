@@ -65,7 +65,8 @@ class BMI():
 
     #
     def __init__(self,
-                 simulation_mode,
+                 simulation_mode_bmi,
+                 simulation_flag_licking,
                  fname_root_path,
                  fname_fluorescence,
                  fname_ttl,
@@ -79,7 +80,10 @@ class BMI():
         print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
 
         #
-        self.simulation_mode = simulation_mode
+        self.simulation_mode_bmi = simulation_mode_bmi
+
+		#
+        self.simulation_mode_lick_detector = simulation_flag_licking
 
         #
         self.apply_drift_flag = True
@@ -647,7 +651,7 @@ class BMI():
         #                       n_ttl_counter]
         self.lick_detector_value_abstime_nttl.append([self.lick_detector_ttl_value,
                                                       self.now,
-                                                      self.n_ttl])
+                                                      self.n_ttl[0]])
 
     #
     def read_bscope_ttl(self):
@@ -688,15 +692,15 @@ class BMI():
     #
     def initalize_lick_detector_reader(self):
       #
-        if self.simulation_mode == True:
+        if self.simulation_mode_lick_detector == True:
             self.lick_detector_ttl_task = Simulation(self.fname_ttl)
         else:
 
-            #
-            self.lick_detector_ttl_task = nidaqmx.Task('bmi_online')
-            print ("iniitlied bmi online")
+		    #
+            self.lick_detector_ttl_task = nidaqmx.Task('lick_detector')
+            #print ("iniitlied bmi online")
             # set TTL pulse reader from 2p system
-            self.lick_detector_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai0",
+            self.lick_detector_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai1",
                                                           terminal_config=TerminalConfiguration.NRSE)
 
             #
@@ -714,7 +718,7 @@ class BMI():
     def initialize_bscope_ttl_pulse_reader(self):
 
         #
-        if self.simulation_mode == True:
+        if self.simulation_mode_bmi == True:
             self.bscope_ttl_task = Simulation(self.fname_ttl)
         else:
 
@@ -728,7 +732,7 @@ class BMI():
             # time.sleep(3)
 
             #
-            self.bscope_ttl_task = nidaqmx.Task('bmi_online')
+            self.bscope_ttl_task = nidaqmx.Task('ttl_reader')
             # set TTL pulse reader from 2p system
             self.bscope_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai0",
                                                           terminal_config=TerminalConfiguration.NRSE)
@@ -917,7 +921,7 @@ class BMI():
 
             # in simulation mode we just assume that we have correctly dected a TTL pulse and add 1 extra
             #   ttl pulse to the stack
-            if self.simulation_mode==True:
+            if self.simulation_mode_bmi==True:
                 self.ttl_computed = self.n_ttl+1  # move to next ttl.
                 time.sleep(self.sleep_time_sec)
                 

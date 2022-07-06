@@ -20,7 +20,7 @@ if __name__ ==  '__main__':
 	################### DEFAULT PARAMTERS FOR BMI ######################### 			
 	####################################################################### 			
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
-	n_frames_session = 10000
+	n_frames_session = 1000
 	
 	#
 	simulation_flag_bmi = True         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
@@ -29,11 +29,12 @@ if __name__ ==  '__main__':
 										# TODO: in non simulation mode - have slightly different panels for 
 										#       reading directories of the data as Bscope does not make them until 
 										#       it starts up
-	simulation_flag_tone = True        # Runs the tone class in simulation mode
-	simulation_flag_water = True       # Runs the water class in simulation mode
+	simulation_flag_licking = False	    #
+	simulation_flag_tone = False        # Runs the tone class in simulation mode
+	simulation_flag_water = False       # Runs the water class in simulation mode
 	
 	# parameter used for simulation mode to add a delay instead of waiting for ttl pulse
-	sleep_time_sec = 0.01
+	sleep_time_sec = 0.001
 
 	##########################################################################
 	#################### LOAD FILE/DIRECTORY LOCATIONS ####################### 
@@ -65,6 +66,7 @@ if __name__ ==  '__main__':
 
 	#
 	bmi = BMI(simulation_flag_bmi,
+			  simulation_flag_licking,
 			  fname_root_path,
 			  fname_fluorescence,
 			  fname_ttl,

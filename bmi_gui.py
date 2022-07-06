@@ -22,9 +22,10 @@ if __name__ ==  '__main__':
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
 	
 	# values read from gui
-	fname_root_path, bmi_read, tone_read, water_read, simulation_sleep, n_frames = gui()
+	fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames = gui()
 	
-		
+	print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames)
+	
 	####################################################################### 			
 	################### DEFAULT PARAMTERS FOR BMI ######################### 			
 	####################################################################### 			
@@ -37,6 +38,7 @@ if __name__ ==  '__main__':
 										# TODO: in non simulation mode - have slightly different panels for 
 										#       reading directories of the data as Bscope does not make them until 
 										#       it starts up
+	simulation_flag_licking = (lick_read=="True")        # Runs the tone class in simulation mode
 	simulation_flag_tone = (tone_read=="True")        # Runs the tone class in simulation mode
 	simulation_flag_water = (water_read=="True")       # Runs the water class in simulation mode
 	
@@ -69,6 +71,7 @@ if __name__ ==  '__main__':
 
 	#
 	bmi = BMI(simulation_flag_bmi,
+			  simulation_flag_licking,
 			  fname_root_path,
 			  fname_fluorescence,
 			  fname_ttl,
