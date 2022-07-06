@@ -610,13 +610,24 @@ class BMI():
         while self.ttl_computed < self.n_frames_to_be_acquired - 1:
 
             # read next bscope ttl pulse
+            #start1 = time.time()
             self.read_bscope_ttl()
-
+            #end1 = time.time()-start1
+            
             #
-            self.read_lick_detector_ttl()
+            #start2 = time.time()
+            #self.read_lick_detector_ttl()
+            #end2 = time.time() - start2
+            #print ("both ttl read time: ", end1, " lick read time: ", end2)
+            #print ("both ttl read time: ", time.time()-start1)
 
             # check of ttl pulse when from high ~5 to low ~0
             if self.min_<1 and self.prev_max>=1:
+                
+                # for now we only sample lick detetor whenever TTL is detected..
+                # TODO: Increase smapling rate here:
+                #     seems if we read both ttl signals all the time we get signficant slow down to < 30FPS
+                self.read_lick_detector_ttl()
 
                 # runs the bmi code whenever imaging frame is completed
                 self.bmi_update()
@@ -649,9 +660,8 @@ class BMI():
         # this saves a triple: [lick_detector_ttl_value, 
         #                       self.now, 
         #                       n_ttl_counter]
-        self.lick_detector_value_abstime_nttl.append([self.lick_detector_ttl_value,
-                                                      self.now,
-                                                      self.n_ttl[0]])
+        #print ("lick detector val: ", self.lick_detector_ttl_value," self.now: ", self.now)      
+        self.lick_detector_value_abstime_nttl[self.n_ttl[0]] = self.lick_detector_ttl_value[0], self.now
 
     #
     def read_bscope_ttl(self):
@@ -706,13 +716,13 @@ class BMI():
             #
             self.lick_detector_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
                                                      # samps_per_chan=pointsToPlot*2,
-                                                     sample_mode=AcquisitionType.CONTINUOUS)
+                                                     sample_mode=AcquisitionType.HW_TIMED_SINGLE_POINT )
 
             # start the TTL reader (not required in simulation mode)
             self.lick_detector_ttl_task.start()
             
         # list that holds all the lick detector infor + meta data
-        self.lick_detector_value_abstime_nttl = []
+        self.lick_detector_value_abstime_nttl = np.zeros((self.n_frames,2),dtype=np.float32)
             
     #
     def initialize_bscope_ttl_pulse_reader(self):
@@ -721,15 +731,6 @@ class BMI():
         if self.simulation_mode_bmi == True:
             self.bscope_ttl_task = Simulation(self.fname_ttl)
         else:
-
-            #print ("  RESETTING DEV3 ")
-            #dev_name = "Dev3"
-            #dev_name=dev_name.strip("/")
-            #dev=nidaqmx.system.Device(dev_name)
-            #dev.reset_device()
-            
-            #
-            # time.sleep(3)
 
             #
             self.bscope_ttl_task = nidaqmx.Task('ttl_reader')
@@ -740,7 +741,7 @@ class BMI():
             #
             self.bscope_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
                                                      # samps_per_chan=pointsToPlot*2,
-                                                     sample_mode=AcquisitionType.CONTINUOUS)
+                                                     sample_mode=AcquisitionType.CONTINUOUSCONTINUOUS)
 
             # start the TTL reader (not required in simulation mode)
             self.bscope_ttl_task.start()

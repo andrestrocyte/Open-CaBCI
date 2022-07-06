@@ -73,7 +73,7 @@ def gui():
     lick_box.grid(column=0, row=2)
 
     lick_flag = StringVar(window)
-    lick_flag.set(OPTIONS[0]) # default value
+    lick_flag.set(OPTIONS[1]) # default value
     lick_menu = OptionMenu(window, lick_flag, *OPTIONS)
     lick_menu.grid(column=1,row=2)
     
@@ -83,7 +83,7 @@ def gui():
     tone_box.grid(column=0, row=3)
 
     tone_flag = StringVar(window)
-    tone_flag.set(OPTIONS[0]) # default value
+    tone_flag.set(OPTIONS[1]) # default value
     tone_menu = OptionMenu(window, tone_flag, *OPTIONS)
     tone_menu.grid(column=1,row=3)
 
@@ -94,7 +94,7 @@ def gui():
     water_box.grid(column=0, row=4)
 
     water_flag = StringVar(window)
-    water_flag.set(OPTIONS[0]) # default value
+    water_flag.set(OPTIONS[1]) # default value
     water_menu = OptionMenu(window, water_flag, *OPTIONS)
     water_menu.grid(column=1,row=4)
 
@@ -105,7 +105,7 @@ def gui():
     simulation_sleep_box.grid(column=0,row=5)
 
     simulation_sleep_box_data = tk.Entry(window) 
-    simulation_sleep_box_data.insert(END, 0.01)
+    simulation_sleep_box_data.insert(END, 0.0001)
     simulation_sleep_box_data.grid(column=1,row=5)
     simulation_sleep_box_data.focus_force()
 

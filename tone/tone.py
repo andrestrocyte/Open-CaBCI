@@ -37,6 +37,9 @@ class PlayTone():
         self.simulation_flag = simulation_flag
         #self.simulation_flag = False
 
+		#
+        self.sampleRate_audio = 2E5
+
         #
         self.fname_roi_pixels_and_thresholds = fname_roi_pixels_and_thresholds
 
@@ -229,7 +232,7 @@ class PlayTone():
 
         #
         self.audio_Task.ao_channels.add_ao_voltage_chan('Dev3/ao0')
-        self.audio_Task.timing.cfg_samp_clk_timing(rate=200000,
+        self.audio_Task.timing.cfg_samp_clk_timing(rate=self.sampleRate_audio,
                                                   # samps_per_chan=100,  # in continuos mode this is the buffer
                                                   sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
 
@@ -305,7 +308,7 @@ class PlayTone():
 
         #
         self.water_Task.ao_channels.add_ao_voltage_chan('Dev3/ao1')
-        self.water_Task.timing.cfg_samp_clk_timing(rate=1000,
+        self.water_Task.timing.cfg_samp_clk_timing(rate=self.sampleRate_audio,
                                                    # samps_per_chan=100,  # in continuos mode this is the buffer
                                                    sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
         # sample_mode=nidaqmx.constants.AcquisitionType.FINITE)
