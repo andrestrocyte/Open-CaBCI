@@ -20,10 +20,10 @@ if __name__ ==  '__main__':
 	################### DEFAULT PARAMTERS FOR BMI ######################### 			
 	####################################################################### 			
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
-	n_frames_session = 1000
+	n_frames_session = 90000
 	
 	#
-	simulation_flag_bmi = True         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
+	simulation_flag_bmi = False         # Runs the BMI class in simulation mode (i.e. don't need Bscope input)
 										#  - set to true unless we have a real mouse in the BScope to get
 										#    real time data from; otherwise data is read from disk at some location
 										# TODO: in non simulation mode - have slightly different panels for 

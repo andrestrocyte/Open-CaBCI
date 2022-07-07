@@ -63,7 +63,7 @@ def gui():
     bmi_box.grid(column=0, row=1)
 
     bmi_flag = StringVar(window)
-    bmi_flag.set(OPTIONS[0]) # default value
+    bmi_flag.set(OPTIONS[1]) # default value
     bmi_menu = OptionMenu(window, bmi_flag, *OPTIONS)
     bmi_menu.grid(column=1,row=1)
     
