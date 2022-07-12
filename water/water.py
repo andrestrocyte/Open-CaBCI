@@ -48,7 +48,7 @@ class WaterReward():
         self.initialize_water_spout()
 
         # TODO: unclear what these units are?
-        self.water_spout_ttl_duration = 200000  # duration of water pulse in microseconds
+        self.water_spout_ttl_duration = 300000  # duration of water pulse in microseconds
 
         #
         self.water_spout_ttl_voltage = 5    # water spout voltage in millivolts (?)
