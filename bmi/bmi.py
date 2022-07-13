@@ -35,12 +35,32 @@ class Simulation():
         self.ttl = np.load(fname_ttl)
 
     def read(self, number_of_samples_per_channel):
-        #
-        ttl_val = self.ttl[self.index:self.index+number_of_samples_per_channel]
+
+        # added a 2nd value for the lick detector
+        ttl_val_bscope = self.ttl[self.index:self.index+number_of_samples_per_channel]
+        ttl_val_lick_detector = 0
+        ttl_val_rotary_encoder_1 = 0
+        ttl_val_rotary_encoder_2 = 0
+
         self.index += number_of_samples_per_channel
 
+        out = np.hstack((ttl_val_bscope[0],
+                         ttl_val_lick_detector,
+                         ttl_val_rotary_encoder_1,
+                         ttl_val_rotary_encoder_2))
+
         #
-        return ttl_val
+        return out
+
+    def stop(self):
+        # not required in simulation mode
+        pass
+
+
+    def close(self):
+        # not required in simulation mode
+        pass
+
 
 #################################################
 ################## BMI CLASS ####################
@@ -98,6 +118,9 @@ class BMI():
 
         #
         self.fname_rois_pixels_thresholds = fname_roi_pixels_and_thresholds
+
+        #
+        self.shared_memory_variables_names_list = []
 
         # NOT SURE IF REQUIRED... TO DELETE
         # TODO flag was probably used during development toskip the reading step;
@@ -189,12 +212,20 @@ class BMI():
         # start reading the ttl pulses from the 2p scope
         self.initialize_bscope_ttl_pulse_reader()
 
-        # start reading the lick detector piezzo reader
+        # this gets read simultaneously with all other TTL/BNC channels now
         #self.initalize_lick_detector_reader()
 
 		# keeps track of lick values
-        self.lick_detector_value_abstime_nttl = np.zeros((self.n_frames,2),dtype=np.float32)
+        self.lick_detector_abstime = [] #np.zeros((self.n_frames,2),dtype=np.float32)
 
+        #
+        self.initialize_rotary_encoder()
+
+    def initialize_rotary_encoder(self):
+
+        # this keeps track of the rotary encoder wheel rotations
+        self.rotary_encoder1_abstime = []
+        self.rotary_encoder2_abstime = []
     #
     def initialize_termination_flag(self):
 
@@ -265,10 +296,10 @@ class BMI():
         #
         self.tone_state [:] = aa[:]
 
-        #
-        print (" ensemble states initialized: ",
-               self.tone_state,
-               self.shmem_tone_state.name)
+        # #
+        # print (" ensemble states initialized: ",
+        #        self.tone_state,
+        #        self.shmem_tone_state.name)
 
     #
     def initialize_drift_correction(self):
@@ -459,7 +490,7 @@ class BMI():
         self.reward_times[:] = aa[:]
 
         #
-        print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
+        #print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
 
     #
     def initialize_live_frame_shared_memory(self):
@@ -529,7 +560,7 @@ class BMI():
         self.n_ttl[:] = aa[:]
 
         #
-        print(" ttl counter initialized: ", self.n_ttl, self.shmem_n_ttl.name)
+        #print(" ttl counter initialized: ", self.n_ttl, self.shmem_n_ttl.name)
 
     #
     def initialize_ROIs(self):
@@ -612,25 +643,11 @@ class BMI():
         while self.ttl_computed < self.n_frames_to_be_acquired - 1:
 
             # read next bscope ttl pulse
-            #start1 = time.time()
             self.read_bscope_ttl()
-            #end1 = time.time()-start1
-            
-            #
-            #start2 = time.time()
-            #self.read_lick_detector_ttl()
-            #end2 = time.time() - start2
-            #print ("both ttl read time: ", end1, " lick read time: ", end2)
-            #print ("both ttl read time: ", time.time()-start1)
 
             # check of ttl pulse when from high ~5 to low ~0
             if self.min_<1 and self.prev_max>=1:
                 
-                # for now we only sample lick detetor whenever TTL is detected..
-                # TODO: Increase smapling rate here:
-                #     seems if we read both ttl signals all the time we get signficant slow down to < 30FPS
-                #self.read_lick_detector_ttl()
-
                 # runs the bmi code whenever imaging frame is completed
                 self.bmi_update()
 
@@ -658,39 +675,45 @@ class BMI():
         self.bscope_ttl_task.stop()
         self.bscope_ttl_task.close()
 
-	#
-    def read_lick_detector_ttl(self):
-        
-        # get current lick detector state from NI card output port
-        #self.lick_detector_ttl_value = self.lick_detector_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
+        #
 
-        # this saves a triple: [lick_detector_ttl_value, 
-        #                       self.now, 
-        #                       n_ttl_counter]
-        #print ("lick detector val: ", self.lick_detector_ttl_value," self.now: ", self.now)   
-        
-        # saves updated values   
-        self.lick_detector_value_abstime_nttl[self.n_ttl[0]] = self.lick_detector_ttl_value, self.now
+    #
+    # def save_lick_detector_ttl(self):
+    #
+    #     # get current lick detector state from NI card output port
+    #     #self.lick_detector_ttl_value = self.lick_detector_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
+    #
+    #     # this saves a triple: [lick_detector_ttl_value,
+    #     #                       self.now,
+    #     #                       n_ttl_counter]
+    #     #print ("lick detector val: ", self.lick_detector_ttl_value," self.now: ", self.now)
+    #
+    #     # saves updated values
+    #     self.lick_detector_value_abstime_nttl[self.n_ttl[0]] = self.lick_detector_ttl_value, self.now
 
     #
     def read_bscope_ttl(self):
 
         # get current bscope ttl pulse value from NI card output port
-        read_values = np.array(self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)).squeeze()
-        
+        #read_values = np.array(self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)).squeeze()
+        read_values = self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
+
         #print ("READ VALUES: ", read_values)
                 
         # ttl bscope value
-        ttl_value = read_values[0]
-        
-        #print ("ttl_value: = read_values[0][0]: ", ttl_value)
-        
+        ttl_value = read_values[0]#.copy()
+
         # lick detector value
-        self.lick_detector_ttl_value = read_values[1]
-        
-        
+        # TODO: IMPORTANT to read out both encoder and lick-detector in high res rate as 30Hz may miss
+        #       important information
+        self.lick_detector_abstime.append(read_values[1])
+
+        # rotary encoder
+        self.rotary_encoder1_abstime.append(read_values[2])
+        self.rotary_encoder2_abstime.append(read_values[3])
+
         #  leave these in just in case we end up reading at higher bit rates and multiple samples at a atime
-        #print ("READ: TTL: ", ttl_value)
+        # TODO: these might be redundant, not clear
         self.min_ = np.min(ttl_value)
         self.max_ = np.max(ttl_value)
         self.ttl_voltages.append(ttl_value)
@@ -720,29 +743,29 @@ class BMI():
         time.sleep(2)
 
     #
-    def initalize_lick_detector_reader(self):
-      #
-        if self.simulation_mode_lick_detector == True:
-            self.lick_detector_ttl_task = Simulation(self.fname_ttl)
-        else:
-
-            #
-            self.lick_detector_ttl_task = nidaqmx.Task('lick_detector')
-            #print ("iniitlied bmi online")
-            # set TTL pulse reader from 2p system
-            self.lick_detector_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai1",
-                                                          terminal_config=TerminalConfiguration.NRSE)
-
-            #
-            self.lick_detector_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
-                                                     # samps_per_chan=pointsToPlot*2,
-                                                     sample_mode=AcquisitionType.CONTINUOUS )
-
-            # start the TTL reader (not required in simulation mode)
-            self.lick_detector_ttl_task.start()
-            
-        # list that holds all the lick detector infor + meta data
-        self.lick_detector_value_abstime_nttl = np.zeros((self.n_frames,2),dtype=np.float32)
+    # def initalize_lick_detector_reader(self):
+    #   #
+    #     if self.simulation_mode_lick_detector == True:
+    #         self.lick_detector_ttl_task = Simulation(self.fname_ttl)
+    #     else:
+    #
+    #         #
+    #         self.lick_detector_ttl_task = nidaqmx.Task('lick_detector')
+    #         #print ("iniitlied bmi online")
+    #         # set TTL pulse reader from 2p system
+    #         self.lick_detector_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai1",
+    #                                                       terminal_config=TerminalConfiguration.NRSE)
+    #
+    #         #
+    #         self.lick_detector_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
+    #                                                  # samps_per_chan=pointsToPlot*2,
+    #                                                  sample_mode=AcquisitionType.CONTINUOUS )
+    #
+    #         # start the TTL reader (not required in simulation mode)
+    #         self.lick_detector_ttl_task.start()
+    #
+    #     # list that holds all the lick detector infor + meta data
+    #     self.lick_detector_value_abstime_nttl = np.zeros((self.n_frames,2),dtype=np.float32)
             
     #
     def initialize_bscope_ttl_pulse_reader(self):
@@ -757,7 +780,7 @@ class BMI():
             self.bscope_ttl_task = nidaqmx.Task('ttl_reader')
             # set TTL pulse reader from 2p system
             # add ttl pulse channel from bscope
-            self.bscope_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai0:1",
+            self.bscope_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai0:4",
                                                           terminal_config=TerminalConfiguration.NRSE)
                                                           
             # add lick detector channel
@@ -770,6 +793,9 @@ class BMI():
 
             # start the TTL reader (not required in simulation mode)
             self.bscope_ttl_task.start()
+
+        # list to add to when reading values
+        self.bscope_read_values = np.zeros(2,dtype=np.float32)
 
     #
     def bmi_update(self):
@@ -905,8 +931,8 @@ class BMI():
 
             #
             if self.read_data_flag:
-                import mmap
-                ss = time.time()
+                #import mmap
+                #ss = time.time()
                 print ("  setting up memory map: shape: ", (self.n_frames_to_be_acquired,512,512))
                 
                 if True:
@@ -932,13 +958,13 @@ class BMI():
 
 
                 # 
-                print ("sefl newfp: ", self.newfp.shape)
+                #print ("sefl newfp: ", self.newfp.shape)
 
                 self.newfp = self.newfp.reshape(self.n_frames_to_be_acquired,512,512)
                 #m.write("Hello world!")
                                        
-                print (" duration to setup memmap: ", time.time()-ss, " sec.")
-                print ("     TODO: work with 1D flattened arrays")
+                #print (" duration to setup memmap: ", time.time()-ss, " sec.")
+                #print ("     TODO: work with 1D flattened arrays")
 
             # reset start time: requird becaues we start the BMI a few seconds before the BScope
             self.start=self.now
@@ -1259,6 +1285,8 @@ class BMI():
                  n_frames_search_forward = self.n_frames_search_forward,
                  drift_array = self.drift_array,
                  template = self.template,
-                 lick_detector_value_abstime_nttl = self.lick_detector_value_abstime_nttl
+                 lick_detector_abstime = self.lick_detector_abstime,
+                 rotary_encoder1_abstime = self.rotary_encoder1_abstime,
+                 rotary_encoder2_abstime = self.rotary_encoder2_abstime,
                  )
 

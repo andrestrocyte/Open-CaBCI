@@ -151,7 +151,7 @@ class PlotROIs():
     def initialize_ensemble_state(self):
         
         #
-        print("  ensemble state memory name : ", self.shmem_ensemble_state)
+        #print("  ensemble state memory name : ", self.shmem_ensemble_state)
 
         aa = np.zeros((1,), dtype=np.float32)
 
@@ -205,13 +205,13 @@ class PlotROIs():
     def initalize_reward_times(self):
 
         #
-        print ("  n_rewards memory name : ", self.shmem_reward_times)
+        #print ("  n_rewards memory name : ", self.shmem_reward_times)
 
         aa = np.zeros((2,1000), dtype=np.int64)
 
         # get the rois_traces from the shared memory name
         self.existing_shm_reward_times = shared_memory.SharedMemory(name=self.shmem_reward_times)
-        print ("existing shm: ", self.existing_shm_reward_times)
+        #print ("existing shm: ", self.existing_shm_reward_times)
 
         #
         self.reward_times = np.ndarray(aa.shape,
@@ -221,7 +221,7 @@ class PlotROIs():
     #
     def initialize_tone_state(self):
         #
-        print("  ensemble state memory name : ", self.shmem_tone_state)
+        #print("  ensemble state memory name : ", self.shmem_tone_state)
 
         aa = np.zeros((1,), dtype=np.float32)
 
@@ -235,7 +235,7 @@ class PlotROIs():
                                  buffer=self.existing_shm_tone_state.buf)
 
         #
-        print("  TONE state: ", self.tone_state)
+        #print("  TONE state: ", self.tone_state)
 
 
     #
@@ -260,7 +260,7 @@ class PlotROIs():
     def initalize_n_ttl(self):
 
         #
-        print ("  nttl memory name : ", self.shmem_n_ttl)
+        #print ("  nttl memory name : ", self.shmem_n_ttl)
 
         aa = np.zeros((1,), dtype=np.int64)
 
@@ -268,7 +268,7 @@ class PlotROIs():
         self.existing_shm_n_ttl = shared_memory.SharedMemory(name=self.shmem_n_ttl)
         #existing_shm = shared_memory.SharedMemory(name='testname')
 
-        print ("existing shm: ", self.existing_shm_n_ttl)
+        #print ("existing shm: ", self.existing_shm_n_ttl)
 
 
         #
@@ -277,7 +277,7 @@ class PlotROIs():
                                  buffer=self.existing_shm_n_ttl.buf)
 
         #
-        print ("  loaded n_ttl: ", self.n_ttl2)
+        #print ("  loaded n_ttl: ", self.n_ttl2)
 
         #
         self.n_ttl_last = self.n_ttl2[0].copy()
@@ -293,15 +293,15 @@ class PlotROIs():
     #
     def initialize_rois_traces(self):
 
-        print ("  Plotter loaded: ", self.shmem_rois_traces,
-               " size: ", self.rois_traces_shape)
+        #print ("  Plotter loaded: ", self.shmem_rois_traces,
+        #       " size: ", self.rois_traces_shape)
 
         # get the rois_traces from the shared memory name
         self.existing_shm_rois_traces = shared_memory.SharedMemory(name=self.shmem_rois_traces)
 
         #
-        print ("existing shm traces*****************: ",
-               self.existing_shm_rois_traces)
+        # print ("existing shm traces*****************: ",
+        #        self.existing_shm_rois_traces)
 
         #
         self.rois_traces = np.ndarray((self.rois_traces_shape[0],

@@ -3,14 +3,17 @@ from multiprocessing import Process
 import time
 
 # 
+#from water.water import WaterReward
+#from tkinter import Tk #for Python 3.x
+#from tkinter.filedialog import askopenfilename, askdirectory
+
+#
 from bmi.bmi import BMI
 from plotter.plotter import PlotROIs
 from tone.tone import PlayTone
-from water.water import WaterReward
 from drift.drift import DriftCorrection
-from tkinter import Tk #for Python 3.x
-from tkinter.filedialog import askopenfilename, askdirectory
-from gui.gui import gui, exit_gui
+from gui.gui import gui
+from camera.camera import Camera
 
 
 ########################################################################
@@ -22,9 +25,9 @@ if __name__ ==  '__main__':
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
 	
 	# values read from gui
-	fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames = gui()
+	fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames = gui()
 	
-	print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames)
+	print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames)
 	
 	####################################################################### 			
 	################### DEFAULT PARAMTERS FOR BMI ######################### 			
@@ -41,7 +44,9 @@ if __name__ ==  '__main__':
 	simulation_flag_licking = (lick_read=="True")        # Runs the tone class in simulation mode
 	simulation_flag_tone = (tone_read=="True")        # Runs the tone class in simulation mode
 	simulation_flag_water = (water_read=="True")       # Runs the water class in simulation mode
-	
+	simulation_flag_video_camera = (video_read=="True")       # Runs the water class in simulation mode
+	video_hardware_trigger = (video_hardware_trigger=="True")       # Runs the water class in simulation mode
+
 	# parameter used for simulation mode to add a delay instead of waiting for ttl pulse
 	sleep_time_sec = float(simulation_sleep)
 
@@ -64,7 +69,7 @@ if __name__ ==  '__main__':
 								'rois_pixels_and_thresholds.npz')
 
 	###############################################################
-	#################### INITIALIZE BMI ########################### 
+	#################### INITIALIZE BMI MAIN ######################
 	###############################################################
 	# compute the maximum number of seconds the session will run before existing in case there are no more TTL Pulses
 	max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 120  # gives 2 extra minutes at the end in case insufficient frames are detected
@@ -89,7 +94,7 @@ if __name__ ==  '__main__':
 	bmi.verbose2 = False    # this displays the time it takes to copute ROI
 
 	###############################################################
-	############## INITIALIZE TONE PLAYBACK #######################
+	###### INITIALIZE AND START TONE PLAYBACK (+ WATER SPOUT) #####
 	###############################################################
 	'''  Here we pass only the ensemble state (i.e. E1-E2) to the 
 		tone player. The tone player alone then computes the transfer function
@@ -105,29 +110,8 @@ if __name__ ==  '__main__':
 													  simulation_flag_tone,))
 		tone_player_.start()
 
-
 	###############################################################
-	############## INITIALIZE WATER REWARD ########################
-	###############################################################
-	#  ################# DO NOT DELETE ########################
-	# '''  Here we pass only the ensemble state (i.e. E1-E2) to the
-	# 	tone player. The tone player alone then computes the transfer function
-	# 	as this is not related to anything else in the BMI class
-	# 	- NOT USED  used currently as it is combined with the TONE player for sequential/serial activation
-	# 	  of NI Card as we only have one of those
-	# 	- TODO : use digital output on the NI card to asynchronosly send singals to both speaker/water valve
-	# '''
-	#
-	# #
-	# if False:
-	# 	water_reward_ = Process(target=WaterReward, args=(bmi.shmem_water_reward.name,
-	# 													  bmi.shmem_termination_flag.name,
-	# 													  simulation_flag_water,
-	# 													  ))
-	# 	water_reward_.start()
-
-	###############################################################
-	############## INITIALIZE PLOTTER ############################# 
+	############## INITIALIZE AND START PLOTTER ###################
 	###############################################################
 	'''  This is the plotting functions that visualize ROI time sries
 	'''
@@ -148,9 +132,9 @@ if __name__ ==  '__main__':
 		plotter_.start()
 
 	###############################################################
-	############## INITIALIZE DRIFT CORRECTION ####################
+	############ INITIALIZE AND START DRIFT CORRECTION ############
 	###############################################################
-	'''  This is the plotting functions that visualize ROI time sries
+	'''  Functions that use phase correlation to fix motion artifcats
 	'''
 	#
 	if True:
@@ -161,6 +145,38 @@ if __name__ ==  '__main__':
 												bmi.shmem_termination_flag.name,
 												))
 		drift_.start()
+
+
+	###############################################################
+	###### INITIALIZE AND START TONE PLAYBACK (+ WATER SPOUT) #####
+	###############################################################
+	'''  Here we pass only the ensemble state (i.e. E1-E2) to the 
+		tone player. The tone player alone then computes the transfer function
+		as this is not related to anything else in the BMI class
+	'''
+	#
+	if True:
+		tone_player_ = Process(target=PlayTone, args=(fname_rois_pixels_and_thresholds,
+													  bmi.shmem_ensemble_state.name,
+													  bmi.shmem_tone_state.name,
+													  bmi.shmem_termination_flag.name,
+													  bmi.shmem_water_reward.name,
+													  simulation_flag_tone,))
+		tone_player_.start()
+
+	###############################################################
+	############## INITIALIZE AND START PLOTTER ###################
+	###############################################################
+	if True:
+		camera_player_ = Process(target=Camera, args=(
+													fname_rois_pixels_and_thresholds,
+													simulation_flag_video_camera,
+													video_hardware_trigger,
+													bmi.shmem_n_ttl.name,
+													bmi.shmem_termination_flag.name,
+													n_frames_session,
+												))
+		camera_player_.start()
 
 	###############################################################
 	######################### RUN BMI #############################
@@ -182,3 +198,25 @@ if __name__ ==  '__main__':
 	#water_reward_.close()
 
 	quit()
+
+
+
+	###############################################################
+	############## INITIALIZE WATER REWARD ########################
+	###############################################################
+	#  ################# DO NOT DELETE ########################
+	# '''  Here we pass only the ensemble state (i.e. E1-E2) to the
+	# 	tone player. The tone player alone then computes the transfer function
+	# 	as this is not related to anything else in the BMI class
+	# 	- NOT USED  used currently as it is combined with the TONE player for sequential/serial activation
+	# 	  of NI Card as we only have one of those
+	# 	- TODO : use digital output on the NI card to asynchronosly send singals to both speaker/water valve
+	# '''
+	#
+	# #
+	# if False:
+	# 	water_reward_ = Process(target=WaterReward, args=(bmi.shmem_water_reward.name,
+	# 													  bmi.shmem_termination_flag.name,
+	# 													  simulation_flag_water,
+	# 													  ))
+	# 	water_reward_.start()

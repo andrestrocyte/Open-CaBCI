@@ -244,7 +244,7 @@ class PlayTone():
     #
     def initialize_tone_state(self):
         #
-        print("  ensemble state memory name : ", self.shmem_tone_state)
+        #print("  ensemble state memory name : ", self.shmem_tone_state)
 
         aa = np.zeros((1,), dtype=np.float32)
 
@@ -258,7 +258,7 @@ class PlayTone():
                                  buffer=self.existing_shm_tone_state.buf)
 
         #
-        print("  TONE state: ", self.tone_state)
+        #print("  TONE state: ", self.tone_state)
 
     #
     def initialize_ensemble_state(self):
