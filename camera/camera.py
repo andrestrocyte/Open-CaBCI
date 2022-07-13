@@ -74,9 +74,9 @@ class Camera():
 		# TODO: may wish to modify/provide this option in the GUI
 		self.video_single_channel_flag = True
 		self.fps = 30
-		self.video_height = 600
-		self.video_width = 900
-		self.frame_exposure_time = 20000   # time to collect light for each frame in uSec
+		self.video_height = 1200
+		self.video_width = 1824
+		self.frame_exposure_time = 10000   # time to collect light for each frame in uSec
 										# TODO: need to lower this and increase intensity etc for higher frame rates
 
 		# a list for the n_ttl and absolute time values
@@ -134,7 +134,7 @@ class Camera():
 		#
 		else:
 			print("TO TEST Single channel video.... (uncomment below)")
-			fourcc = cv2.VideoWriter_fourcc(*'XVID')  # not sure this is the right one?!
+			fourcc = cv2.VideoWriter_fourcc(*'XVID')  
 			self.video_out = cv2.VideoWriter(self.fname_video,
 											  fourcc,
 											  self.fps,
@@ -197,6 +197,8 @@ class Camera():
 
 		# 
 		self.camera.Open()
+		self.camera.Width = self.video_width
+		self.camera.Height = self.video_height
 		self.camera.ExposureTime.SetValue(self.frame_exposure_time)  # exposure time in microseconds
 
 		# put camera in hardware trigger mode if selected
@@ -285,6 +287,7 @@ class Camera():
 		
 		#
 		#fourcc = cv2.VideoWriter_fourcc(*'XVID')
+		print ("CAMERA HARDWARE VERSION NOT FULLY TESTED...")
 		
 		#
 		for k in trange(self.n_frames):
@@ -294,18 +297,43 @@ class Camera():
 				grab = self.camera.RetrieveResult(10000, 
 										 pylon.TimeoutHandling_ThrowException)
 				
-				# get the image data from array
-				frame = grab.GetArray()
+								# get the image data from array
+					frame = grab.GetArray()
+
+					#
+					#print ("grabbed frame: ", frame.shape, type(frame[0,0]))
+						
+					# format the image to be saved for
+					if self.video_single_channel_flag == False:
+						gray = cv2.normalize(frame, None, 255, 0,
+												 norm_type=cv2.NORM_MINMAX,
+												 dtype=cv2.CV_8U)
+						gray_3c = cv2.merge([gray, gray, gray])
+						self.video_out.write(gray_3c)
+					else:
+						gray = cv2.normalize(frame, None, 255, 0,
+												 norm_type=cv2.NORM_MINMAX,
+												 dtype=cv2.CV_8U)
+						self.video_out.write(gray)
+
+					#
+					self.video_frame_times.append([self.n_ttl[0] ,time.time()])
+					
+					#
+					self.n_ttl_last = self.n_ttl[0]
+
+
+					#print ("Camera: grabbed frame: ", self.n_ttl)
+
+					
+				# can check for termination flag
+				if self.termination_flag[0]==1:
+					break
+					
+				# can also check if n_ttl = total frames
+				if self.n_frames == (self.n_ttl[0]-1):
+					break
 				
-				# format the image to be saved for 
-				gray = cv2.normalize(frame, None, 255, 0, 
-									 norm_type=cv2.NORM_MINMAX, 
-									 dtype=cv2.CV_8U)
-				gray_3c = cv2.merge([gray, gray, gray])
-				self.video_out.write(gray_3c)
-				
-				#
-				self.times.append([k ,time.time()])
 			except:
 				print ("TIME OUT - hardware TTL not detected or long periods... exiting")
 				break

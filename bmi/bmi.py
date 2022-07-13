@@ -417,7 +417,7 @@ class BMI():
         self.ttl_n_computed = []        # number of ttl pulses computed based on time elapsed
         self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
         self.inter_ttl_time = []        # computed time between each detected TTL pluse
-        self.abs_times = [0]            # NOT SURE REQUIRED ANYMORE; keeps track of every TTLL read outside the main BMI
+        self.abs_times = []             # Keep of every time TTL is read... important!
                                         # loop;   might be useful for debugging later on kernel interuptions etc.
         self.ttl_times = []             # ttl times to be saved
         self.previous_trigger=0         # time of the previous TTL trigger to be used to determine if next trigger etc
