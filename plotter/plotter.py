@@ -43,6 +43,9 @@ class PlotROIs():
         # video image
         self.video_width = video_width
         self.video_length = video_length
+        
+        #
+        self.video_show_downscale_factor = 10
 
         #
         self.shmem_live_video_frame = shmem_live_video_frame
@@ -315,7 +318,7 @@ class PlotROIs():
     def initialize_ensemble_state_array(self):
         
         #
-        self.ensemble_state_array = np.zeros(self.rois_traces.shape[1])
+        self.ensemble_state_array = np.zeros(self.rois_traces.shape[1]+100)  # add a small bufffer in case things don't shut down immediately
        
         
     #
@@ -348,15 +351,15 @@ class PlotROIs():
         self.plot_y_scale = 1
 
         #
-        self.fig = plt.figure(figsize=(10,5))
+        self.fig = plt.figure(figsize=(8,8))
 
-        self.grid = GridSpec(5, 10)#, left=0.55, right=0.98, hspace=0.05)
+        self.grid = GridSpec(11, 10)#, left=0.55, right=0.98, hspace=0.05)
 
         #########################################################
         ######################### PLOT CA IMAGE #################
         #########################################################
         # TODO: refactor this plot to another function
-        self.ax_image = self.fig.add_subplot(self.grid[:, 3:7])
+        self.ax_image = self.fig.add_subplot(self.grid[:5, 5:])
 
         #
         self.image_obj = self.ax_image.imshow(self.live_frame[0],
@@ -365,9 +368,9 @@ class PlotROIs():
 
         #
         #axcolor = 'lightgoldenrodyellow'
-        axmin = self.fig.add_axes([0.55, 0.0, 0.15, 0.03])
-        axmax  = self.fig.add_axes([0.55, 0.03, 0.15, 0.03])
-        n_frame_ave  = self.fig.add_axes([0.83, 0.03, 0.10, 0.03])
+        axmin = self.fig.add_axes([0.55, 0.90, 0.1, 0.03])
+        axmax  = self.fig.add_axes([0.55, 0.93, 0.1, 0.03])
+        n_frame_ave  = self.fig.add_axes([0.83, 0.93, 0.10, 0.03])
         
         self.smin = Slider(axmin, 'Min', 0, 2048, valinit=self.live_image_vmin)
         self.smax = Slider(axmax, 'Max', 0, 2048, valinit=self.live_image_vmax)
@@ -401,13 +404,14 @@ class PlotROIs():
         ################# PLOT VIDEO IMAGE ######################
         #########################################################
         # TODO: refactor this plot to another function
-        self.ax_camera = self.fig.add_subplot(self.grid[:, 7:])
+        self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
         self.ax_camera.set_xticks([])
         self.ax_camera.set_yticks([])
         #
-        self.camera_obj = self.ax_camera.imshow(self.live_video_frame[0].T,
-                                              vmin=0,
-                                              vmax=255,
+        self.camera_obj = self.ax_camera.imshow(self.live_video_frame[0].T[::self.video_show_downscale_factor,
+																			::self.video_show_downscale_factor],
+                                                vmin=0,
+                                                vmax=255,
                                                 aspect='auto',
                                                 cmap='binary'
                                                #
@@ -418,7 +422,7 @@ class PlotROIs():
         ##################### PLOT ROI TRACES ###################
         #########################################################
         # TODO: refactor this plot to another function
-        self.ax_traces = self.fig.add_subplot(self.grid[:, :3])
+        self.ax_traces = self.fig.add_subplot(self.grid[:5, :5])
 
         self.ax_traces.set_ylim(0, self.plot_y_scale*4.5+ self.plot_y_scale*3)
         self.ax_traces.set_xlim(-self.plotting_window_width,0)
@@ -580,7 +584,8 @@ class PlotROIs():
         ####################################
         ######## UPDATE CAMERA OUTPUT ######
         ####################################
-        self.camera_obj.set_data(self.live_video_frame[0].T)
+        self.camera_obj.set_data(self.live_video_frame[0].T[::self.video_show_downscale_factor,
+															::self.video_show_downscale_factor])
 
         #print ("time to compute image update: ", time.time()-start)
         #########################################

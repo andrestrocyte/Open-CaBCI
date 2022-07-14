@@ -25,7 +25,7 @@ class Grab():
 
 		#
 		if self.randomize:
-			return np.random.randint(0,255, size=self.frame.shape).astype('uint')
+			return np.random.randint(0,255, size=self.frame.shape).astype('uint8')
 		
 		return self.frame 
 		
@@ -299,6 +299,7 @@ class Camera():
 						gray_3c = cv2.merge([gray, gray, gray])
 						self.video_out.write(gray_3c)
 					else:
+						#gray = cv2.cvtColor(np.float32(imgUMat), cv2.COLOR_RGB2GRAY)
 						gray = cv2.normalize(frame, None, 255, 0,
 												 norm_type=cv2.NORM_MINMAX,
 												 dtype=cv2.CV_8U)

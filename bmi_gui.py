@@ -154,23 +154,6 @@ if __name__ ==  '__main__':
 
 
 	###############################################################
-	###### INITIALIZE AND START TONE PLAYBACK (+ WATER SPOUT) #####
-	###############################################################
-	'''  Here we pass only the ensemble state (i.e. E1-E2) to the 
-		tone player. The tone player alone then computes the transfer function
-		as this is not related to anything else in the BMI class
-	'''
-	#
-	if True:
-		tone_player_ = Process(target=PlayTone, args=(fname_rois_pixels_and_thresholds,
-													  bmi.shmem_ensemble_state.name,
-													  bmi.shmem_tone_state.name,
-													  bmi.shmem_termination_flag.name,
-													  bmi.shmem_water_reward.name,
-													  simulation_flag_tone,))
-		tone_player_.start()
-
-	###############################################################
 	########### INITIALIZE AND START CAMERA RECORDING #############
 	###############################################################
 	if True:
