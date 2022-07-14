@@ -36,11 +36,16 @@ class PlotROIs():
                  bmi_high_threshold,
                  shmem_termination_flag,
                  shmem_live_video_frame,
+                 video_width,
+                 video_length,
                  ):
+
+        # video image
+        self.video_width = video_width
+        self.video_length = video_length
 
         #
         self.shmem_live_video_frame = shmem_live_video_frame
-        
         
         #
         self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
@@ -100,8 +105,6 @@ class PlotROIs():
         self.shmem_tone_state = shmem_tone_state
 
         #
-        
-        #
         self.initialize_rois_traces()
 
         #
@@ -119,12 +122,8 @@ class PlotROIs():
         #
         self.initialize_tone_state()
 
-
         #
         self.initalize_n_ttl()
-
-        #
-        self.make_roi_plots()
 
         #
         self.initalize_reward_times()
@@ -133,13 +132,17 @@ class PlotROIs():
         self.initialize_termination_flag()
 
         #
-        self.initialize_live_image_array()
-        
+        self.initialize_camera_frame_shared_memory()
 
+        #
+        self.initialize_live_image_array()
+
+        #
+        self.initialize_plots()
 
         #
         self.ctr = 0
-        
+
         # enter plot update condition
         # optional use sleep to slow down plotting
         while True:
@@ -152,7 +155,28 @@ class PlotROIs():
             # optional decrease plotting speed, may help in some cases
             # time.sleep(self.plotter_sleep_time_between_updates)
 
-#
+    #
+    def initialize_camera_frame_shared_memory(self):
+
+        ''' shared variable that keeps current image in memeory for plotter to visualize
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((1,self.video_width,self.video_length), dtype=np.uint8)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_video_frame = shared_memory.SharedMemory(name=self.shmem_live_video_frame)
+
+        #
+        self.live_video_frame = np.ndarray(aa.shape,
+                                           dtype=aa.dtype,
+                                           buffer=self.existing_shm_video_frame.buf
+                                           )
+
+        #self.video_frame[:] = aa[:]
+
+    #
     def initialize_ensemble_state(self):
         
         #
@@ -170,8 +194,7 @@ class PlotROIs():
 
         #
         #self.ensemble_state_last = self.ensemble_state[0].copy()
-        
-        
+
     #
     def initialize_ROIs_contours(self):
 
@@ -319,7 +342,7 @@ class PlotROIs():
 
 
     #
-    def make_roi_plots(self):
+    def initialize_plots(self):
 
         #
         self.plot_y_scale = 1
@@ -327,13 +350,13 @@ class PlotROIs():
         #
         self.fig = plt.figure(figsize=(10,5))
 
-        self.grid = GridSpec(5, 6)#, left=0.55, right=0.98, hspace=0.05)
+        self.grid = GridSpec(5, 10)#, left=0.55, right=0.98, hspace=0.05)
 
         #########################################################
         ######################### PLOT CA IMAGE #################
         #########################################################
         # TODO: refactor this plot to another function
-        self.ax_image = self.fig.add_subplot(self.grid[:, 3:])
+        self.ax_image = self.fig.add_subplot(self.grid[:, 3:7])
 
         #
         self.image_obj = self.ax_image.imshow(self.live_frame[0],
@@ -341,7 +364,7 @@ class PlotROIs():
                                               vmax=self.live_image_vmax)
 
         #
-        axcolor = 'lightgoldenrodyellow'
+        #axcolor = 'lightgoldenrodyellow'
         axmin = self.fig.add_axes([0.55, 0.0, 0.15, 0.03])
         axmax  = self.fig.add_axes([0.55, 0.03, 0.15, 0.03])
         n_frame_ave  = self.fig.add_axes([0.83, 0.03, 0.10, 0.03])
@@ -363,7 +386,7 @@ class PlotROIs():
         self.n_frame_ave.on_changed(update_n_frames_average)
 
 		
-		#
+        #
         self.ax_image.set_xlim(0,512)
         self.ax_image.set_ylim(512,0)
 
@@ -373,6 +396,22 @@ class PlotROIs():
                 self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k+1][0]],
                                    [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
                                     c='red')
+
+        #########################################################
+        ################# PLOT VIDEO IMAGE ######################
+        #########################################################
+        # TODO: refactor this plot to another function
+        self.ax_camera = self.fig.add_subplot(self.grid[:, 7:])
+        self.ax_camera.set_xticks([])
+        self.ax_camera.set_yticks([])
+        #
+        self.camera_obj = self.ax_camera.imshow(self.live_video_frame[0].T,
+                                              vmin=0,
+                                              vmax=255,
+                                                aspect='auto',
+                                                cmap='binary'
+                                               #
+                                              )
 
 
         #########################################################
@@ -470,6 +509,8 @@ class PlotROIs():
         self.axbackground = []
         self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_traces.bbox))
         self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
+        self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_camera.bbox))
+
 
         #
         plt.show(block=False)
@@ -523,11 +564,11 @@ class PlotROIs():
             # compute mean over last n_frames
             temp = np.mean(self.live_image_array[-self.live_image_average_n_frames:],axis=0)
             
-            if False:
-                idx = np.where(temp<self.live_image_vmin)
-                temp[idx] = self.live_image_vmin
-                idx = np.where(temp>self.live_image_vmax)
-                temp[idx] = self.live_image_vmax
+            # if False:
+            #     idx = np.where(temp<self.live_image_vmin)
+            #     temp[idx] = self.live_image_vmin
+            #     idx = np.where(temp>self.live_image_vmax)
+            #     temp[idx] = self.live_image_vmax
                     
             #
             self.image_obj.set_data(temp)
@@ -536,6 +577,10 @@ class PlotROIs():
         self.live_image_counter+=1
 
 
+        ####################################
+        ######## UPDATE CAMERA OUTPUT ######
+        ####################################
+        self.camera_obj.set_data(self.live_video_frame[0].T)
 
         #print ("time to compute image update: ", time.time()-start)
         #########################################

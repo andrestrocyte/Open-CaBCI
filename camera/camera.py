@@ -58,7 +58,13 @@ class Camera():
 				 shmem_n_ttl,
                  shmem_termination_flag,
 				 n_frames,
-				):
+				 shmem_live_video_frame,
+				 video_width,
+				 video_height,
+				 ):
+
+		#
+		self.shmem_live_video_frame = shmem_live_video_frame
 
 		#
 		self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
@@ -80,8 +86,8 @@ class Camera():
 		# TODO: may wish to modify/provide this option in the GUI
 		self.video_single_channel_flag = True
 		self.fps = 30
-		self.video_height = 1200
-		self.video_width = 1824
+		self.video_height = video_height
+		self.video_width = video_width
 		self.frame_exposure_time = 10000   # time to collect light for each frame in uSec
 										# TODO: need to lower this and increase intensity etc for higher frame rates
 
@@ -111,7 +117,11 @@ class Camera():
 		
 		#
 		self.initialize_n_ttl()
-		
+
+		#
+		self.initialize_camera_frame_shared_memory()
+
+
 		#
 		if self.hardware_trigger_flag:
 			self.hardware_trigger_record()
@@ -121,6 +131,39 @@ class Camera():
 		#
 		self.save_data()
 
+
+		# #
+		# self.ctr = 0
+		#
+		# # enter plot update condition
+		# # optional use sleep to slow down plotting
+		# while True:
+		# 	self.update_plots()
+		#
+		# 	if self.termination_flag:
+		# 		print("... EXITING PLOTTING CLASS ...")
+		# 		break
+
+		# optional decrease plotting speed, may help in some cases
+		# time.sleep(self.plotter_sleep_time_between_updates)
+
+		#
+	def initialize_camera_frame_shared_memory(self):
+		''' shared variable that keeps current image in memeory for plotter to visualize
+		'''
+
+		# make a numpy array to hold the rois_traces
+		aa = np.zeros((1, self.video_width, self.video_height), dtype=np.uint8)
+
+		# get the rois_traces from the shared memory name
+		self.existing_shm_video_frame = shared_memory.SharedMemory(name=self.shmem_live_video_frame)
+
+		#
+		self.video_frame = np.ndarray(aa.shape,
+									  dtype=aa.dtype,
+									  buffer=self.existing_shm_video_frame.buf)
+
+	#
 	def save_data(self):
 
 		np.savez(self.fname_video[:-4] + ".npz",
@@ -267,8 +310,8 @@ class Camera():
 					#
 					self.n_ttl_last = self.n_ttl[0]
 
-
-					#print ("Camera: grabbed frame: ", self.n_ttl)
+					#
+					self.video_frame[0] = gray.T
 
 					
 				# can check for termination flag
@@ -328,6 +371,8 @@ class Camera():
 				#
 				self.n_ttl_last = self.n_ttl[0]
 
+				# update live video stream
+				self.video_frame[0] = gray.T
 
 				#print ("Camera: grabbed frame: ", self.n_ttl)
 

@@ -167,11 +167,11 @@ def gui():
     # # sleep timer for simulation mode
     n_frames_box = Label(window, text = "# of frames to acquire")
     n_frames_box.config(font =("Courier", fontsize))
-    n_frames_box.grid(column=0,row=8)
+    n_frames_box.grid(column=0,row=9)
 
     n_frames_box_data = tk.Entry(window) 
     n_frames_box_data.insert(END, 1000)
-    n_frames_box_data.grid(column=1,row=8)
+    n_frames_box_data.grid(column=1,row=9)
 
     # # image size width/length input box
     width_box = Label(window, text = "imaging window - width (pixels)")

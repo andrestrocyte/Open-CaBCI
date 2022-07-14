@@ -25,9 +25,9 @@ if __name__ ==  '__main__':
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
 	
 	# values read from gui
-	fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames, video_width, video_length = gui()
+	fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames, video_width, video_height = gui()
 	
-	print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames)
+	#print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames)
 	
 	####################################################################### 			
 	################### DEFAULT PARAMTERS FOR BMI ######################### 			
@@ -85,7 +85,8 @@ if __name__ ==  '__main__':
 			  max_n_seconds_session,
 			  n_frames_session,
 			  video_width,
-			  video_length)
+			  video_height
+			  )
 
 	# for simulation mode we sometimes want to slow down the processing;
 	# ... not as necessary 
@@ -131,6 +132,8 @@ if __name__ ==  '__main__':
 												bmi.high_threshold,
 												bmi.shmem_termination_flag.name,
 												bmi.shmem_live_video_frame.name,
+												video_width,
+												video_height
 												))
 		plotter_.start()
 
@@ -168,7 +171,7 @@ if __name__ ==  '__main__':
 		tone_player_.start()
 
 	###############################################################
-	############## INITIALIZE AND START PLOTTER ###################
+	########### INITIALIZE AND START CAMERA RECORDING #############
 	###############################################################
 	if True:
 		camera_player_ = Process(target=Camera, args=(
@@ -178,7 +181,10 @@ if __name__ ==  '__main__':
 													bmi.shmem_n_ttl.name,
 													bmi.shmem_termination_flag.name,
 													n_frames_session,
-												))
+													bmi.shmem_live_video_frame.name,
+													video_width,
+													video_height,
+										))
 		camera_player_.start()
 
 	###############################################################

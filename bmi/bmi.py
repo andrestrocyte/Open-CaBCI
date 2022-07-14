@@ -236,7 +236,7 @@ class BMI():
         '''
 
         # make a numpy array to hold the rois_traces
-        print ("self.video width: ", self.video_width, self.video_length)
+        print ("self.video width: ", self.video_width, " length: ", self.video_length)
         aa = np.zeros((1,self.video_width,self.video_length), dtype=np.uint8)
         self.shmem_live_video_frame = shared_memory.SharedMemory(create=True,
                                                              size=aa.nbytes)
