@@ -5,8 +5,9 @@ import os
 import numpy as np
   
 def exit_gui():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length
 
+	#
     bmi_read = bmi_flag.get()
     lick_read = lick_flag.get()
     tone_read = tone_flag.get()
@@ -17,10 +18,12 @@ def exit_gui():
     #
     simulation_sleep = simulation_sleep_box_data.get()
     n_frames = n_frames_box_data.get()
-    width = width_box_data.get(),
+    width = width_box_data.get()
     length = length_box_data.get()
-    #
+    video_width = int(video_width_box_data.get())
+    video_length = int(video_length_box_data.get())
     
+    #
     print ("Loaded BMI params...")
     print ("fname_root_path: ", fname_root_path)
     print ("bmi_simulation: ", bmi_read)
@@ -31,6 +34,8 @@ def exit_gui():
     print ("n_frames: ", n_frames)
     print ("video_simulation: ", video_read)
     print ("video_hardware_trigger_flag: ", video_hardware_trigger_flag)
+    print ("video width: ", video_width)
+    print ("video length: ", video_length)
     #print (fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, video_read, video_hardware_trigger_flag )
 
     #
@@ -42,7 +47,7 @@ def exit_gui():
 
 #
 def gui():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length
 
     #
     OPTIONS = [
@@ -55,7 +60,7 @@ def gui():
     window.geometry('800x800')
 
     fontsize = 10
-    default_option = 1
+    default_option = 0
 
 
     # button box to read the directory of the location of the Bscope raw data 
@@ -131,42 +136,60 @@ def gui():
     video_menu2 = OptionMenu(window, video_hardware_trigger_flag, *OPTIONS)
     video_menu2.grid(column=3,row=5)
 
+    # # image size width/length input box
+    video_width_box = Label(window, text = "video window - width (pixels)")
+    video_width_box.config(font =("Courier", fontsize))
+    video_width_box.grid(column=0,row=6)
+
+    video_width_box_data = tk.Entry(window) 
+    video_width_box_data.insert(END, 1824)
+    video_width_box_data.grid(column=1,row=6)
+
+    # # image size width/length input box
+    video_length_box = Label(window, text = "video window - length (pixels)")
+    video_length_box.config(font =("Courier", fontsize))
+    video_length_box.grid(column=0,row=7)
+
+    video_length_box_data = tk.Entry(window) 
+    video_length_box_data.insert(END, 1200)
+    video_length_box_data.grid(column=1,row=7)
+    
     # # sleep timer for simulation mode
     simulation_sleep_box = Label(window, text = "simulation mode sleep (in seconds)")
     simulation_sleep_box.config(font =("Courier", fontsize))
-    simulation_sleep_box.grid(column=0,row=6)
+    simulation_sleep_box.grid(column=0,row=8)
 
     simulation_sleep_box_data = tk.Entry(window) 
     simulation_sleep_box_data.insert(END, 0.0001)
-    simulation_sleep_box_data.grid(column=1,row=6)
+    simulation_sleep_box_data.grid(column=1,row=8)
     simulation_sleep_box_data.focus_force()
 
     # # sleep timer for simulation mode
     n_frames_box = Label(window, text = "# of frames to acquire")
     n_frames_box.config(font =("Courier", fontsize))
-    n_frames_box.grid(column=0,row=7)
+    n_frames_box.grid(column=0,row=8)
 
     n_frames_box_data = tk.Entry(window) 
     n_frames_box_data.insert(END, 1000)
-    n_frames_box_data.grid(column=1,row=7)
+    n_frames_box_data.grid(column=1,row=8)
 
     # # image size width/length input box
     width_box = Label(window, text = "imaging window - width (pixels)")
     width_box.config(font =("Courier", fontsize))
-    width_box.grid(column=0,row=8)
+    width_box.grid(column=0,row=10)
 
     width_box_data = tk.Entry(window) 
     width_box_data.insert(END, 512)
-    width_box_data.grid(column=1,row=8)
+    width_box_data.grid(column=1,row=10)
 
     # # image size width/length input box
     length_box = Label(window, text = "imaging window - length (pixels)")
     length_box.config(font =("Courier", fontsize))
-    length_box.grid(column=0,row=9)
+    length_box.grid(column=0,row=11)
 
     length_box_data = tk.Entry(window) 
     length_box_data.insert(END, 512)
-    length_box_data.grid(column=1,row=9)
+    length_box_data.grid(column=1,row=11)
 
     #
     button1 = tk.Button(text='Run BMI', 
@@ -199,7 +222,9 @@ def gui():
              simulation_sleep = simulation_sleep,
              n_frames = n_frames,
              width = width,
-             length = length
+             length = length,
+             video_width = video_width,
+             video_length = video_length, 
              )
     #
-    return (fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger_flag, simulation_sleep, n_frames )
+    return (fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger_flag, simulation_sleep, n_frames, video_width, video_length )

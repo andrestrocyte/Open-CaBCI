@@ -25,7 +25,7 @@ if __name__ ==  '__main__':
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
 	
 	# values read from gui
-	fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames = gui()
+	fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames, video_width, video_length = gui()
 	
 	print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames)
 	
@@ -83,7 +83,9 @@ if __name__ ==  '__main__':
 			  sampleRate_2P,
 			  fname_rois_pixels_and_thresholds,
 			  max_n_seconds_session,
-			  n_frames_session)
+			  n_frames_session,
+			  video_width,
+			  video_length)
 
 	# for simulation mode we sometimes want to slow down the processing;
 	# ... not as necessary 
@@ -128,6 +130,7 @@ if __name__ ==  '__main__':
 												bmi.shmem_ensemble_state.name,
 												bmi.high_threshold,
 												bmi.shmem_termination_flag.name,
+												bmi.shmem_live_video_frame.name,
 												))
 		plotter_.start()
 

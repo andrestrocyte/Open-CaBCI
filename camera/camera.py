@@ -12,7 +12,10 @@ class Grab():
 	    - not used in live imaging
 	'''
 	#
-	def __init__(self, width, height):
+	def __init__(self, width, height, randomize = True):
+
+		#
+		self.randomize=True
 
 		# for some reason need to change order of heigh-width here
 		self.frame = np.zeros((height,width), dtype='uint8')
@@ -21,7 +24,10 @@ class Grab():
 	def GetArray(self):
 
 		#
-		return self.frame #+ np.random.randint(0,255,size=self.frame.shape).astype('uint8')
+		if self.randomize:
+			return np.random.randint(0,255, size=self.frame.shape).astype('uint')
+		
+		return self.frame 
 		
 #
 class CameraSimulation():
@@ -297,33 +303,33 @@ class Camera():
 				grab = self.camera.RetrieveResult(10000, 
 										 pylon.TimeoutHandling_ThrowException)
 				
-								# get the image data from array
-					frame = grab.GetArray()
+							# get the image data from array
+				frame = grab.GetArray()
 
-					#
-					#print ("grabbed frame: ", frame.shape, type(frame[0,0]))
-						
-					# format the image to be saved for
-					if self.video_single_channel_flag == False:
-						gray = cv2.normalize(frame, None, 255, 0,
-												 norm_type=cv2.NORM_MINMAX,
-												 dtype=cv2.CV_8U)
-						gray_3c = cv2.merge([gray, gray, gray])
-						self.video_out.write(gray_3c)
-					else:
-						gray = cv2.normalize(frame, None, 255, 0,
-												 norm_type=cv2.NORM_MINMAX,
-												 dtype=cv2.CV_8U)
-						self.video_out.write(gray)
-
-					#
-					self.video_frame_times.append([self.n_ttl[0] ,time.time()])
+				#
+				#print ("grabbed frame: ", frame.shape, type(frame[0,0]))
 					
-					#
-					self.n_ttl_last = self.n_ttl[0]
+				# format the image to be saved for
+				if self.video_single_channel_flag == False:
+					gray = cv2.normalize(frame, None, 255, 0,
+											 norm_type=cv2.NORM_MINMAX,
+											 dtype=cv2.CV_8U)
+					gray_3c = cv2.merge([gray, gray, gray])
+					self.video_out.write(gray_3c)
+				else:
+					gray = cv2.normalize(frame, None, 255, 0,
+											 norm_type=cv2.NORM_MINMAX,
+											 dtype=cv2.CV_8U)
+					self.video_out.write(gray)
+
+				#
+				self.video_frame_times.append([self.n_ttl[0] ,time.time()])
+				
+				#
+				self.n_ttl_last = self.n_ttl[0]
 
 
-					#print ("Camera: grabbed frame: ", self.n_ttl)
+				#print ("Camera: grabbed frame: ", self.n_ttl)
 
 					
 				# can check for termination flag

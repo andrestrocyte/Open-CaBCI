@@ -93,11 +93,17 @@ class BMI():
                  sampleRate_2P,
                  fname_roi_pixels_and_thresholds,
                  max_n_seconds_session,
-                 n_frames_session):
+                 n_frames_session,
+                 video_width,
+                 video_length):
 
         #
         print ("... initializing BMI parameters...")
         print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
+
+        #
+        self.video_width = video_width
+        self.video_length = video_length
 
         #
         self.simulation_mode_bmi = simulation_mode_bmi
@@ -215,12 +221,35 @@ class BMI():
         # this gets read simultaneously with all other TTL/BNC channels now
         #self.initalize_lick_detector_reader()
 
-		# keeps track of lick values
+        # keeps track of lick values
         self.lick_detector_abstime = [] #np.zeros((self.n_frames,2),dtype=np.float32)
 
         #
         self.initialize_rotary_encoder()
+        
+        #
+        self.initialize_video_frame()
+        
+    #
+    def initialize_video_frame(self):
+        ''' shared variable that keeps current video camera frame in memeory for
+        '''
 
+        # make a numpy array to hold the rois_traces
+        print ("self.video width: ", self.video_width, self.video_length)
+        aa = np.zeros((1,self.video_width,self.video_length), dtype=np.uint8)
+        self.shmem_live_video_frame = shared_memory.SharedMemory(create=True,
+                                                             size=aa.nbytes)
+
+        #
+        self.live_video_frame = np.ndarray(aa.shape,
+                                        dtype=aa.dtype,
+                                        buffer=self.shmem_live_video_frame.buf)
+
+        #
+        self.live_video_frame[:] = aa[:]
+
+    #
     def initialize_rotary_encoder(self):
 
         # this keeps track of the rotary encoder wheel rotations

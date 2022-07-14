@@ -35,8 +35,13 @@ class PlotROIs():
                  shmem_ensemble_state,
                  bmi_high_threshold,
                  shmem_termination_flag,
+                 shmem_live_video_frame,
                  ):
 
+        #
+        self.shmem_live_video_frame = shmem_live_video_frame
+        
+        
         #
         self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
 
