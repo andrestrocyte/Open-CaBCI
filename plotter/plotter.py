@@ -45,7 +45,7 @@ class PlotROIs():
         self.video_length = video_length
         
         #
-        self.video_show_downscale_factor = 10
+        self.video_show_downscale_factor = 5
 
         #
         self.shmem_live_video_frame = shmem_live_video_frame
@@ -413,7 +413,7 @@ class PlotROIs():
                                                 vmin=0,
                                                 vmax=255,
                                                 aspect='auto',
-                                                cmap='binary'
+                                                cmap='binary_r'
                                                #
                                               )
 

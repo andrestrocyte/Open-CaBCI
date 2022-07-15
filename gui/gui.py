@@ -137,7 +137,7 @@ def gui():
     video_menu2.grid(column=3,row=5)
 
     # # image size width/length input box
-    video_width_box = Label(window, text = "video window - width (pixels)")
+    video_width_box = Label(window, text = "video - width (pixels; DO NOT CHANGE)")
     video_width_box.config(font =("Courier", fontsize))
     video_width_box.grid(column=0,row=6)
 
@@ -146,7 +146,7 @@ def gui():
     video_width_box_data.grid(column=1,row=6)
 
     # # image size width/length input box
-    video_length_box = Label(window, text = "video window - length (pixels)")
+    video_length_box = Label(window, text = "video - length (pixels; DO NOT CHANGE)")
     video_length_box.config(font =("Courier", fontsize))
     video_length_box.grid(column=0,row=7)
 
