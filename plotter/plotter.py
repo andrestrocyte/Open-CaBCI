@@ -652,7 +652,9 @@ class PlotROIs():
                                  ": Freq: " +str(int(self.tone_state[0]))+"hz"+
                                  "\n Ensemble state: "+str(round(self.ensemble_state[0],2)), fontsize=12)
 
-        #
+        #################################################################
+        #################################################################
+        #################################################################
         for k in range(len(self.axbackground)):
             self.fig.canvas.restore_region(self.axbackground[k])
 
