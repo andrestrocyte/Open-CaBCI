@@ -505,7 +505,7 @@ class BMI():
 
         '''
 
-        # make a numpy array to hold the rois_traces
+        # an array to hold the reward times
         aa = np.zeros((2,1000), dtype=np.int64)-1
         self.shmem_reward_times = shared_memory.SharedMemory(create=True,
                                                              size=aa.nbytes)
@@ -517,9 +517,6 @@ class BMI():
 
         #
         self.reward_times[:] = aa[:]
-
-        #
-        #print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
 
     #
     def initialize_live_frame_shared_memory(self):
@@ -556,7 +553,6 @@ class BMI():
         #
         self.live_frame_motion_detector[:] = aa[:]
         #
-        #print(" n_rewards initialized: ", self.reward_times, self.shmem_reward_times.name)
 
     #
     def initialize_n_ttl(self):
@@ -1100,6 +1096,8 @@ class BMI():
             print (" high_threshold: ", self.high_threshold)
 
             # search for the first empty slot in the reward times list
+            # TODO: this is a poor way to save these values; 
+            #   TODO: have a shared memory variable separate from one that keeps track of the times
             for k in range(self.reward_times.shape[1]):
                 if self.reward_times[1, k] == -1:
                     self.reward_times[1, k] = self.n_ttl[0]  # save current reward time
@@ -1282,6 +1280,11 @@ class BMI():
 
         '''
         print("...Saving BMI meta/data...")
+        
+        for k in range(self.reward_times.shape[1]):
+            if self.reward_times[1,k]==-1:
+                break
+        print (" .. # of rewards: ", k-1, ", water volume dispensed (@ 20uL per reward): ",(k-1)*0.020, "mL")
 
         #
         np.savez(self.fname_save_data,

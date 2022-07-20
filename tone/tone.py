@@ -56,7 +56,7 @@ class PlayTone():
         self.shmem_water_reward = shmem_water_reward
 
         # TODO: unclear what these units are?
-        self.amp = 0.05  # tone amplitude in ?
+        self.amp = 0.1  # tone amplitude in ?
 
         # TODO: unclear what the correct duration of tone play and update
         # TODO: for now we update at 10hz
