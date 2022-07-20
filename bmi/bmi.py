@@ -453,7 +453,7 @@ class BMI():
         self.ttl_voltages = []          # ttl_voltages
 
         #self.initialize_n_ttl()
-        self.rewarded_times = []
+        self.rewarded_times_abs = []
 
     #
     def initialize_last_reward_ttl(self):
@@ -1094,7 +1094,7 @@ class BMI():
                     self.reward_times[1, k] = self.n_ttl[0]  # save current reward time
                     break
             #
-            self.rewarded_times.append([1, self.n_ttl[0], self.abs_times])
+            self.rewarded_times_abs.append([1, self.n_ttl[0], self.abs_times])
 
             # reset last reward time to current time
             self.last_reward_ttl[0] = self.n_ttl[0]
@@ -1288,6 +1288,7 @@ class BMI():
                  rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
                  rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
                  reward_times = self.reward_times,
+                 rewarded_times_abs = self.rewarded_times_abs,
                  ensemble_activity = self.ensemble_activity,
                  ensemble_diff_array = self.ensemble_diff_array,
                  received_reward_lockout = self.received_reward_lockout,
