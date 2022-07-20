@@ -68,8 +68,8 @@ class PlotROIs():
         self.live_image_update_n_frames = 5
 
         #
-        self.live_image_vmin = 700
-        self.live_image_vmax = 1200
+        self.live_image_vmin = 300
+        self.live_image_vmax = 5000
 
         #
         self.show_contours_on_image = False
@@ -183,8 +183,6 @@ class PlotROIs():
     def initialize_ensemble_state(self):
         
         #
-        #print("  ensemble state memory name : ", self.shmem_ensemble_state)
-
         aa = np.zeros((1,), dtype=np.float32)
 
         # get the rois_traces from the shared memory name
@@ -196,7 +194,7 @@ class PlotROIs():
                                  buffer=self.existing_shm_ensemble_state.buf)
 
         #
-        #self.ensemble_state_last = self.ensemble_state[0].copy()
+        self.ensemble_state_counter = 0
 
     #
     def initialize_ROIs_contours(self):
@@ -318,28 +316,22 @@ class PlotROIs():
     def initialize_ensemble_state_array(self):
         
         #
-        self.ensemble_state_array = np.zeros(self.rois_traces.shape[1]+100)  # add a small bufffer in case things don't shut down immediately
-       
-        
+        #self.ensemble_state_array = np.zeros(self.rois_traces.shape[1]+100)  # add a small bufffer in case things don't shut down immediately
+        self.ensemble_state_array = np.zeros(self.rois_traces.shape[1]+100) + np.nan # add a small bufffer in case things don't shut down immediately
+
     #
     def initialize_rois_traces(self):
 
-        #print ("  Plotter loaded: ", self.shmem_rois_traces,
-        #       " size: ", self.rois_traces_shape)
-
         # get the rois_traces from the shared memory name
         self.existing_shm_rois_traces = shared_memory.SharedMemory(name=self.shmem_rois_traces)
-
-        #
-        # print ("existing shm traces*****************: ",
-        #        self.existing_shm_rois_traces)
 
         #
         self.rois_traces = np.ndarray((self.rois_traces_shape[0],
                                        self.rois_traces_shape[1]),
                                        dtype=np.float32,
                                        buffer=self.existing_shm_rois_traces.buf)
-        #
+
+        # also load the F0 computed from the calibration session
         data = np.load(self.fname_rois_pixels_and_thresholds)
         self.cell_f0s = data['cell_f0s']
 
@@ -372,8 +364,8 @@ class PlotROIs():
         axmax  = self.fig.add_axes([0.55, 0.93, 0.1, 0.03])
         n_frame_ave  = self.fig.add_axes([0.83, 0.93, 0.10, 0.03])
         
-        self.smin = Slider(axmin, 'Min', 0, 2048, valinit=self.live_image_vmin)
-        self.smax = Slider(axmax, 'Max', 0, 2048, valinit=self.live_image_vmax)
+        self.smin = Slider(axmin, 'Min', 0, self.live_image_vmax, valinit=self.live_image_vmin)
+        self.smax = Slider(axmax, 'Max', 0, self.live_image_vmax, valinit=self.live_image_vmax)
         self.n_frame_ave = Slider(n_frame_ave, 'nFrames', 1, 30, valinit=self.live_image_average_n_frames)
 
         #
@@ -423,7 +415,8 @@ class PlotROIs():
         # TODO: refactor this plot to another function
         self.ax_traces = self.fig.add_subplot(self.grid[:5, :5])
 
-        self.ax_traces.set_ylim(0, self.plot_y_scale*4.5+ self.plot_y_scale*3)
+        #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
+        self.ax_traces.set_ylim(0, self.plot_y_scale*(4+1.5)+2*self.bmi_high_threshold)
         self.ax_traces.set_xlim(-self.plotting_window_width,0)
         self.ax_traces.set_xlabel("Time (sec)")
 
@@ -437,11 +430,9 @@ class PlotROIs():
         for k in range(self.rois_traces.shape[0]):
 
             #
-            #print (k, self.plot_times.shape, self.rois_traces[k,:10*self.sampleRate_2P].shape)
             y_values = self.rois_traces[k,:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*k
 
             #
-            #print (self.plot_times.shape, y_values.shape)
             lineobject, = self.ax_traces.plot(self.plot_times,
                                        #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                        y_values,  # plot last X values depending on length of plttimes
@@ -450,7 +441,6 @@ class PlotROIs():
             #
             self.time_course_objects.append(lineobject)
 
-            #
             # also draw the f0 baseline of each cell!!
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
                                        # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
@@ -464,9 +454,7 @@ class PlotROIs():
         y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*(k+1.5)
 
         #
-        #print (self.plot_times.shape, y_values.shape)
         lineobject, = self.ax_traces.plot(self.plot_times,
-                                   #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                    y_values,  # plot last X values depending on length of plttimes
                                    linewidth = 2,
                                    #'r-'
@@ -534,6 +522,10 @@ class PlotROIs():
             return
 
         # save the current ensembel state
+        while self.n_ttl_current > self.ensemble_state_counter:
+            self.ensemble_state_array[self.ensemble_state_counter] = self.ensemble_state[0]
+            self.ensemble_state_counter+=1
+
         self.ensemble_state_array[self.n_ttl_current] = self.ensemble_state[0]
 
         #
@@ -586,9 +578,8 @@ class PlotROIs():
         self.camera_obj.set_data(self.live_video_frame[0].T[::self.video_show_downscale_factor,
 															::self.video_show_downscale_factor])
 
-        #print ("time to compute image update: ", time.time()-start)
         #########################################
-        ############ UPDATE LINE PLOTS ##########
+        ######### UPDATE ROI TIME COURSES #######
         #########################################
         # make t=0 tick to the current timer in seconds
         x_ticks = np.arange(-30,0.1,5)
@@ -624,10 +615,16 @@ class PlotROIs():
                                         y_values1
                                        )
         ################################################
+        ############ UPDATE ENSEMBLE STATE #############
+        ################################################
         # update ensemble state
         y_values = self.ensemble_state_array[max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):
                                                 self.n_ttl_current]+self.plot_y_scale*(k+1.5)
 
+        #
+        #print (" esnemble values: ", y_values)
+
+        #
         self.time_course_objects[k+1].set_data(x_values,
                                                y_values
                                                 )                   
@@ -644,16 +641,18 @@ class PlotROIs():
                                     y_values1
                                    )    
         
-        ##################################################
+        ################################################
+        ################# UPDATE TITLE #################
+        ################################################
         idx1 = np.where(self.reward_times[0]>-1)[0]
         idx2 = np.where(self.reward_times[1]>-1)[0]
         self.ax_traces.set_title(" # rewards : "+str(idx1.shape[0])+" "+str(idx2.shape[0]) + 
                                  ": Freq: " +str(int(self.tone_state[0]))+"hz"+
                                  "\n Ensemble state: "+str(round(self.ensemble_state[0],2)), fontsize=12)
 
-        #################################################################
-        #################################################################
-        #################################################################
+        #####################################################
+        ################# REFRESH PLOTS #####################
+        #####################################################
         for k in range(len(self.axbackground)):
             self.fig.canvas.restore_region(self.axbackground[k])
 

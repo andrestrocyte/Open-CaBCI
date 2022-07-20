@@ -67,6 +67,7 @@ def correct_drift(iter_number,
 ######################################################################################
 class DriftCorrection():
 
+
     ''' Class that implements ONLINE drift correction of imaging data using phase correlation
 
         Input: ....
@@ -81,24 +82,35 @@ class DriftCorrection():
                  shmem_termination_flag,
                  ):
 
+        #
         self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
+
+        #
         self.shmem_live_frame = shmem_live_frame
 
+        #
         self.shmem_termination_flag = shmem_termination_flag
 
+        # max # of pixels x or y direction that can move in a single frame
+        self.max_motion_per_frame = 20
 
+        #
         self.shmem_drift_xy_values = shmem_drift_xy_values
+
+        #
         self.load_template()
+
+        #
         self.initialize_drift_xy_state()
 
+        #
         self.initialize_live_frame_shared_memory()
 
-        #        #
+        #
         self.initialize_termination_flag()
 
+        #
         while True:
-            #
-            #time.sleep(3)
 
             #
             self.detect_drift()
@@ -121,8 +133,6 @@ class DriftCorrection():
                                            dtype=aa.dtype,
                                            buffer=self.existing_shm_termination_flag.buf)
 
-
-
     #
     def initialize_drift_xy_state(self):
 
@@ -137,6 +147,10 @@ class DriftCorrection():
         self.drift_xy_values = np.ndarray(aa.shape,
                                           dtype=aa.dtype,
                                           buffer=self.existing_shmem_drift_xy_values.buf)
+
+        # also initialize a memory array
+        self.drift_xy_values_previous = np.zeros(2, dtype=np.int32)
+
 
     #
     def initialize_live_frame_shared_memory(self):
@@ -172,16 +186,23 @@ class DriftCorrection():
     #
     def detect_drift(self):
 
-       #print (self.template.shape, self.live_frame.shape)
+        #
         r, c = compute_drift_single_frame(self.template,
                                           self.live_frame)
 
         #
-        #print ("DRIFT CLASS motion detection (r,c): ", r, c)
+        # print ("DRIFT CLASS motion detection (r,c): ", r, c)
 
-        #
-        self.drift_xy_values[0] = r
-        self.drift_xy_values[1] = c
+        # check if delta_r and delta_c are too large, and limit huge jumps which could be errors
+        # if jumps are too high then just levae the previous drift in place
+        if (self.drift_xy_values_previous[0]-r)<=self.max_motion_per_frame and \
+           (self.drift_xy_values_previous[1] - c) <= self.max_motion_per_frame:
+
+            # save values for bmi to implement
+            self.drift_xy_values[0] = r
+            self.drift_xy_values[1] = c
+        else:
+            print ("  ************************** LARGE motion detected > max allowed (x,y detected): ", r,c)
 
 #
 def phase_correlation(a, b):

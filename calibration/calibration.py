@@ -170,7 +170,7 @@ class BMICalibration(object):
 		#
 		image = data.copy()
 
-		for k in range(self.n_smooth_steps):
+		for k in trange(self.n_smooth_steps, desc='gaussian filtering data'):
 			image = scipy.ndimage.gaussian_filter(image, 
 												  self.sigma, 
 												  self.order)
@@ -204,7 +204,7 @@ class BMICalibration(object):
 		max_size = self.max_size_roi
 		roi_centres = []
 		indexes = []
-		for k in np.unique(labels):
+		for k in tqdm(np.unique(labels), desc='looping over cells'):
 			idx = np.where(labels==k)
 			
 			

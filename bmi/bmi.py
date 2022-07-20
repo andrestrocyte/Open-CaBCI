@@ -387,7 +387,8 @@ class BMI():
         self.initialize_last_reward_ttl()
 
         # reward lockout time after a positive reward - in seconds
-        self.received_reward_lockout = 10
+        self.received_reward_lockout = 15
+        print (">>>>>>>>>>>> POST-REWARD LOCKOUT: ", self.received_reward_lockout, "sec")
 
         # counter that track time after last reward
         self.initialize_reward_lockout_counter()
@@ -397,7 +398,8 @@ class BMI():
 
         # similar to post-reward lockout
         self.missed_reward_lockout = 0
-        
+        print (">>>>>>>>>>>> MISSED-REWARD LOCKOUT: ", self.missed_reward_lockout, "sec")
+
         #
         self.template = data['calibration_template']
 
@@ -423,10 +425,6 @@ class BMI():
         #
         self.ensemble_state [:] = aa[:]
 
-        #
-        #print (" ensemble states initialized: ",
-        #       self.ensemble_state,
-        #       self.shmem_ensemble_state.name)
 
     #
     def initialize_pbar(self):
@@ -869,7 +867,7 @@ class BMI():
         # if we made threhsods using smoothing, then need to run them on data also
         # TODO:  IMPORTANT: implement the identical algorithm used in the calibration step to compute
         #        this step; currently only the smoothing step is shared; need to share DFF0 computation also
-        #
+        # wait a few seconds until get enough data to smooth out
         if self.smooth_diff_function_flag and self.n_ttl[0]>self.rois_smooth_window:
 
             # loop over each cell
@@ -951,7 +949,7 @@ class BMI():
         
         '''
 
-        # first time point
+        # initialize raw data arrays
         if len(self.ttl_n_computed)==0:
 
             #
@@ -966,34 +964,27 @@ class BMI():
                                            mode='r',
                                            shape=self.n_frames_to_be_acquired*512*512)
                 
-                # TODO: THIS IS RQUIRD BY WINDOWS.
-                #    FOR SOME REASON IT DOESN"T LIKE NUMPY MEMMAP
-                if False:
-                    fp = open(self.fname_fluorescence, "r")
-                    byts = self.n_frames_to_be_acquired*self.image_width*self.image_length
-                    
-                    self.newfp = mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
-                    # print ("OPTION @@@@@@@@@@@@@@@@: ", self.newfp)
-
-                    #
-                    mview = memoryview(self.newfp)
-                    print (" memroy view: ", mview)
-                    self.newfp = np.asarray(mview).reshape(self.n_frames_to_be_acquired,512,512)
-                    print (" final array view: ", self.newfp.shape)
+                # if False:
+                #     fp = open(self.fname_fluorescence, "r")
+                #     byts = self.n_frames_to_be_acquired*self.image_width*self.image_length
+                #
+                #     self.newfp = mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
+                #     # print ("OPTION @@@@@@@@@@@@@@@@: ", self.newfp)
+                #
+                #     #
+                #     mview = memoryview(self.newfp)
+                #     print (" memroy view: ", mview)
+                #     self.newfp = np.asarray(mview).reshape(self.n_frames_to_be_acquired,512,512)
+                #     print (" final array view: ", self.newfp.shape)
 
 
                 # 
-                #print ("sefl newfp: ", self.newfp.shape)
-
                 self.newfp = self.newfp.reshape(self.n_frames_to_be_acquired,512,512)
-                #m.write("Hello world!")
-                                       
-                #print (" duration to setup memmap: ", time.time()-ss, " sec.")
-                #print ("     TODO: work with 1D flattened arrays")
 
             # reset start time: requird becaues we start the BMI a few seconds before the BScope
             self.start=self.now
 
+        # after arrays initialized
         else:
 
             # in simulation mode we just assume that we have correctly dected a TTL pulse and add 1 extra
@@ -1244,12 +1235,12 @@ class BMI():
 
         # Compute the E1-E2 for current time point
         # this value goes to the tone package which converts it into a tone
+        # TODO: this value is sometimes zero, not clear why, perhaps we are readng too far ahead
         self.ensemble_state[0] = abs(self.ensemble_activity[0, self.n_ttl[0]] -
                                      self.ensemble_activity[1, self.n_ttl[0]])
 
         #
         self.ensemble_diff_array[self.n_ttl[0]] = self.ensemble_state[0]
-        #print ("time: ", self.n_ttl[0]/self.sampleRate_2P, " updated ensembel state: ", self.ensemble_state, "**********************")
 
     #
     def tone_off(self):
