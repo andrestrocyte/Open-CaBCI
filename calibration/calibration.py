@@ -15,6 +15,7 @@ from stardist.models import StarDist2D
 from stardist.data import test_image_nuclei_2d
 from stardist.plot import render_label
 from csbdeep.utils import normalize
+plt.ion()
 
 ##############################
 class BMICalibration(object):
@@ -382,7 +383,7 @@ class BMICalibration(object):
 		labels_old = np.arange(0,ctr*self.scale,self.scale)
 
 		#
-		plt.yticks(labels_old, labels)
+		plt.yticks(labels_old, labels, fontsize=10)
 		plt.xlabel("Time (sec)",fontsize=20)
         
         # 
@@ -774,10 +775,11 @@ class BMICalibration(object):
 
 def get_binary_std_map(std,
 					   vmax=1500):
-    sigma = 1.5
 
     #
     fig = plt.figure()
+
+    sigma = 1.5
 
     #
     #ax=plt.subplot(111)
@@ -813,21 +815,30 @@ def get_binary_std_map(std,
     smin.on_changed(update_clim1)
     smax.on_changed(update_clim1)
 
-    plt.show(block=True)
+    #
+    #plt.show(block=True)
 
+    return smin, smax
+
+
+def get_img_std(smin, smax, std_map,bmi_c):
     #
     print ("max proj values (vmin, vmax): ", smin.val, smax.val)
 
-    img_std = std.copy()
+    img_std = std_map.copy()
     idx = np.where(img_std<smin.val)
     idx2 = np.where(img_std>=smin.val)
 
     img_std[idx] = 0
     img_std[idx2] = 1
+    sigma = 1.5
     img_std = scipy.ndimage.gaussian_filter(img_std, sigma=sigma)
 
-    return img_std, smin.val, smax.val
-
+    bmi_c.vmin = smin.val; bmi_c.vmax = smax.val
+    
+    return bmi_c, img_std
+    
+    
 #
 def get_rois_stardist2d(img):
     # prints a list of available models
@@ -845,7 +856,7 @@ def get_rois_stardist2d(img):
     plt.imshow(labels, cmap='viridis', alpha=0.5)
     plt.axis('off');
 
-    plt.show(block=True)
+    plt.show()
 
     #######################################
     min_size_roi = 15
