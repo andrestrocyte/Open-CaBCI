@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import trange
+from tqdm import trange, tqdm
 
 from scipy import ndimage as ndi
 from skimage.segmentation import watershed
@@ -58,6 +58,29 @@ class BMICalibration(object):
 		
 	
 		return img
+
+		#
+	def make_max_proj_map(self):
+
+		#
+		data_sparse = self.data[::self.subsample]
+		print("data into analysis: ", data_sparse.shape)
+
+		# filter once to remove much of the white noise
+		if False:
+			sigma = 1
+			order = 0
+			print(" gaussian filter width: ", sigma, ", order: ", order)
+			data_sparse = scipy.ndimage.gaussian_filter(data_sparse,
+														sigma,
+														order)
+			print("done filtering... (TO CHECK which axis are we filtering!!)")
+
+		maxproj = np.max(data_sparse, axis=0)
+
+		#std = np.std(data_sparse, axis=0)
+
+		return maxproj
 
 	#
 	def make_std_map(self):
