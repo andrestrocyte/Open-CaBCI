@@ -46,7 +46,7 @@ def correct_drift(iter_number,
 				  shifts):
 
 	#
-	for k in trange(bmi_c.data.shape[0], desc='fixing drift calibration data'):
+	for k in trange(bmi_c.data.shape[0], desc='fixing drift on calibration data'):
 
 		#
 		x = shifts[k][0]
@@ -376,7 +376,7 @@ def make_template(data,
     else:
         # split the image indexes into gropus
         imgs_split = np.array_split(idx_imgs,
-                                    n_cores)
+                                    40)
 
         #
         res = parmap.map(phase_correlation_parallel,
@@ -438,7 +438,7 @@ def compute_drift_multi_frames(iter_number,
 
         #
         idx_parmap = np.array_split(idx_all,
-                                    n_cores)
+                                    40)
         #
         res = parmap.map(phase_correlation_parallel,
                          idx_parmap,  # indexes of each image to process
@@ -492,6 +492,95 @@ def compute_drift_single_frame(template, image):
     #
     return int(r), int(c)
 
+
+
+
+
+def template_generation(bmi_c,
+                        ):
+    n_iter = 1
+    bmi_c.n_imgs_to_sample = 1000
+    random_img_sample_flag = False
+    bmi_c.n_best_imgs = 100
+    plotting = True
+    n_cores = 8
+    template=None
+    idx_imgs = None
+    for k in range(n_iter):
+        #idx_imgs = None
+        corr_maxs, template, idx_imgs = make_template(
+                                                  bmi_c.data,
+                                                  bmi_c.fname,
+                                                  bmi_c.n_imgs_to_sample,
+                                                  bmi_c.n_best_imgs,
+                                                  template,
+                                                  idx_imgs,
+                                                  random_img_sample_flag,
+                                                  plotting,
+                                                  n_cores)
+    bmi_c.template = template
+    bmi_c.idx_imgs = idx_imgs
+
+    #
+    return bmi_c
+
+#
+
+#
+def plot_mean_vs_template(bmi_c):
+
+    plt.figure()
+    print (bmi_c.data.shape, bmi_c.idx_imgs.shape)
+    temp = bmi_c.data[bmi_c.idx_imgs].mean(0)
+    plt.title("Average map over " + str(bmi_c.idx_imgs.shape[0]) + " images")
+    plt.imshow(temp,
+               #vmin=0,
+               #vmax=1500
+               #
+               )
+
+    #
+    plt.figure()
+    plt.title("Average map over highest correlated " + str(bmi_c.n_best_imgs) + " images")
+    plt.imshow(bmi_c.template,
+               #vmin=0,
+               #vmax=1500
+               )
+
+    #
+    plt.show()
+
+
+
+
+#
+def make_motion_template_and_correct_data(bmi_c):
+
+    n_iterations = 1  # number of times to iterate over the template
+    n_cores = 8
+    subsample = 3  # subsample every N'th frame for drift to speed up;
+                    # TODO: would be good to use all frames!!
+
+    for k in range(n_iterations):
+        # make template
+        bmi_c = template_generation(bmi_c)
+
+        # detection of motion
+        shifts, _ = compute_drift_multi_frames(k,
+                                               bmi_c,
+                                               subsample,
+                                               n_cores,)
+
+        # correct motion (+ save to disk)
+        bmi_c = correct_drift(k,
+                              bmi_c,
+                              shifts)
+
+    # remake template
+    bmi_c = template_generation(bmi_c)
+
+    #
+    return bmi_c
 
 
 

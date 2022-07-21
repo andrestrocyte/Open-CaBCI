@@ -9,6 +9,12 @@ from scipy import signal
 import scipy
 import scipy.ndimage
 import cv2
+from matplotlib.widgets import Slider, Button, RadioButtons
+
+from stardist.models import StarDist2D
+from stardist.data import test_image_nuclei_2d
+from stardist.plot import render_label
+from csbdeep.utils import normalize
 
 ##############################
 class BMICalibration(object):
@@ -94,14 +100,15 @@ class BMICalibration(object):
 			sigma = 1
 			order = 0
 			print (" gaussian filter width: ", sigma, ", order: ", order)
-			data_sparse = scipy.ndimage.gaussian_filter(data_sparse, 
-														sigma, 
+			data_sparse = scipy.ndimage.gaussian_filter(data_sparse,
+														sigma,
 														order)
+
 			print ("done filtering... (TO CHECK which axis are we filtering!!)")
         
         #
 		if False:
-			kernel = [7,0,0]   # filter only across time
+			kernel = [7,1,1]   # filter only across time
 			print (" median filter width: ", kernel)
 			data_sparse = signal.medfilt(data_sparse, kernel)
 			print ("done median filtering... ")
@@ -275,8 +282,10 @@ class BMICalibration(object):
 		if fig is True:
 			plt.figure()
 			
-		plt.imshow(std_map)
-#		for p in range(len(indexes)):
+		plt.imshow(std_map,
+				   vmin = self.vmin*0.7,
+				   vmax = self.vmax*1.3)
+		#
 		for p in cell_ids:
 			temp = np.zeros(std_map.shape)
 			temp[indexes[p]]=1
@@ -312,14 +321,13 @@ class BMICalibration(object):
 		data = data.reshape(-1,512,512)
 		print ("memmap : ", data.shape)
 			
-		#  
+		#####################################################
 		plt.figure()
-		#traces = []
-		#ctr=0
 		ax = plt.subplot(121)
 		ax.tick_params(axis='both', which='both', labelsize=20)
 		plt.ylabel("Neuron ID ", fontsize=20)
-		#ax.yaxis.tick.set_size(20)
+
+		#
 		roi_traces = []
 		for k in range(len(cell_ids)):
 			roi_traces.append([])
@@ -369,14 +377,10 @@ class BMICalibration(object):
 			plt.plot(t, temp+ctr*self.scale)
 		
 			ctr+=1
-
-
 		#
 		labels = cell_ids
 		labels_old = np.arange(0,ctr*self.scale,self.scale)
-		#print (labels)
-		#print (labels_old)
-		
+
 		#
 		plt.yticks(labels_old, labels)
 		plt.xlabel("Time (sec)",fontsize=20)
@@ -385,7 +389,9 @@ class BMICalibration(object):
 		ax2=plt.subplot(122)
 		new_plot = False
 		print (cell_ids)
-		self.show_contour_map(std_map,self.indexes, cell_ids, new_plot)
+		self.show_contour_map(std_map,
+							  self.indexes,
+							  cell_ids, new_plot)
 
 		plt.show()
 		
@@ -762,3 +768,110 @@ class BMICalibration(object):
 				  "\n expected # of random rewards: "+str(int(t[-1]/30))+
 				  "\n actual # of provided rewards: "+str(self.n_rewards_default))
 		plt.show()
+
+
+
+
+def get_binary_std_map(std,
+					   vmax=1500):
+    sigma = 1.5
+
+    #
+    fig = plt.figure()
+
+    #
+    #ax=plt.subplot(111)
+    plt.title("std map")
+    live_image_vmin = 0
+    live_image_vmax = vmax
+
+    #
+    image_obj = plt.imshow(std,
+              vmin=live_image_vmin,
+              vmax=live_image_vmax,
+                           interpolation='none'
+              )
+
+    axmin = fig.add_axes([0.05, 0.90, 0.1, 0.03])
+    axmax  = fig.add_axes([0.05, 0.93, 0.1, 0.03])
+
+    #
+    smin = Slider(axmin, 'Min', 0, live_image_vmax, valinit=live_image_vmin)
+    smax = Slider(axmax, 'Max', 0, live_image_vmax, valinit=live_image_vmax)
+
+    #
+    def update_clim1(val):
+        if smin.val<smax.val:
+            image_obj.set_clim([smin.val,
+                                smax.val])
+            res = scipy.ndimage.gaussian_filter(std, sigma=sigma)
+            image_obj.set_data(res)
+        else:
+            smin.val = smax.val-1
+
+    #
+    smin.on_changed(update_clim1)
+    smax.on_changed(update_clim1)
+
+    plt.show(block=True)
+
+    #
+    print ("max proj values (vmin, vmax): ", smin.val, smax.val)
+
+    img_std = std.copy()
+    idx = np.where(img_std<smin.val)
+    idx2 = np.where(img_std>=smin.val)
+
+    img_std[idx] = 0
+    img_std[idx2] = 1
+    img_std = scipy.ndimage.gaussian_filter(img_std, sigma=sigma)
+
+    return img_std, smin.val, smax.val
+
+#
+def get_rois_stardist2d(img):
+    # prints a list of available models
+    print (StarDist2D.from_pretrained())
+
+    # creates a pretrained model
+    model = StarDist2D.from_pretrained('2D_versatile_fluo')
+
+
+    #img = normalize(img[16], 1,99.8, axis=axis_norm)
+    labels, details = model.predict_instances(img)
+
+    plt.figure(figsize=(8,8))
+    plt.imshow(img if img.ndim==2 else img[...,0], clim=(0,1), cmap='gray')
+    plt.imshow(labels, cmap='viridis', alpha=0.5)
+    plt.axis('off');
+
+    plt.show(block=True)
+
+    #######################################
+    min_size_roi = 15
+    max_size_roi = 700
+    #bmi_c.sigma = 0.1
+
+    labels = labels.astype('float32')
+
+    # remove very small and very large ROIs
+    min_size = min_size_roi
+    max_size = max_size_roi
+    roi_centres = []
+    indexes = []
+    for k in tqdm(np.unique(labels), desc='looping over cells'):
+        idx = np.where(labels==k)
+
+
+        if idx[0].shape[0]<min_size or idx[0].shape[0]>max_size:
+            labels[idx]=np.nan
+        else:
+
+            roi_centres.append([np.median(idx[0]),
+                                 np.median(idx[1])])
+            indexes.append(idx)
+
+    rois = np.vstack(roi_centres)
+    indexes = indexes
+
+    return rois, indexes
