@@ -82,6 +82,34 @@ def ensemble_to_tone_transfer_function(ensemble_state,
 	# for now do a linear projection between the neural states and the
 	# TODO: calibrate the speaker so that it macthes the assumed playback states
 	#
+
+	# scale from 0..1
+	tone = (ensemble_state)/(high_threshold)
+
+	# map onto frequencies selected
+	tone = tone*(high_freq-low_freq)+low_freq
+
+	# map onto octaves
+	octave_freqs = get_octave_frequencies(low_freq,
+										  high_freq,
+										  0.25)
+
+	# find closest octave frequency to the tone
+	idx = np.argmin(np.abs(octave_freqs-tone))
+	tone = octave_freqs[idx]
+
+	return tone
+
+#
+def make_white_noise(ensemble_state,
+			    low_freq,
+			    high_freq,
+			    low_threshold,
+			    high_threshold):
+
+	# for now do a linear projection between the neural states and the
+	# TODO: calibrate the speaker so that it macthes the assumed playback states
+	#
 	#high_threshold = 1500
 	# scale from 0..1
 	tone = (ensemble_state)/(high_threshold)

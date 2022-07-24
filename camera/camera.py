@@ -61,6 +61,7 @@ class Camera():
 				 shmem_live_video_frame,
 				 video_width,
 				 video_height,
+				 fname_video
 				 ):
 
 		#
@@ -72,10 +73,6 @@ class Camera():
 		# run camera in simulation mode, doesn't require a camera
 		self.camera_simulation_flag=camera_simulation_flag
 
-		#
-		self.fname_video = os.path.join(os.path.split(self.fname_rois_pixels_and_thresholds)[0],
-													  "video.avi")
-		
 		#
 		self.hardware_trigger_flag = hardware_trigger_flag
 

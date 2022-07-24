@@ -5,7 +5,7 @@ import os
 import numpy as np
   
 def exit_gui():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_flag
 
 	#
     bmi_read = bmi_flag.get()
@@ -13,6 +13,7 @@ def exit_gui():
     tone_read = tone_flag.get()
     water_read = water_flag.get()
     video_read = video_flag.get()
+    calibration_read = calibration_flag.get()
     video_hardware_trigger_flag = video_hardware_trigger_flag.get()
 
     #
@@ -36,6 +37,7 @@ def exit_gui():
     print ("video_hardware_trigger_flag: ", video_hardware_trigger_flag)
     print ("video width: ", video_width)
     print ("video length: ", video_length)
+    print ("calibration flag: ", calibration_read)
     #print (fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, video_read, video_hardware_trigger_flag )
 
     #
@@ -47,7 +49,7 @@ def exit_gui():
 
 #
 def gui():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_flag
 
     #
     OPTIONS = [
@@ -191,6 +193,16 @@ def gui():
     length_box_data.insert(END, 512)
     length_box_data.grid(column=1,row=11)
 
+    # calibration session
+    calibration_box = Label(window, text = "Calibration session mode")
+    calibration_box.config(font =("Courier", fontsize))
+    calibration_box.grid(column=0, row=12)
+
+    calibration_flag = StringVar(window)
+    calibration_flag.set(OPTIONS[default_option]) # default value
+    calibration_menu = OptionMenu(window, calibration_flag, *OPTIONS)
+    calibration_menu.grid(column=1,row=12)
+
     #
     button1 = tk.Button(text='Run BMI', 
                         command=exit_gui
@@ -210,8 +222,13 @@ def gui():
     # return values to main script:
     
 
-      #
-    fname_gui_params = os.path.join(fname_root_path, "gui_params.npz")
+    #
+    if calibration_flag:
+        fname_gui_params = os.path.join(fname_root_path, "gui_params_calibration.npz")
+    else:
+        fname_gui_params = os.path.join(fname_root_path, "gui_params_bmi.npz")
+
+    #
     np.savez(fname_gui_params,
              bmi_read = bmi_read,
              lick_read = lick_read,
@@ -224,7 +241,7 @@ def gui():
              width = width,
              length = length,
              video_width = video_width,
-             video_length = video_length, 
+             video_length = video_length,
              )
     #
-    return (fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger_flag, simulation_sleep, n_frames, video_width, video_length )
+    return (fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger_flag, simulation_sleep, n_frames, video_width, video_length, calibration_read)

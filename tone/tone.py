@@ -9,6 +9,7 @@ import time
 import numpy as np
 from multiprocessing import shared_memory
 from nidaqmx import stream_writers
+from scipy.signal import chirp, spectrogram
 
 #################################################
 ############### TONE PLAYER CLASS ###############
@@ -55,8 +56,8 @@ class PlayTone():
         #
         self.shmem_water_reward = shmem_water_reward
 
-        # TODO: unclear what these units are?
-        self.amp = 0.1  # tone amplitude in ?
+        # TODO: unclear what these units are; likely volts - but need to convert to dCB
+        self.amplitude = 0.1  # tone amplitude in ?
 
         # TODO: unclear what the correct duration of tone play and update
         # TODO: for now we update at 10hz
@@ -91,6 +92,12 @@ class PlayTone():
 
         # ONLY initialize when reward is present
         # self.initialize_water_spout()
+
+        #
+        self.make_frequency_sweep()
+
+        #
+        self.make_white_noise()
 
         #
         while True:
@@ -157,7 +164,7 @@ class PlayTone():
     def make_tone(self, f, amp, duration):
 
         # TODO: Is there an easier way to generate tones on raw speakers???
-        fs = 200000  # 200kHz    (Sample Rate)
+        fs = self.sampleRate_audio  # 200kHz    (Sample Rate)
         x = np.arange(int(fs * duration))
 
         # original list; takes too long to create it;
@@ -173,6 +180,24 @@ class PlayTone():
         return y_new
 
     #
+    def make_frequency_sweep(self):
+
+        #
+        t = np.linspace(0, self.duration, int(self.sampleRate_audio*self.duration))
+
+        #
+        self.freq_sweep = chirp(t, f0=self.low_freq, f1=self.high_freq, t1=self.duration, method='linear')*self.amplitude
+
+    #
+    def make_white_noise(self):
+
+        #
+        self.white_noise = stats.truncnorm(-1, 1,
+                                scale=min(2**16, 2**self.amplitude)).rvs(int(self.sampleRate_audio * self.duration))
+
+
+
+        #
     def compute_ensemble_to_tone_state(self):
 
         # for now we use a simple scaled difference
@@ -191,7 +216,23 @@ class PlayTone():
                                                                 self.low_threshold,
                                                                 self.high_threshold
                                                                 )
-        #print ("tone: ", self.tone_state)
+
+
+    def play_reward_tone(self):
+
+        ''' Playing white noise for reward tone
+        '''
+
+        #
+        print ("Playing reward tone: SET TO freq sweep)")
+
+        #
+        if self.simulation_flag:
+            return
+
+        #
+        self.audio_Writer.write_many_sample(self.freq_sweep.squeeze())
+
 
     #
     def update_tone(self):
@@ -206,15 +247,14 @@ class PlayTone():
 
         # make sure you send a copy of the tone, not the tone
         tone_data = self.make_tone(self.tone_state[0].copy(),
-								   self.amp,
+								   self.amplitude,
 								   self.duration)
 
         #
         if self.simulation_flag:
             return
 		
-        #print ("tone data: ", tone_data.shape)
-		
+        #
         self.audio_Writer.write_many_sample(tone_data.squeeze())
 
     #
@@ -323,40 +363,47 @@ class PlayTone():
         if self.water_reward[0] == 0:
             return
 
-        print('   releasing water for ', self.water_spout_ttl_duration,
-              "microsec, at ", self.water_spout_ttl_voltage, " mV")
+        elif self.water_reward[0] == 1:
 
-        # what is the point of this?
+            print('   releasing water for ', self.water_spout_ttl_duration,
+                  "microsec, at ", self.water_spout_ttl_voltage, " mV")
+
+            if self.simulation_flag:
+                return
+
+            # close the audio writer
+            print ("closeing audio writer")
+            self.close_audio_writer()
+
+            # initialize the output function for water dispesning
+            print ("initilizeding water writer")
+            self.initialize_water_writer()
+
+            # put water state to 5volts
+            # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
+            # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
+            start = time.time()
+            for p in range(self.water_spout_ttl_duration):
+                #print ("water reward loop: ", p)
+                self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
+            print (" >>>>>>>>>>>>>>>>>>>>>>>>>>>>released water for: ", time.time()-start, " sec. (Closing water port)")
+
+            # return water ttl state to 0volts
+            for p in range(self.water_spout_ttl_duration):
+                self.water_Writer.write_one_sample(0)
+
+            # close water writer
+            self.close_water_writer()
+
+            #
+            self.initialize_audio_writer()
+
+            # play reward tone for 1 second
+            for k in range(int(1/self.duration)):
+                self.play_reward_tone()
+
+            # return tone to default state
+            # TODO: this doesn't seem necessary as the rest of pipeline takes care of this
+
+        # This resets the water reward back to 0 to turn off rewards in future
         self.water_reward[0] = 0
-
-        if self.simulation_flag:
-            return
-
-        # close the audio writer
-        print ("closeing audio writer")
-        self.close_audio_writer()
-
-        # initialize the output function for water dispesning
-        print ("initilizeding water writer")
-        self.initialize_water_writer()
-
-        # put water state to 5volts
-        # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
-        # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
-        start = time.time()
-        for p in range(self.water_spout_ttl_duration):
-            #print ("water reward loop: ", p)
-            self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
-        print (" >>>>>>>>>>>>>>>>>>>>>>>>>>>>released water for: ", time.time()-start, " sec. (Closing water port)")
-
-        # return water ttl state to 0volts
-        for p in range(self.water_spout_ttl_duration):
-            self.water_Writer.write_one_sample(0)
-
-        # close water writer
-        self.close_water_writer()
-
-        #
-        self.initialize_audio_writer()
-
-

@@ -9,6 +9,7 @@ import time
 
 #
 from bmi.bmi import BMI
+from calibration.
 from plotter.plotter import PlotROIs
 from tone.tone import PlayTone
 from drift.drift import DriftCorrection
@@ -25,7 +26,18 @@ if __name__ ==  '__main__':
 	sampleRate_2P = 30    # # frames of recording   +  buffer frames, usually 10-15 sec
 	
 	# values read from gui
-	fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames, video_width, video_height = gui()
+	(fname_root_path,
+	 bmi_read,
+	 lick_read,
+	 tone_read,
+	 water_read,
+	 video_read,
+	 video_hardware_trigger,
+	 simulation_sleep,
+	 n_frames,
+	 video_width,
+	 video_height,
+	 calibration_read)= gui()
 	
 	#print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames)
 	
@@ -46,6 +58,7 @@ if __name__ ==  '__main__':
 	simulation_flag_water = (water_read=="True")       # Runs the water class in simulation mode
 	simulation_flag_video_camera = (video_read=="True")       # Runs the water class in simulation mode
 	video_hardware_trigger = (video_hardware_trigger=="True")       # Runs the water class in simulation mode
+	calibration_flag = (calibration_read=="True")       # Runs the water class in simulation mode
 
 	# parameter used for simulation mode to add a delay instead of waiting for ttl pulse
 	sleep_time_sec = float(simulation_sleep)
@@ -55,10 +68,16 @@ if __name__ ==  '__main__':
 	##########################################################################
 	# TODO: build a better gui that also takes as input the # of frames
 	
-	#
-	fname_fluorescence = os.path.join(fname_root_path,
+	# load calibration [ca] data
+	if calibration_flag:
+		fname_fluorescence = os.path.join(fname_root_path,
+									  'calibration',                   # this is the root directory of the .raw file saved by bscope
+									  'Image_001_001.raw')
+	else:
+		fname_fluorescence = os.path.join(fname_root_path,
 									  'data',                   # this is the root directory of the .raw file saved by bscope
 									  'Image_001_001.raw')
+
 
 	# required for bmi simulation mode as there are no ttl -pulses being read
 	fname_ttl = os.path.join(fname_root_path,
@@ -75,7 +94,21 @@ if __name__ ==  '__main__':
 	max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 120  # gives 2 extra minutes at the end in case insufficient frames are detected
 
 	#
-	bmi = BMI(simulation_flag_bmi,
+	if calibration_flag:
+		bmi = BMICalibration(simulation_flag_bmi,
+							  simulation_flag_licking,
+							  fname_root_path,
+							  fname_fluorescence,
+							  fname_ttl,
+							  sampleRate_2P,
+							  fname_rois_pixels_and_thresholds,
+							  max_n_seconds_session,
+							  n_frames_session,
+							  video_width,
+							  video_height
+							  )
+	else:
+		bmi = BMI(simulation_flag_bmi,
 			  simulation_flag_licking,
 			  fname_root_path,
 			  fname_fluorescence,
@@ -104,14 +137,13 @@ if __name__ ==  '__main__':
 		as this is not related to anything else in the BMI class
 	'''
 	#
-	if True:
-		tone_player_ = Process(target=PlayTone, args=(fname_rois_pixels_and_thresholds,
-													  bmi.shmem_ensemble_state.name,
-													  bmi.shmem_tone_state.name,
-													  bmi.shmem_termination_flag.name,
-													  bmi.shmem_water_reward.name,
-													  simulation_flag_tone,))
-		tone_player_.start()
+	tone_player_ = Process(target=PlayTone, args=(fname_rois_pixels_and_thresholds,
+												  bmi.shmem_ensemble_state.name,
+												  bmi.shmem_tone_state.name,
+												  bmi.shmem_termination_flag.name,
+												  bmi.shmem_water_reward.name,
+												  simulation_flag_tone,))
+	tone_player_.start()
 
 	###############################################################
 	############## INITIALIZE AND START PLOTTER ###################
@@ -119,7 +151,10 @@ if __name__ ==  '__main__':
 	'''  This is the plotting functions that visualize ROI time sries
 	'''
 	#
-	if True:
+	if calibration_flag:
+		print ("TO ADD VISUALIZE CAMERA DURING CALIBRATION SESSION")
+
+	else:
 		plotter_ = Process(target=PlotROIs, args=(
 												fname_rois_pixels_and_thresholds,
 												bmi.shmem_rois_traces.name,
@@ -143,7 +178,7 @@ if __name__ ==  '__main__':
 	'''  Functions that use phase correlation to fix motion artifcats
 	'''
 	#
-	if True:
+	if calibration_flag==False:
 		drift_ = Process(target=DriftCorrection, args=(
 												fname_rois_pixels_and_thresholds,
 												bmi.shmem_live_frame_motion_detector.name,
@@ -156,19 +191,27 @@ if __name__ ==  '__main__':
 	###############################################################
 	########### INITIALIZE AND START CAMERA RECORDING #############
 	###############################################################
-	if True:
-		camera_player_ = Process(target=Camera, args=(
-													fname_rois_pixels_and_thresholds,
-													simulation_flag_video_camera,
-													video_hardware_trigger,
-													bmi.shmem_n_ttl.name,
-													bmi.shmem_termination_flag.name,
-													n_frames_session,
-													bmi.shmem_live_video_frame.name,
-													video_width,
-													video_height,
+	if calibration_flag:
+		fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
+								   'calibration',"video.avi"))
+	else:
+		fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
+								   'data',"video.avi"))
+
+	#
+	camera_player_ = Process(target=Camera, args=(
+												fname_rois_pixels_and_thresholds,
+												simulation_flag_video_camera,
+												video_hardware_trigger,
+												bmi.shmem_n_ttl.name,
+												bmi.shmem_termination_flag.name,
+												n_frames_session,
+												bmi.shmem_live_video_frame.name,
+												video_width,
+												video_height,
+												fname_video,
 										))
-		camera_player_.start()
+	camera_player_.start()
 
 	###############################################################
 	######################### RUN BMI #############################

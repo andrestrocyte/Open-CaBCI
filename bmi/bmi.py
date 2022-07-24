@@ -1313,4 +1313,3 @@ class BMI():
                  rotary_encoder1_abstime = self.rotary_encoder1_abstime,
                  rotary_encoder2_abstime = self.rotary_encoder2_abstime,
                  )
-
