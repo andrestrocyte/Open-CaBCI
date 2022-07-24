@@ -893,7 +893,7 @@ class BMICalibration():
         '''
 
         # draw random rewards so that the mouse is rewarded about once every minute
-		if np.random.rand()< (1/(30*60)) and self.random_reward_lockout_counter[0]<1:
+        if np.random.rand()< (1/(30*60)) and self.random_reward_lockout_counter[0]<1:
             #
             print (" reached RANDOM reward conition: ")
 

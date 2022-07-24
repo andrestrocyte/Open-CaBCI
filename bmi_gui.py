@@ -9,7 +9,7 @@ import time
 
 #
 from bmi.bmi import BMI
-from calibration.
+from calibration.calibration import BMICalibration
 from plotter.plotter import PlotROIs
 from tone.tone import PlayTone
 from drift.drift import DriftCorrection
@@ -193,10 +193,10 @@ if __name__ ==  '__main__':
 	###############################################################
 	if calibration_flag:
 		fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
-								   'calibration',"video.avi"))
+								   'calibration',"video.avi")
 	else:
 		fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
-								   'data',"video.avi"))
+								   'data',"video.avi")
 
 	#
 	camera_player_ = Process(target=Camera, args=(
