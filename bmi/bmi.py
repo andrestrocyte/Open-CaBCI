@@ -120,7 +120,7 @@ class BMI():
         self.fname_ttl = fname_ttl
         
         #
-        self.fname_save_data = os.path.split(fname_fluorescence)[0]+"bmi_results.npz"
+        self.fname_save_data = os.path.join(os.path.split(fname_fluorescence)[0],"results.npz")
 
         #
         self.fname_rois_pixels_thresholds = fname_roi_pixels_and_thresholds

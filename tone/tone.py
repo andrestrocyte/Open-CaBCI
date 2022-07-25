@@ -37,9 +37,8 @@ class PlayTone():
 
         #
         self.simulation_flag = simulation_flag
-        #self.simulation_flag = False
 
-		#
+        #
         self.sampleRate_audio = 2E5
 
         #
@@ -153,13 +152,20 @@ class PlayTone():
     #
     def initialize_thresholds(self):
 
-        data = np.load(self.fname_roi_pixels_and_thresholds)
-        self.low_threshold = data['low_threshold']
-        self.high_threshold = data['high_threshold']
+        try:
+            data = np.load(self.fname_roi_pixels_and_thresholds)
+            self.low_threshold = data['low_threshold']
+            self.high_threshold = data['high_threshold']
 
-        #
-        self.low_freq = data['low_freq']
-        self.high_freq = data['high_freq']
+            #
+            self.low_freq = data['low_freq']
+            self.high_freq = data['high_freq']
+        except:
+            print (" couldn't find roi_pixels file ----> assuming it's a calibration session (setting default freqs)")
+            self.low_freq = 2000
+            self.high_freq = 18000
+            self.low_threshold = 0
+            self.high_threshold = 10
 
     #
     def make_tone(self, f, amp, duration):
@@ -218,7 +224,7 @@ class PlayTone():
                                                                 self.high_threshold
                                                                 )
 
-
+    #
     def play_reward_tone(self):
 
         ''' Playing white noise for reward tone

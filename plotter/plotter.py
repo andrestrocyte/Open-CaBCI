@@ -112,7 +112,7 @@ class PlotROIs():
         self.shmem_tone_state = shmem_tone_state
 
         #
-        if self.calibration_flag==True:
+        if self.calibration_flag==False:
             self.initialize_rois_traces()
 
             #
@@ -670,18 +670,19 @@ class PlotROIs():
         for k in range(len(self.axbackground)):
             self.fig.canvas.restore_region(self.axbackground[k])
 
-        # fill in the axes rectangle
-        self.fig.canvas.blit(self.ax_traces.bbox)
-
         # add the drawn lines to the plot
         if self.calibration_flag==False:
             for k in range(len(self.rois_traces)):
                 self.ax_traces.draw_artist(self.time_course_objects[k])
                 self.ax_traces.draw_artist(self.f0_objects[k])
 
-        #
-        self.fig.canvas.blit(self.ax_traces.bbox)
-        #self.fig.canvas.blit(self.ax_image.bbox)
+        if self.calibration_flag==False:
+            # fill in the axes rectangle
+            self.fig.canvas.blit(self.ax_traces.bbox)
+
+            #
+            self.fig.canvas.blit(self.ax_traces.bbox)
+            # self.fig.canvas.blit(self.ax_image.bbox)
 
         #
         self.fig.canvas.flush_events()

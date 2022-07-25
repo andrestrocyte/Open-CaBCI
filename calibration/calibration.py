@@ -137,7 +137,8 @@ class BMICalibration():
         self.fname_ttl = fname_ttl
 
         #
-        self.fname_save_data = os.path.split(fname_fluorescence)[0]+"bmi_results.npz"
+        #self.fname_save_data = os.path.split(fname_fluorescence)[0]+"bmi_results.npz"
+        self.fname_save_data = os.path.join(os.path.split(fname_fluorescence)[0], "results.npz")
 
         #
         self.fname_rois_pixels_thresholds = fname_roi_pixels_and_thresholds
@@ -251,7 +252,10 @@ class BMICalibration():
         #
         self.ensemble_state[:] = aa[:]
 
-        #
+        ########################################
+        # make a default size matrix that will hold [n_rois, n_frames]
+        a = np.zeros((4,self.n_frames),
+                      dtype=np.float32)+1E-8
         self.shmem_rois_traces = shared_memory.SharedMemory(create=True,
                                                             size=a.nbytes)
 
@@ -262,6 +266,13 @@ class BMICalibration():
 
         #
         self.rois_traces_smooth[:] = a[:]
+
+        ##############################################################
+        self.rois_traces_raw = np.zeros(a.shape, dtype=np.float32)
+
+        #############################################
+        self.high_threshold = 10
+
 
 
 
@@ -358,7 +369,7 @@ class BMICalibration():
                                          buffer=self.shmem_tone_state.buf)
 
         #
-        self.tone_state [:] = aa[:]
+        self.tone_state[:] = aa[:]
 
     #
     def initialize_reward_conditions_and_parameters(self):
@@ -1013,7 +1024,7 @@ class BMICalibration():
         for k in range(self.reward_times.shape[1]):
             if self.reward_times[1,k]==-1:
                 break
-        print (" .. # of rewards: ", k-1, ", water volume dispensed (@ 20uL per reward): ",(k-1)*0.020, "mL")
+        print (" .. # of rewards: ", k, ", water volume dispensed (@ 20uL per reward): ",(k)*0.020, "mL")
 
         #
         np.savez(self.fname_save_data,

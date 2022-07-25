@@ -180,10 +180,10 @@ class Camera():
 											 self.fps,
 											 (self.video_width, self.video_height))
 
-		#
+		# single channel video
 		else:
-			print("TO TEST Single channel video.... (uncomment below)")
-			fourcc = cv2.VideoWriter_fourcc(*'XVID')  
+			#
+			fourcc = cv2.VideoWriter_fourcc(*'XVID')
 			self.video_out = cv2.VideoWriter(self.fname_video,
 											  fourcc,
 											  self.fps,
