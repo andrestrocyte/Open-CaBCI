@@ -10,6 +10,7 @@ import numpy as np
 from multiprocessing import shared_memory
 from nidaqmx import stream_writers
 from scipy.signal import chirp, spectrogram
+from scipy import stats
 
 #################################################
 ############### TONE PLAYER CLASS ###############
@@ -369,6 +370,7 @@ class PlayTone():
                   "microsec, at ", self.water_spout_ttl_voltage, " mV")
 
             if self.simulation_flag:
+                self.water_reward[0] = 0
                 return
 
             # close the audio writer

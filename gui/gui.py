@@ -4,8 +4,8 @@ from tkinter.filedialog import askopenfilename, askdirectory
 import os
 import numpy as np
   
-def exit_gui():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_flag
+def run_BMI():
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read
 
 	#
     bmi_read = bmi_flag.get()
@@ -13,8 +13,8 @@ def exit_gui():
     tone_read = tone_flag.get()
     water_read = water_flag.get()
     video_read = video_flag.get()
-    calibration_read = calibration_flag.get()
     video_hardware_trigger_flag = video_hardware_trigger_flag.get()
+    calibration_read = "False"
 
     #
     simulation_sleep = simulation_sleep_box_data.get()
@@ -47,6 +47,48 @@ def exit_gui():
     window.destroy()
 
 
+def run_Calibration():
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read
+
+    #
+    bmi_read = bmi_flag.get()
+    lick_read = lick_flag.get()
+    tone_read = tone_flag.get()
+    water_read = water_flag.get()
+    video_read = video_flag.get()
+    video_hardware_trigger_flag = video_hardware_trigger_flag.get()
+    calibration_read = "True"
+
+    #
+    simulation_sleep = simulation_sleep_box_data.get()
+    n_frames = n_frames_box_data.get()
+    width = width_box_data.get()
+    length = length_box_data.get()
+    video_width = int(video_width_box_data.get())
+    video_length = int(video_length_box_data.get())
+
+    #
+    print("Loaded BMI params...")
+    print("fname_root_path: ", fname_root_path)
+    print("bmi_simulation: ", bmi_read)
+    print("lick_simulation: ", lick_read)
+    print("tone_simulation: ", tone_read)
+    print("water_simulation: ", water_read)
+    print("simulation_sleep: ", simulation_sleep, " sec")
+    print("n_frames: ", n_frames)
+    print("video_simulation: ", video_read)
+    print("video_hardware_trigger_flag: ", video_hardware_trigger_flag)
+    print("video width: ", video_width)
+    print("video length: ", video_length)
+    print("calibration flag: ", calibration_read)
+    # print (fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, video_read, video_hardware_trigger_flag )
+
+    #
+    print("RETURNING TO BMI...")
+
+    window.destroy()
+
+
 #
 def gui():
     global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_flag
@@ -62,7 +104,7 @@ def gui():
     window.geometry('800x800')
 
     fontsize = 10
-    default_option = 1
+    default_option = 0
 
 
     # button box to read the directory of the location of the Bscope raw data 
@@ -193,25 +235,22 @@ def gui():
     length_box_data.insert(END, 512)
     length_box_data.grid(column=1,row=11)
 
-    # calibration session
-    calibration_box = Label(window, text = "Calibration session mode")
-    calibration_box.config(font =("Courier", fontsize))
-    calibration_box.grid(column=0, row=12)
-
-    calibration_flag = StringVar(window)
-    calibration_flag.set(OPTIONS[default_option]) # default value
-    calibration_menu = OptionMenu(window, calibration_flag, *OPTIONS)
-    calibration_menu.grid(column=1,row=12)
-
     #
-    button1 = tk.Button(text='Run BMI', 
-                        command=exit_gui
+    button1 = tk.Button(text='Run BMI',
+                        command=run_BMI
                         )
 
     #
     button1.grid(column=0, row=15)
 
-   
+    #
+    button2 = tk.Button(text='Run Calibration',
+                        command=run_Calibration
+                        )
+
+    #
+    button2.grid(column=1, row=15)
+
     #
     simulation_sleep = simulation_sleep_box_data.get()
     n_frames = n_frames_box_data.get()
@@ -223,7 +262,7 @@ def gui():
     
 
     #
-    if calibration_flag:
+    if calibration_read!="True":
         fname_gui_params = os.path.join(fname_root_path, "gui_params_calibration.npz")
     else:
         fname_gui_params = os.path.join(fname_root_path, "gui_params_bmi.npz")

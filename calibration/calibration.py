@@ -172,6 +172,7 @@ class BMICalibration():
         self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
 
         #
+        self.n_frames_search_forward = 5
 
         # start the ttl frame counter at 0
         self.ttl_computed = 0
@@ -198,7 +199,7 @@ class BMICalibration():
         self.initialize_termination_flag()
 
         #
-        #self.initialize_live_frame_shared_memory()
+        self.initialize_live_frame_shared_memory()
 
         # start reading the ttl pulses from the 2p scope
         self.initialize_bscope_ttl_pulse_reader()
@@ -214,6 +215,55 @@ class BMICalibration():
 
         #
         self.initialize_video_frame()
+
+        #
+        self.initialize_ensemble_state_and_rois()
+
+        #
+        self.initialize_reward_conditions_and_parameters()
+
+        # lokcout random reward for at least 5 seconds
+
+        #
+        #bmi.shmem_ensemble_state.name,
+        #bmi.shmem_tone_state.name,
+        #bmi.shmem_termination_flag.name,
+        #bmi.shmem_water_reward.name,
+
+        #
+    def initialize_ensemble_state_and_rois(self):
+        '''
+            This variable keeps track of the locally computed E1-E2
+            - it is shared with a different process which plays tones
+            - TODO: perhaps want a better name like neural_state - to disambugate from ensembel states
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.float32)
+        self.shmem_ensemble_state = shared_memory.SharedMemory(create=True,
+                                                               size=aa.nbytes)
+
+        #
+        self.ensemble_state = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.shmem_ensemble_state.buf)
+
+        #
+        self.ensemble_state[:] = aa[:]
+
+        #
+        self.shmem_rois_traces = shared_memory.SharedMemory(create=True,
+                                                            size=a.nbytes)
+
+        #
+        self.rois_traces_smooth = np.ndarray(a.shape,
+                                      dtype=a.dtype,
+                                      buffer=self.shmem_rois_traces.buf)
+
+        #
+        self.rois_traces_smooth[:] = a[:]
+
+
 
     #
     def initialize_video_frame(self):
@@ -313,47 +363,17 @@ class BMICalibration():
     #
     def initialize_reward_conditions_and_parameters(self):
 
-        ''' This function should load the parameters computed by another script
-            Input: filenames of several parameters:
-                - minimum frequency (e.g. 1000Hz)
-                - maximum frequency (e.g. 180000Hz)
-                - threshold_low (e.g. -1.0)
-                - threshold_high (e.g. +1.0)
-                ... others to add
-        '''
-
-        data = np.load(self.fname_rois_pixels_thresholds, allow_pickle=True)
-
-        #
-        self.low_threshold = data['low_threshold']
-        self.high_threshold = data['high_threshold']
-
-        #
-        self.post_reward_lockout = data['post_reward_lockout']
-
-        #
-        self.rois_smooth_window = data['rois_smooth_window']
-
-        #
-        self.smooth_diff_function_flag = data['smooth_diff_function_flag']
-
         # set the last reward time in ttl pulses (might need something better here)
         self.initialize_last_reward_ttl()
 
         # reward lockout time after a positive reward - in seconds
         self.received_random_reward_lockout = 5
-        print (">>>>>>>>>>>> POST-RANDOM-REWARD LOCKOUT: ", self.received_random_reward_lockout, "sec")
+        print(">>>>>>>>>>>> POST-RANDOM REWARD LOCKOUT: ", self.received_random_reward_lockout, "sec")
 
         # counter that track time after last reward
         self.initialize_reward_lockout_counter()
 
-        # the amount of time the mouse has to try and receive a reward - in seconds
-        self.max_reward_window = 30
-
-        #
-        self.template = data['calibration_template']
-
-    #
+         #
     def initialize_pbar(self):
         self.pbar = tqdm.tqdm(total=self.n_frames_to_be_acquired,
                               desc='% complete',
@@ -701,7 +721,7 @@ class BMICalibration():
         self.check_reward_condition_random()
 
         # decrease any potential reward lockout counter
-        self.received_random_reward_lockout[0] -= 1
+        self.random_reward_lockout_counter[0] -= 1
 
         # save meta data
         self.ttl_n_computed.append(self.ttl_computed)
@@ -938,7 +958,9 @@ class BMICalibration():
         for z in range(-1,self.n_frames_search_forward,1):
 
             # TODO ;could just check any part of the FOV to see if there is non zero values
-            roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels[0]].sum()
+            #roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels[0]].sum()
+            # just check any part of the image to see if it's been saved yet
+            roi_sum0 = self.newfp[self.n_ttl[0]+z][self.image_width//2-5:self.image_width//2+5].sum()
 
             #
             if roi_sum0 != 0:
@@ -949,7 +971,7 @@ class BMICalibration():
                 break
 
 
-        #
+        # Note: in calibration we do not do any motion correction
         self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
 
         # there is no motion correction during calibration step
@@ -1000,16 +1022,16 @@ class BMICalibration():
                  ttl_n_detected = self.ttl_n_detected,
                  abs_times = self.abs_times,
                  ttl_times = self.ttl_times,
-                 rois_pixels = np.hstack(self.rois_pixels),
-                 rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
-                 rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
+                 #rois_pixels = np.hstack(self.rois_pixels),
+                 #rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
+                 #rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
                  reward_times = self.reward_times,
                  rewarded_times_abs = self.rewarded_times_abs,
-                 ensemble_activity = self.ensemble_activity,
-                 ensemble_diff_array = self.ensemble_diff_array,
-                 received_reward_lockout = self.received_reward_lockout,
-                 max_reward_window = self.max_reward_window,
-                 missed_reward_lockout = self.missed_reward_lockout,
+                 #ensemble_activity = self.ensemble_activity,
+                 #ensemble_diff_array = self.ensemble_diff_array,
+                 received_random_reward_lockout = self.received_random_reward_lockout,
+                 #max_reward_window = self.max_reward_window,
+                 #missed_reward_lockout = self.missed_reward_lockout,
 
                  sampleRate_NI = self.sampleRate_NI,
                  ttl_pts = self.ttl_pts,
@@ -1020,11 +1042,11 @@ class BMICalibration():
 
                  n_frames = self.n_frames,
                  n_frames_to_be_acquired = self.n_frames_to_be_acquired,                #
-                 rois_smooth_window = self.rois_smooth_window,
-                 n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
+                 #rois_smooth_window = self.rois_smooth_window,
+                 #n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
                  n_frames_search_forward = self.n_frames_search_forward,
-                 drift_array = self.drift_array,
-                 template = self.template,
+                 #drift_array = self.drift_array,
+                 #template = self.template,
                  lick_detector_abstime = self.lick_detector_abstime,
                  rotary_encoder1_abstime = self.rotary_encoder1_abstime,
                  rotary_encoder2_abstime = self.rotary_encoder2_abstime,

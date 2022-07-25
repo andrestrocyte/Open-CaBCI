@@ -65,6 +65,9 @@ class Camera():
 				 ):
 
 		#
+		self.fname_video = fname_video
+
+		#
 		self.shmem_live_video_frame = shmem_live_video_frame
 
 		#

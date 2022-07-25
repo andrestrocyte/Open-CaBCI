@@ -25,6 +25,7 @@ class PlotROIs():
 
     #
     def __init__(self,
+                 calibration_flag,
                  fname_rois_pixels_and_thresholds,
                  shmem_rois_traces,
                  shmem_n_ttl,
@@ -39,6 +40,9 @@ class PlotROIs():
                  video_width,
                  video_length,
                  ):
+
+        #
+        self.calibration_flag = calibration_flag
 
         # video image
         self.video_width = video_width
@@ -108,22 +112,25 @@ class PlotROIs():
         self.shmem_tone_state = shmem_tone_state
 
         #
-        self.initialize_rois_traces()
+        if self.calibration_flag==True:
+            self.initialize_rois_traces()
 
-        #
-        self.initialize_ROIs_contours()
+            #
+            self.initialize_ROIs_contours()
+            #
+            self.initialize_ensemble_state()
+
+            #
+            self.initialize_ensemble_state_array()
+
+            #
+            self.initialize_tone_state()
+
+            #
+            self.initialize_live_image_array()
 
         #
         self.initialize_live_frame_shared_memory()
-
-        #
-        self.initialize_ensemble_state()
-        
-        #
-        self.initialize_ensemble_state_array()
-        
-        #
-        self.initialize_tone_state()
 
         #
         self.initalize_n_ttl()
@@ -136,9 +143,6 @@ class PlotROIs():
 
         #
         self.initialize_camera_frame_shared_memory()
-
-        #
-        self.initialize_live_image_array()
 
         #
         self.initialize_plots()
@@ -350,53 +354,58 @@ class PlotROIs():
         #########################################################
         ######################### PLOT CA IMAGE #################
         #########################################################
-        # TODO: refactor this plot to another function
-        self.ax_image = self.fig.add_subplot(self.grid[:5, 5:])
+        if self.calibration_flag==False:
+            # TODO: refactor this plot to another function
+            self.ax_image = self.fig.add_subplot(self.grid[:5, 5:])
 
-        #
-        self.image_obj = self.ax_image.imshow(self.live_frame[0],
-                                              vmin=self.live_image_vmin,
-                                              vmax=self.live_image_vmax)
+            #
+            self.image_obj = self.ax_image.imshow(self.live_frame[0],
+                                                  vmin=self.live_image_vmin,
+                                                  vmax=self.live_image_vmax)
 
-        #
-        #axcolor = 'lightgoldenrodyellow'
-        axmin = self.fig.add_axes([0.55, 0.90, 0.1, 0.03])
-        axmax  = self.fig.add_axes([0.55, 0.93, 0.1, 0.03])
-        n_frame_ave  = self.fig.add_axes([0.83, 0.93, 0.10, 0.03])
-        
-        self.smin = Slider(axmin, 'Min', 0, self.live_image_vmax, valinit=self.live_image_vmin)
-        self.smax = Slider(axmax, 'Max', 0, self.live_image_vmax, valinit=self.live_image_vmax)
-        self.n_frame_ave = Slider(n_frame_ave, 'nFrames', 1, 30, valinit=self.live_image_average_n_frames)
+            #
+            #axcolor = 'lightgoldenrodyellow'
+            axmin = self.fig.add_axes([0.55, 0.90, 0.1, 0.03])
+            axmax  = self.fig.add_axes([0.55, 0.93, 0.1, 0.03])
+            n_frame_ave  = self.fig.add_axes([0.83, 0.93, 0.10, 0.03])
 
-        #
-        def update_clim(val):
-            self.image_obj.set_clim([self.smin.val,
-                                     self.smax.val])
-        def update_n_frames_average(val):
-            self.live_image_average_n_frames = int(self.n_frame_ave.val)
-            
-        #S
-        self.smin.on_changed(update_clim)
-        self.smax.on_changed(update_clim)
-        self.n_frame_ave.on_changed(update_n_frames_average)
+            self.smin = Slider(axmin, 'Min', 0, self.live_image_vmax, valinit=self.live_image_vmin)
+            self.smax = Slider(axmax, 'Max', 0, self.live_image_vmax, valinit=self.live_image_vmax)
+            self.n_frame_ave = Slider(n_frame_ave, 'nFrames', 1, 30, valinit=self.live_image_average_n_frames)
 
-		
-        #
-        self.ax_image.set_xlim(0,512)
-        self.ax_image.set_ylim(512,0)
+            #
+            def update_clim(val):
+                self.image_obj.set_clim([self.smin.val,
+                                         self.smax.val])
+            def update_n_frames_average(val):
+                self.live_image_average_n_frames = int(self.n_frame_ave.val)
 
-        # add contours on top of cells
-        for c in range(len(self.rois_contours)):
-            for k in range(len(self.rois_contours[c])-1):
-                self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k+1][0]],
-                                   [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
-                                    c='red')
+            #S
+            self.smin.on_changed(update_clim)
+            self.smax.on_changed(update_clim)
+            self.n_frame_ave.on_changed(update_n_frames_average)
+
+
+            #
+            self.ax_image.set_xlim(0,512)
+            self.ax_image.set_ylim(512,0)
+
+            # add contours on top of cells
+            for c in range(len(self.rois_contours)):
+                for k in range(len(self.rois_contours[c])-1):
+                    self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k+1][0]],
+                                       [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
+                                        c='red')
 
         #########################################################
         ################# PLOT VIDEO IMAGE ######################
         #########################################################
         # TODO: refactor this plot to another function
-        self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
+        if self.calibration_flag==False:
+            self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
+        else:
+            self.ax_camera = self.fig.add_subplot(self.grid[:, :])
+
         self.ax_camera.set_xticks([])
         self.ax_camera.set_yticks([])
         #
@@ -412,76 +421,77 @@ class PlotROIs():
         #########################################################
         ##################### PLOT ROI TRACES ###################
         #########################################################
-        # TODO: refactor this plot to another function
-        self.ax_traces = self.fig.add_subplot(self.grid[:5, :5])
+        if self.calibration_flag==False:
+            # TODO: refactor this plot to another function
+            self.ax_traces = self.fig.add_subplot(self.grid[:5, :5])
 
-        #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
-        self.ax_traces.set_ylim(0, self.plot_y_scale*(4+1.5)+2*self.bmi_high_threshold)
-        self.ax_traces.set_xlim(-self.plotting_window_width,0)
-        self.ax_traces.set_xlabel("Time (sec)")
+            #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
+            self.ax_traces.set_ylim(0, self.plot_y_scale*(4+1.5)+2*self.bmi_high_threshold)
+            self.ax_traces.set_xlim(-self.plotting_window_width,0)
+            self.ax_traces.set_xlabel("Time (sec)")
 
-        self.plot_times = np.arange(-self.plotting_window_width*self.sampleRate_2P,0,1)/self.sampleRate_2P
+            self.plot_times = np.arange(-self.plotting_window_width*self.sampleRate_2P,0,1)/self.sampleRate_2P
 
-        # make a list to hold the matplotlib line objects
-        self.time_course_objects = []
-        self.f0_objects = []
-        
-        # plot ROIS
-        for k in range(self.rois_traces.shape[0]):
+            # make a list to hold the matplotlib line objects
+            self.time_course_objects = []
+            self.f0_objects = []
 
-            #
-            y_values = self.rois_traces[k,:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*k
+            # plot ROIS
+            for k in range(self.rois_traces.shape[0]):
+
+                #
+                y_values = self.rois_traces[k,:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*k
+
+                #
+                lineobject, = self.ax_traces.plot(self.plot_times,
+                                           #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
+                                           y_values,  # plot last X values depending on length of plttimes
+                                           #'r-'
+                                           )  # Returns a tuple of line objects, thus the comma
+                #
+                self.time_course_objects.append(lineobject)
+
+                # also draw the f0 baseline of each cell!!
+                f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
+                                           # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
+                                           [0+self.plot_y_scale*k,0+self.plot_y_scale*k],  # plot last X values depending on length of plttimes
+                                           'g--'
+                                           )  # Return
+                self.f0_objects.append(f0object)
+
+
+            # plot sum ensemble state
+            y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*(k+1.5)
 
             #
             lineobject, = self.ax_traces.plot(self.plot_times,
-                                       #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                        y_values,  # plot last X values depending on length of plttimes
+                                       linewidth = 2,
                                        #'r-'
                                        )  # Returns a tuple of line objects, thus the comma
             #
             self.time_course_objects.append(lineobject)
 
-            # also draw the f0 baseline of each cell!!
+            # ADD F0 for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
-                                       [0+self.plot_y_scale*k,0+self.plot_y_scale*k],  # plot last X values depending on length of plttimes
-                                       'g--'
+                                       [0+self.plot_y_scale*(k+1.5),
+                                        0+self.plot_y_scale*(k+1.5)],  # plot last X values depending on length of plttimes
+                                       'b--',
+                                       linewidth=2,
                                        )  # Return
+
             self.f0_objects.append(f0object)
 
 
-        # plot sum ensemble state
-        y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*(k+1.5)
+            # ADD Reward level for ensemble states
+            f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
+                                       [self.plot_y_scale*(k+1.5)+self.bmi_high_threshold,
+                                        self.plot_y_scale*(k+1.5)+self.bmi_high_threshold],  # plot last X values depending on length of plttimes
+                                       'r--',
+                                       linewidth=2,
+                                       )  # Return
 
-        #
-        lineobject, = self.ax_traces.plot(self.plot_times,
-                                   y_values,  # plot last X values depending on length of plttimes
-                                   linewidth = 2,
-                                   #'r-'
-                                   )  # Returns a tuple of line objects, thus the comma
-        #
-        self.time_course_objects.append(lineobject)
-
-        # ADD F0 for ensemble states
-        f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                   [0+self.plot_y_scale*(k+1.5),
-                                    0+self.plot_y_scale*(k+1.5)],  # plot last X values depending on length of plttimes
-                                   'b--',
-                                   linewidth=2,
-                                   )  # Return
-                                   
-        self.f0_objects.append(f0object)
-
-
-        # ADD Reward level for ensemble states
-        f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                   [self.plot_y_scale*(k+1.5)+self.bmi_high_threshold,
-                                    self.plot_y_scale*(k+1.5)+self.bmi_high_threshold],  # plot last X values depending on length of plttimes
-                                   'r--',
-                                   linewidth=2,
-                                   )  # Return
-                                   
-        self.f0_objects.append(f0object)
+            self.f0_objects.append(f0object)
 
 
         #
@@ -498,8 +508,10 @@ class PlotROIs():
 
         # cache the background
         self.axbackground = []
-        self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_traces.bbox))
-        self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
+        if self.calibration_flag==False:
+            self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_traces.bbox))
+            self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
+
         self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_camera.bbox))
 
 
@@ -521,12 +533,16 @@ class PlotROIs():
         if self.n_ttl_current < (self.n_ttl_last+1):
             return
 
-        # save the current ensembel state
-        while self.n_ttl_current > self.ensemble_state_counter:
-            self.ensemble_state_array[self.ensemble_state_counter] = self.ensemble_state[0]
-            self.ensemble_state_counter+=1
+        #############################################################
+        ################## UPDATE ENSEMBLE ARRAY ####################
+        #############################################################
+        if self.calibration_flag==False:
+            # save the current ensembel state
+            while self.n_ttl_current > self.ensemble_state_counter:
+                self.ensemble_state_array[self.ensemble_state_counter] = self.ensemble_state[0]
+                self.ensemble_state_counter+=1
 
-        self.ensemble_state_array[self.n_ttl_current] = self.ensemble_state[0]
+            self.ensemble_state_array[self.n_ttl_current] = self.ensemble_state[0]
 
         #
         if self.verbose2:
@@ -540,36 +556,31 @@ class PlotROIs():
         ####################################
         ########### UPDATE IMAGE ###########
         ####################################
-        # TODO: note this takes 10ms of time to update,
-        #     may wish to plot it only 1 - 5 x per second, no  real information here aside from nasty drift
-        #start = time.time()
+        if self.calibration_flag==False:
+            # TODO: note this takes 10ms of time to update,
+            #     may wish to plot it only 1 - 5 x per second, no  real information here aside from nasty drift
+            #start = time.time()
 
-        # shift all the data one image over
-        self.live_image_array[:-1] = self.live_image_array[1:]
+            # shift all the data one image over
+            self.live_image_array[:-1] = self.live_image_array[1:]
 
-        # add current image frame
-        self.live_image_array[-1] = self.live_frame[0].copy()
+            # add current image frame
+            self.live_image_array[-1] = self.live_frame[0].copy()
 
-        # dont' update thelive image frame until we have at least min # of frams
-        if self.live_image_counter> self.live_image_average_n_frames:
+            # dont' update thelive image frame until we have at least min # of frams
+            if self.live_image_counter> self.live_image_average_n_frames:
 
-            # reset counter
-            #self.live_image_counter = 0
+                # reset counter
+                #self.live_image_counter = 0
 
-            # compute mean over last n_frames
-            temp = np.mean(self.live_image_array[-self.live_image_average_n_frames:],axis=0)
-            
-            # if False:
-            #     idx = np.where(temp<self.live_image_vmin)
-            #     temp[idx] = self.live_image_vmin
-            #     idx = np.where(temp>self.live_image_vmax)
-            #     temp[idx] = self.live_image_vmax
-                    
-            #
-            self.image_obj.set_data(temp)
+                # compute mean over last n_frames
+                temp = np.mean(self.live_image_array[-self.live_image_average_n_frames:],axis=0)
 
-        #else:
-        self.live_image_counter+=1
+                #
+                self.image_obj.set_data(temp)
+
+            #else:
+            self.live_image_counter+=1
 
 
         ####################################
@@ -581,74 +592,77 @@ class PlotROIs():
         #########################################
         ######### UPDATE ROI TIME COURSES #######
         #########################################
-        # make t=0 tick to the current timer in seconds
-        x_ticks = np.arange(-30,0.1,5)
-        x_ticks_new = np.arange(-30,0.1,5)
-        x_ticks_new[-1] = round(self.n_ttl2[0]/self.sampleRate_2P,2)
-        self.ax_traces.set_xticks(x_ticks, x_ticks_new)
-
-        #
-        self.n_ttl_last = self.n_ttl_current.copy()
-
-        #
-        x_values = np.arange(0, min(self.n_ttl_current, self.plotting_window_width*self.sampleRate_2P), 1) / 30 - self.plotting_window_width
-        x_values1 = np.array([x_values[0], x_values[-1]])
-
-        # plot roi time courses
-        for k in range(self.rois_traces.shape[0]):
+        if self.calibration_flag==False:
+            # make t=0 tick to the current timer in seconds
+            x_ticks = np.arange(-30,0.1,5)
+            x_ticks_new = np.arange(-30,0.1,5)
+            x_ticks_new[-1] = round(self.n_ttl2[0]/self.sampleRate_2P,2)
+            self.ax_traces.set_xticks(x_ticks, x_ticks_new)
 
             #
-            y_values = self.rois_traces[k,
-                                    max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):self.n_ttl_current]+self.plot_y_scale*k
+            self.n_ttl_last = self.n_ttl_current.copy()
 
             #
-            self.time_course_objects[k].set_data(x_values,
-                                                y_values
-                                                )
+            x_values = np.arange(0, min(self.n_ttl_current, self.plotting_window_width*self.sampleRate_2P), 1) / 30 - self.plotting_window_width
+            x_values1 = np.array([x_values[0], x_values[-1]])
 
-            # redraw baseline for each cell
-            # TODO: note that we want to reset to 0 not the actual f0 values
-            y_values1 = np.array([self.plot_y_scale*k,self.plot_y_scale*k])
+            # plot roi time courses
+            for k in range(self.rois_traces.shape[0]):
 
-            #
-            self.f0_objects[k].set_data(x_values1,
-                                        y_values1
-                                       )
+                #
+                y_values = self.rois_traces[k,
+                                        max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):self.n_ttl_current]+self.plot_y_scale*k
+
+                #
+                self.time_course_objects[k].set_data(x_values,
+                                                    y_values
+                                                    )
+
+                # redraw baseline for each cell
+                # TODO: note that we want to reset to 0 not the actual f0 values
+                y_values1 = np.array([self.plot_y_scale*k,self.plot_y_scale*k])
+
+                #
+                self.f0_objects[k].set_data(x_values1,
+                                            y_values1
+                                           )
         ################################################
         ############ UPDATE ENSEMBLE STATE #############
         ################################################
-        # update ensemble state
-        y_values = self.ensemble_state_array[max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):
-                                                self.n_ttl_current]+self.plot_y_scale*(k+1.5)
+        if self.calibration_flag==False:
+            # update ensemble state
+            y_values = self.ensemble_state_array[max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):
+                                                    self.n_ttl_current]+self.plot_y_scale*(k+1.5)
 
-        #
-        #print (" esnemble values: ", y_values)
+            #
+            #print (" esnemble values: ", y_values)
 
-        #
-        self.time_course_objects[k+1].set_data(x_values,
-                                               y_values
-                                                )                   
-        # update F0
-        y_values1 = np.array([self.plot_y_scale*(k+1.5),self.plot_y_scale*(k*1.5)])
-        self.f0_objects[k+1].set_data(x_values1,
-                                    y_values1
-                                   )    
+            #
+            self.time_course_objects[k+1].set_data(x_values,
+                                                   y_values
+                                                    )
+            # update F0
+            y_values1 = np.array([self.plot_y_scale*(k+1.5),self.plot_y_scale*(k*1.5)])
+            self.f0_objects[k+1].set_data(x_values1,
+                                        y_values1
+                                       )
 
-        # update ensembel threshold
-        y_values1 = np.array([self.plot_y_scale*(k+1.5)+self.bmi_high_threshold,
-                              self.plot_y_scale*(k*1.5)+self.bmi_high_threshold])
-        self.f0_objects[k+2].set_data(x_values1,
-                                    y_values1
-                                   )    
+            # update ensembel threshold
+            y_values1 = np.array([self.plot_y_scale*(k+1.5)+self.bmi_high_threshold,
+                                  self.plot_y_scale*(k*1.5)+self.bmi_high_threshold])
+            self.f0_objects[k+2].set_data(x_values1,
+                                        y_values1
+                                       )
         
         ################################################
         ################# UPDATE TITLE #################
         ################################################
-        idx1 = np.where(self.reward_times[0]>-1)[0]
-        idx2 = np.where(self.reward_times[1]>-1)[0]
-        self.ax_traces.set_title(" # rewards : "+str(idx1.shape[0])+" "+str(idx2.shape[0]) + 
-                                 ": Freq: " +str(int(self.tone_state[0]))+"hz"+
-                                 "\n Ensemble state: "+str(round(self.ensemble_state[0],2)), fontsize=12)
+        if self.calibration_flag==False:
+            idx1 = np.where(self.reward_times[0]>-1)[0]
+            idx2 = np.where(self.reward_times[1]>-1)[0]
+            self.ax_traces.set_title(" # rewards : "+str(idx1.shape[0])+" "+str(idx2.shape[0]) +
+                                     ": Freq: " +str(int(self.tone_state[0]))+"hz"+
+                                     "\n Ensemble state: "+str(round(self.ensemble_state[0],2)), fontsize=12)
 
         #####################################################
         ################# REFRESH PLOTS #####################
@@ -660,9 +674,10 @@ class PlotROIs():
         self.fig.canvas.blit(self.ax_traces.bbox)
 
         # add the drawn lines to the plot
-        for k in range(len(self.rois_traces)):
-            self.ax_traces.draw_artist(self.time_course_objects[k])
-            self.ax_traces.draw_artist(self.f0_objects[k])
+        if self.calibration_flag==False:
+            for k in range(len(self.rois_traces)):
+                self.ax_traces.draw_artist(self.time_course_objects[k])
+                self.ax_traces.draw_artist(self.f0_objects[k])
 
         #
         self.fig.canvas.blit(self.ax_traces.bbox)

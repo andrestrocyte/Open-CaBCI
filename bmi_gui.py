@@ -151,26 +151,23 @@ if __name__ ==  '__main__':
 	'''  This is the plotting functions that visualize ROI time sries
 	'''
 	#
-	if calibration_flag:
-		print ("TO ADD VISUALIZE CAMERA DURING CALIBRATION SESSION")
-
-	else:
-		plotter_ = Process(target=PlotROIs, args=(
-												fname_rois_pixels_and_thresholds,
-												bmi.shmem_rois_traces.name,
-												bmi.shmem_n_ttl.name,
-												bmi.rois_traces_raw.shape,
-												bmi.shmem_reward_times.name,
-												bmi.shmem_tone_state.name,
-												bmi.shmem_live_frame_plotter.name,
-												bmi.shmem_ensemble_state.name,
-												bmi.high_threshold,
-												bmi.shmem_termination_flag.name,
-												bmi.shmem_live_video_frame.name,
-												video_width,
-												video_height
-												))
-		plotter_.start()
+	plotter_ = Process(target=PlotROIs, args=(
+											calibration_flag,
+											fname_rois_pixels_and_thresholds,
+											bmi.shmem_rois_traces.name,
+											bmi.shmem_n_ttl.name,
+											bmi.rois_traces_raw.shape,
+											bmi.shmem_reward_times.name,
+											bmi.shmem_tone_state.name,
+											bmi.shmem_live_frame_plotter.name,
+											bmi.shmem_ensemble_state.name,
+											bmi.high_threshold,
+											bmi.shmem_termination_flag.name,
+											bmi.shmem_live_video_frame.name,
+											video_width,
+											video_height
+											))
+	plotter_.start()
 
 	###############################################################
 	############ INITIALIZE AND START DRIFT CORRECTION ############
