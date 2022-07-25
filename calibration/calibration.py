@@ -160,7 +160,7 @@ class BMICalibration():
         self.image_length = 512
 
         #
-        self.n_rewards_per_minute = 2.5
+        self.n_rewards_per_minute = 1
         self.random_reward_probability = (self.n_rewards_per_minute/(30*60))
         print (" RANDOM REWARD PROBABILITY (rewards per minute): ", self.n_rewards_per_minute,
             "; reward prob per TTL frame: ", self.random_reward_probability)
