@@ -30,7 +30,11 @@ class PlayTone():
                         shmem_tone_state,
                         shmem_termination_flag,
                         shmem_water_reward,
-                        simulation_flag,):
+                        simulation_flag,
+                        calibration_flag):
+		
+        #
+        self.calibration_flag = calibration_flag
 
         #
         self.shmem_termination_flag = shmem_termination_flag
@@ -57,14 +61,14 @@ class PlayTone():
         self.shmem_water_reward = shmem_water_reward
 
         # TODO: unclear what these units are; likely volts - but need to convert to dCB
-        self.amplitude = 0.1  # tone amplitude in ?
+        self.amplitude = 0.05  # tone amplitude in ?
 
         # TODO: unclear what the correct duration of tone play and update
         # TODO: for now we update at 10hz
         self.duration = 0.1
 
         # TODO: unclear what these units are?
-        self.water_spout_ttl_duration = 50000  # duration of water pulse in microseconds
+        self.water_spout_ttl_duration = 10000  # duration of water pulse in microseconds
 
         #
         self.water_spout_ttl_voltage = 5    # water spout voltage in millivolts (?)
@@ -250,12 +254,15 @@ class PlayTone():
         # TODO: 2) what is the shortest/correct duration to play a tone (probably >10hz) that we wont' notice)
 
         #
-        self.compute_ensemble_to_tone_state()
-
+        if self.calibration_flag==True:
+            self.tone_state[0] = 100
+        else:
+            self.compute_ensemble_to_tone_state()
+    
         # make sure you send a copy of the tone, not the tone
         tone_data = self.make_tone(self.tone_state[0].copy(),
-								   self.amplitude,
-								   self.duration)
+                                   self.amplitude,
+                                   self.duration)
 
         #
         if self.simulation_flag:
@@ -380,11 +387,11 @@ class PlayTone():
                 return
 
             # close the audio writer
-            print ("closeing audio writer")
+            print ("closing audio writer")
             self.close_audio_writer()
 
             # initialize the output function for water dispesning
-            print ("initilizeding water writer")
+            print ("initializing water writer")
             self.initialize_water_writer()
 
             # put water state to 5volts
@@ -409,6 +416,9 @@ class PlayTone():
             # play reward tone for 1 second
             for k in range(int(1/self.duration)):
                 self.play_reward_tone()
+
+            # NOTE: this is set to negative only during calibration so there's no feedback
+            self.ensemble_state[0] = -3
 
             # return tone to default state
             # TODO: this doesn't seem necessary as the rest of pipeline takes care of this

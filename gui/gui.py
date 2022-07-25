@@ -5,7 +5,7 @@ import os
 import numpy as np
   
 def run_BMI():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read
 
 	#
     bmi_read = bmi_flag.get()
@@ -13,6 +13,7 @@ def run_BMI():
     tone_read = tone_flag.get()
     water_read = water_flag.get()
     video_read = video_flag.get()
+    motion_read = motion_flag.get()
     video_hardware_trigger_flag = video_hardware_trigger_flag.get()
     calibration_read = "False"
 
@@ -48,7 +49,7 @@ def run_BMI():
 
 
 def run_Calibration():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read
 
     #
     bmi_read = bmi_flag.get()
@@ -56,6 +57,7 @@ def run_Calibration():
     tone_read = tone_flag.get()
     water_read = water_flag.get()
     video_read = video_flag.get()
+    motion_read = motion_flag.get()
     video_hardware_trigger_flag = video_hardware_trigger_flag.get()
     calibration_read = "True"
 
@@ -91,7 +93,7 @@ def run_Calibration():
 
 #
 def gui():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_flag
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_flag, motion_flag, motion_read
 
     #
     OPTIONS = [
@@ -170,6 +172,16 @@ def gui():
     video_menu = OptionMenu(window, video_flag, *OPTIONS)
     video_menu.grid(column=1,row=5)
 
+    # #
+    motion_box = Label(window, text = "motion detection (On/Off)")
+    motion_box.config(font =("Courier", fontsize))
+    motion_box.grid(column=0, row=6)
+
+    motion_flag = StringVar(window)
+    motion_flag.set(OPTIONS[default_option]) # default value
+    motion_menu = OptionMenu(window, motion_flag, *OPTIONS)
+    motion_menu.grid(column=1,row=6)
+    
     #
     video_box2 = Label(window, text = "hardware trigger mode")
     video_box2.config(font =("Courier", fontsize))
@@ -183,57 +195,57 @@ def gui():
     # # image size width/length input box
     video_width_box = Label(window, text = "video - width (pixels; DO NOT CHANGE)")
     video_width_box.config(font =("Courier", fontsize))
-    video_width_box.grid(column=0,row=6)
+    video_width_box.grid(column=0,row=7)
 
     video_width_box_data = tk.Entry(window) 
     video_width_box_data.insert(END, 1824)
-    video_width_box_data.grid(column=1,row=6)
+    video_width_box_data.grid(column=1,row=7)
 
     # # image size width/length input box
     video_length_box = Label(window, text = "video - length (pixels; DO NOT CHANGE)")
     video_length_box.config(font =("Courier", fontsize))
-    video_length_box.grid(column=0,row=7)
+    video_length_box.grid(column=0,row=8)
 
     video_length_box_data = tk.Entry(window) 
     video_length_box_data.insert(END, 1200)
-    video_length_box_data.grid(column=1,row=7)
+    video_length_box_data.grid(column=1,row=8)
     
     # # sleep timer for simulation mode
     simulation_sleep_box = Label(window, text = "simulation mode sleep (in seconds)")
     simulation_sleep_box.config(font =("Courier", fontsize))
-    simulation_sleep_box.grid(column=0,row=8)
+    simulation_sleep_box.grid(column=0,row=9)
 
     simulation_sleep_box_data = tk.Entry(window) 
     simulation_sleep_box_data.insert(END, 0.0001)
-    simulation_sleep_box_data.grid(column=1,row=8)
+    simulation_sleep_box_data.grid(column=1,row=9)
     simulation_sleep_box_data.focus_force()
 
     # # sleep timer for simulation mode
     n_frames_box = Label(window, text = "# of frames to acquire")
     n_frames_box.config(font =("Courier", fontsize))
-    n_frames_box.grid(column=0,row=9)
+    n_frames_box.grid(column=0,row=10)
 
     n_frames_box_data = tk.Entry(window) 
     n_frames_box_data.insert(END, 1000)
-    n_frames_box_data.grid(column=1,row=9)
+    n_frames_box_data.grid(column=1,row=10)
 
     # # image size width/length input box
     width_box = Label(window, text = "imaging window - width (pixels)")
     width_box.config(font =("Courier", fontsize))
-    width_box.grid(column=0,row=10)
+    width_box.grid(column=0,row=11)
 
     width_box_data = tk.Entry(window) 
     width_box_data.insert(END, 512)
-    width_box_data.grid(column=1,row=10)
+    width_box_data.grid(column=1,row=11)
 
     # # image size width/length input box
     length_box = Label(window, text = "imaging window - length (pixels)")
     length_box.config(font =("Courier", fontsize))
-    length_box.grid(column=0,row=11)
+    length_box.grid(column=0,row=12)
 
     length_box_data = tk.Entry(window) 
     length_box_data.insert(END, 512)
-    length_box_data.grid(column=1,row=11)
+    length_box_data.grid(column=1,row=12)
 
     #
     button1 = tk.Button(text='Run BMI',
@@ -241,7 +253,7 @@ def gui():
                         )
 
     #
-    button1.grid(column=0, row=15)
+    button1.grid(column=0, row=17)
 
     #
     button2 = tk.Button(text='Run Calibration',
@@ -249,7 +261,7 @@ def gui():
                         )
 
     #
-    button2.grid(column=1, row=15)
+    button2.grid(column=1, row=17)
 
     #
     simulation_sleep = simulation_sleep_box_data.get()
@@ -262,10 +274,10 @@ def gui():
     
 
     #
-    if calibration_read!="True":
-        fname_gui_params = os.path.join(fname_root_path, "gui_params_calibration.npz")
+    if calibration_read=="True":
+        fname_gui_params = os.path.join(fname_root_path, "gui_params.npz")
     else:
-        fname_gui_params = os.path.join(fname_root_path, "gui_params_bmi.npz")
+        fname_gui_params = os.path.join(fname_root_path, "gui_params.npz")
 
     #
     np.savez(fname_gui_params,
@@ -274,6 +286,7 @@ def gui():
              tone_read = tone_read,
              water_read = water_read,
              video_read = video_read,
+             motion_read = motion_read,
              video_hardware_trigger_flag = video_hardware_trigger_flag,
              simulation_sleep = simulation_sleep,
              n_frames = n_frames,
@@ -281,6 +294,7 @@ def gui():
              length = length,
              video_width = video_width,
              video_length = video_length,
+             
              )
     #
-    return (fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger_flag, simulation_sleep, n_frames, video_width, video_length, calibration_read)
+    return (fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger_flag, simulation_sleep, n_frames, video_width, video_length, calibration_read, motion_read)

@@ -72,8 +72,8 @@ class PlotROIs():
         self.live_image_update_n_frames = 5
 
         #
-        self.live_image_vmin = 300
-        self.live_image_vmax = 5000
+        self.live_image_vmin = 1
+        self.live_image_vmax = 2500
 
         #
         self.show_contours_on_image = False
@@ -347,7 +347,10 @@ class PlotROIs():
         self.plot_y_scale = 1
 
         #
-        self.fig = plt.figure(figsize=(8,8))
+        if self.calibration_flag==True:
+            self.fig = plt.figure(figsize=(8,5))
+        else:
+            self.fig = plt.figure(figsize=(8,8))
 
         self.grid = GridSpec(11, 10)#, left=0.55, right=0.98, hspace=0.05)
 

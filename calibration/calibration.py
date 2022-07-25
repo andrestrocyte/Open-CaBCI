@@ -20,15 +20,11 @@ plt.ion()
 
 ##############################
 
-
-import matplotlib.pyplot as plt
 import nidaqmx
 from nidaqmx.constants import (AcquisitionType)
 from nidaqmx.constants import TerminalConfiguration
-import tqdm
 import os
 import time
-import numpy as np
 from multiprocessing import shared_memory
 from utils.utils import smooth_ca_time_series, compute_dff0, compute_dff0_with_reference
 from drift.drift import apply_shifts
@@ -110,7 +106,7 @@ class BMICalibration():
                  sampleRate_2P,
                  fname_roi_pixels_and_thresholds,
                  max_n_seconds_session,
-                 n_frames_session,
+                 n_frames,
                  video_width,
                  video_length):
 
@@ -164,10 +160,22 @@ class BMICalibration():
         self.image_length = 512
 
         #
+        self.n_rewards_per_minute = 2.5
+        self.random_reward_probability = (self.n_rewards_per_minute/(30*60))
+        print (" RANDOM REWARD PROBABILITY (rewards per minute): ", self.n_rewards_per_minute,
+            "; reward prob per TTL frame: ", self.random_reward_probability)
+        #
+        if self.n_rewards_per_minute > 0.5:
+            for k in range(10):
+                print (" RANDOM REWARD PROBABILITY IS HIGH!!! (rewards per minute): ", 
+                self.n_rewards_per_minute, "; reward prob per TTL frame: ", self.random_reward_probability)
+
+
+        #
         self.max_n_seconds_session = max_n_seconds_session
 
         # number of frames to run BMI for
-        self.n_frames = n_frames_session # OLD WAY OF COMPUTING max_n_seconds_session*sampleRate_2P
+        self.n_frames = n_frames # OLD WAY OF COMPUTING max_n_seconds_session*sampleRate_2P
 
         # TODO: why do we have 2 of these variables?
         self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
@@ -251,6 +259,10 @@ class BMICalibration():
 
         #
         self.ensemble_state[:] = aa[:]
+        
+        # NOTE: this is set to negative only during calibration so there's no feedback
+        self.ensemble_state[0] = -3
+        
 
         ########################################
         # make a default size matrix that will hold [n_rois, n_frames]
@@ -386,7 +398,7 @@ class BMICalibration():
 
          #
     def initialize_pbar(self):
-        self.pbar = tqdm.tqdm(total=self.n_frames_to_be_acquired,
+        self.pbar = tqdm(total=self.n_frames_to_be_acquired,
                               desc='% complete',
                               position=0,
                               leave=True,
@@ -568,7 +580,10 @@ class BMICalibration():
             self.read_bscope_ttl()
 
             # check of ttl pulse when from high ~5 to low ~0
-            if self.min_<1 and self.prev_max>=1:
+            if self.min_<3 and self.prev_max>=3:
+                
+                #
+                #print ("DETECTED TTL: ", self.n_ttl, ", self.ttl_computed: ", self.ttl_computed)
 
                 # runs the bmi code whenever imaging frame is completed
                 self.bmi_update()
@@ -596,22 +611,6 @@ class BMICalibration():
         #
         self.bscope_ttl_task.stop()
         self.bscope_ttl_task.close()
-
-        #
-
-    #
-    # def save_lick_detector_ttl(self):
-    #
-    #     # get current lick detector state from NI card output port
-    #     #self.lick_detector_ttl_value = self.lick_detector_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
-    #
-    #     # this saves a triple: [lick_detector_ttl_value,
-    #     #                       self.now,
-    #     #                       n_ttl_counter]
-    #     #print ("lick detector val: ", self.lick_detector_ttl_value," self.now: ", self.now)
-    #
-    #     # saves updated values
-    #     self.lick_detector_value_abstime_nttl[self.n_ttl[0]] = self.lick_detector_ttl_value, self.now
 
     #
     def read_bscope_ttl(self):
@@ -663,31 +662,6 @@ class BMICalibration():
 
         # give the rest of the modules a few sec to complete
         time.sleep(2)
-
-    #
-    # def initalize_lick_detector_reader(self):
-    #   #
-    #     if self.simulation_mode_lick_detector == True:
-    #         self.lick_detector_ttl_task = Simulation(self.fname_ttl)
-    #     else:
-    #
-    #         #
-    #         self.lick_detector_ttl_task = nidaqmx.Task('lick_detector')
-    #         #print ("iniitlied bmi online")
-    #         # set TTL pulse reader from 2p system
-    #         self.lick_detector_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai1",
-    #                                                       terminal_config=TerminalConfiguration.NRSE)
-    #
-    #         #
-    #         self.lick_detector_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
-    #                                                  # samps_per_chan=pointsToPlot*2,
-    #                                                  sample_mode=AcquisitionType.CONTINUOUS )
-    #
-    #         # start the TTL reader (not required in simulation mode)
-    #         self.lick_detector_ttl_task.start()
-    #
-    #     # list that holds all the lick detector infor + meta data
-    #     self.lick_detector_value_abstime_nttl = np.zeros((self.n_frames,2),dtype=np.float32)
 
     #
     def initialize_bscope_ttl_pulse_reader(self):
@@ -842,7 +816,6 @@ class BMICalibration():
             #
             if self.read_data_flag:
                 #import mmap
-                #ss = time.time()
                 print ("  setting up memory map: shape: ", (self.n_frames_to_be_acquired,512,512))
 
                 if True:
@@ -850,20 +823,6 @@ class BMICalibration():
                                            dtype='uint16',
                                            mode='r',
                                            shape=self.n_frames_to_be_acquired*512*512)
-
-                # if False:
-                #     fp = open(self.fname_fluorescence, "r")
-                #     byts = self.n_frames_to_be_acquired*self.image_width*self.image_length
-                #
-                #     self.newfp = mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
-                #     # print ("OPTION @@@@@@@@@@@@@@@@: ", self.newfp)
-                #
-                #     #
-                #     mview = memoryview(self.newfp)
-                #     print (" memroy view: ", mview)
-                #     self.newfp = np.asarray(mview).reshape(self.n_frames_to_be_acquired,512,512)
-                #     print (" final array view: ", self.newfp.shape)
-
 
                 #
                 self.newfp = self.newfp.reshape(self.n_frames_to_be_acquired,512,512)
@@ -881,13 +840,16 @@ class BMICalibration():
                 time.sleep(self.sleep_time_sec)
 
             else:
-                time_passed = self.now-self.start
-                self.ttl_computed = round((self.now-self.start)*self.sampleRate_2P)
+                # DISABLE TTL RECOMPUTATION FOR NOW JULY 25
+                if False:
+                    time_passed = self.now-self.start
+                    self.ttl_computed = round((self.now-self.start)*self.sampleRate_2P)
 
+                    #
+                    if self.verbose:
+                        print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
                 #
-                if self.verbose:
-                    print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
-
+                self.ttl_computed = self.n_ttl[0]
     #
     def trigger_random_reward(self):
 
@@ -924,7 +886,8 @@ class BMICalibration():
         '''
 
         # draw random rewards so that the mouse is rewarded about once every minute
-        if np.random.rand()< (1/(30*60)) and self.random_reward_lockout_counter[0]<1:
+        
+        if np.random.rand()< self.random_reward_probability and self.random_reward_lockout_counter[0]<1:
             #
             print (" reached RANDOM reward conition: ")
 
@@ -943,6 +906,10 @@ class BMICalibration():
 
             #
             self.trigger_random_reward()
+            
+            # NOTE: this is set to negative only during calibration so there's no feedback
+            self.ensemble_state[0] = -3
+
 
             # decouple tone etc. from feedback
             self.post_reward_state()

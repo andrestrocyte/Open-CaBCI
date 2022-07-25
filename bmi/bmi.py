@@ -95,12 +95,17 @@ class BMI():
                  max_n_seconds_session,
                  n_frames_session,
                  video_width,
-                 video_length):
+                 video_length,
+                 motion_flag,
+                 ):
 
         #
         print ("... initializing BMI parameters...")
         print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
 
+        #
+        self.apply_drift_flag = motion_flag
+        
         #
         self.video_width = video_width
         self.video_length = video_length
@@ -110,9 +115,6 @@ class BMI():
 
         #
         self.simulation_mode_lick_detector = simulation_flag_licking
-
-        #
-        self.apply_drift_flag = True
 
         #
         self.fname_root_path = fname_root_path

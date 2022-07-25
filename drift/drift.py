@@ -202,7 +202,8 @@ class DriftCorrection():
             self.drift_xy_values[0] = r
             self.drift_xy_values[1] = c
         else:
-            print ("  ************************** LARGE motion detected > max allowed (x,y detected): ", r,c)
+            pass
+            #print ("  ************************** LARGE motion detected > max allowed (x,y detected): ", r,c)
 
 #
 def phase_correlation(a, b):
