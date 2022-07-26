@@ -163,7 +163,7 @@ class BMICalibration():
         #
         if self.n_rewards_per_minute > 0.5:
             for k in range(10):
-                print(" RANDOM REWARD PROBABILITY IS HIGH!!! (rewards per minute): ",
+                print(" >>>>>>>>>>>> RANDOM REWARD PROBABILITY IS HIGH!!! (rewards per minute): ",
                       self.n_rewards_per_minute, "; reward prob per TTL frame: ", self.random_reward_probability)
 
         #
@@ -991,17 +991,10 @@ class BMICalibration():
                  ttl_n_detected=self.ttl_n_detected,
                  abs_times=self.abs_times,
                  ttl_times=self.ttl_times,
-                 # rois_pixels = np.hstack(self.rois_pixels),
-                 # rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
-                 # rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
                  reward_times=self.reward_times,
                  rewarded_times_abs=self.rewarded_times_abs,
-                 # ensemble_activity = self.ensemble_activity,
-                 # ensemble_diff_array = self.ensemble_diff_array,
                  received_random_reward_lockout=self.received_random_reward_lockout,
-                 # max_reward_window = self.max_reward_window,
-                 # missed_reward_lockout = self.missed_reward_lockout,
-
+                 n_rewards_per_minute = self.n_rewards_per_minute,
                  sampleRate_NI=self.sampleRate_NI,
                  ttl_pts=self.ttl_pts,
                  sampleRate_2P=self.sampleRate_2P,
@@ -1011,11 +1004,7 @@ class BMICalibration():
 
                  n_frames=self.n_frames,
                  n_frames_to_be_acquired=self.n_frames_to_be_acquired,  #
-                 # rois_smooth_window = self.rois_smooth_window,
-                 # n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
                  n_frames_search_forward=self.n_frames_search_forward,
-                 # drift_array = self.drift_array,
-                 # template = self.template,
                  lick_detector_abstime=self.lick_detector_abstime,
                  rotary_encoder1_abstime=self.rotary_encoder1_abstime,
                  rotary_encoder2_abstime=self.rotary_encoder2_abstime,
