@@ -347,6 +347,9 @@ class PlotROIs():
         self.plot_y_scale = 1
 
         #
+        clrs=['blue','magenta','red','orange']
+
+        #
         if self.calibration_flag==True:
             self.fig = plt.figure(figsize=(8,5))
         else:
@@ -399,7 +402,8 @@ class PlotROIs():
                 for k in range(len(self.rois_contours[c])-1):
                     self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k+1][0]],
                                        [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
-                                        c='red')
+                                        c=clrs[c],
+                                       linewidth=2)
 
         #########################################################
         ################# PLOT VIDEO IMAGE ######################
@@ -431,7 +435,7 @@ class PlotROIs():
             self.ax_traces = self.fig.add_subplot(self.grid[:5, :5])
 
             #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
-            self.ax_traces.set_ylim(0, self.plot_y_scale*(4+1.5)+2*self.bmi_high_threshold)
+            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(4+1.5)+2*self.bmi_high_threshold)
             self.ax_traces.set_xlim(-self.plotting_window_width,0)
             self.ax_traces.set_xlabel("Time (sec)")
 
@@ -451,7 +455,8 @@ class PlotROIs():
                 lineobject, = self.ax_traces.plot(self.plot_times,
                                            #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                            y_values,  # plot last X values depending on length of plttimes
-                                           #'r-'
+                                           c=clrs[k]
+                                              #'r-'
                                            )  # Returns a tuple of line objects, thus the comma
                 #
                 self.time_course_objects.append(lineobject)
@@ -460,7 +465,8 @@ class PlotROIs():
                 f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
                                            # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                            [0+self.plot_y_scale*k,0+self.plot_y_scale*k],  # plot last X values depending on length of plttimes
-                                           'g--'
+                                           '--',
+                                           c=clrs[k]
                                            )  # Return
                 self.f0_objects.append(f0object)
 
@@ -471,8 +477,8 @@ class PlotROIs():
             #
             lineobject, = self.ax_traces.plot(self.plot_times,
                                        y_values,  # plot last X values depending on length of plttimes
-                                       linewidth = 2,
-                                       #'r-'
+                                       linewidth = 4,
+                                       c='black'
                                        )  # Returns a tuple of line objects, thus the comma
             #
             self.time_course_objects.append(lineobject)
@@ -481,7 +487,8 @@ class PlotROIs():
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
                                        [0+self.plot_y_scale*(k+1.5),
                                         0+self.plot_y_scale*(k+1.5)],  # plot last X values depending on length of plttimes
-                                       'b--',
+                                       '--',
+                                        c='black',
                                        linewidth=2,
                                        )  # Return
 

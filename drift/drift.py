@@ -226,18 +226,18 @@ class DriftCorrection():
             self.motion_history[:-1] = self.motion_history[1:]
             self.motion_history[-1] = [r,c]
             
-            r = np.mean(self.motion_history[:,0])
-            c = np.mean(self.motion_history[:,1])
+            #print ("Computed presmooth SHIFTS rc, : ", r,c)
+            r = np.median(self.motion_history[:,0])
+            c = np.median(self.motion_history[:,1])
+            #print ("Self.motion history: ", self.motion_history)
+            #print ("Computed Postsmootoh SHIFTS rc, : ", r,c)
 
         # check if delta_r and delta_c are too large, and limit huge jumps which could be errors
         # if jumps are too high then just levae the previous drift in place
         if (self.drift_xy_values_previous[0]-r)<=self.max_motion_per_frame:
-            self.drift_xy_values[0] = r
+            self.drift_xy_values[0] = int(r)
         if (self.drift_xy_values_previous[1] - c) <= self.max_motion_per_frame:
-            self.drift_xy_values[1] = c
-        else:
-            print ("  ************************** LARGE motion detected > max allowed (x,y detected): ", r,c)
-            pass
+            self.drift_xy_values[1] = int(c)
 
 #
 def phase_correlation(a, b):
@@ -515,7 +515,7 @@ def compute_drift_multiple_frames(template, images):
     image = np.mean(images, axis=0)
 
     #
-    img_corr = phase_correlation(image, template)
+    img_corr = phase_correlation(template, image)
 
     r, c = np.unravel_index(img_corr.argmax(), img_corr.shape)
 
@@ -613,7 +613,7 @@ def plot_mean_vs_template(bmi_c):
 def make_motion_template_and_correct_data(bmi_c):
 
     n_iterations = 1  # number of times to iterate over the template
-    n_cores = 8
+    n_cores = 12
     subsample = 3  # subsample every N'th frame for drift to speed up;
                     # TODO: would be good to use all frames!!
 
@@ -631,6 +631,13 @@ def make_motion_template_and_correct_data(bmi_c):
         bmi_c = correct_drift(k,
                               bmi_c,
                               shifts)
+
+        #
+        plt.figure()
+        s=np.array(shifts)
+        t= np.arange(s.shape[0])
+        plt.plot(t,s[:,0])
+        plt.show()
 
     # remake template
     bmi_c = template_generation(bmi_c)

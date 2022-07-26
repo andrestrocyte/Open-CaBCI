@@ -82,7 +82,7 @@ if __name__ ==  '__main__':
 
 
     # required for bmi simulation mode as there are no ttl -pulses being read
-    fname_ttl = os.path.join(fname_root_path,
+    fname_ttl = os.path.join('data_samples',
                              "ttl_pulses.npy")
                              
     #

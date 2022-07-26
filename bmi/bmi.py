@@ -104,7 +104,7 @@ class BMI():
         print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
 
         #
-        self.apply_drift_flag = motion_flag
+        self.apply_motion_correction_flag = motion_flag
         
         #
         self.video_width = video_width
@@ -1169,13 +1169,19 @@ class BMI():
         # NOTE: outside functions do not see it unless explicitly copied
         self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
 
+        # # simulate drift....
+        # if False:
+        #     simulated_shift = int(self.n_ttl[0] /1000)
+        #     self.live_frame_local = np.roll(self.live_frame_local,
+        #                                     simulated_shift, axis=0)
+        #     print ("Simulated drift -------> ", simulated_shift)
+
         # motion detector gets this frame; and returns drift_xy_values
         self.live_frame_motion_detector[0] = self.live_frame_local.copy()
-        
+
         #
-        if self.apply_drift_flag:
-            #print ("LIVE IMAGE BMI*  motion detection self.drift_xy_values: ", self.drift_xy_values)
-        
+        if self.apply_motion_correction_flag:
+
             # save most recent drift values from drift module
             self.drift_array.append([self.drift_xy_values[0],
                                      self.drift_xy_values[1]])
