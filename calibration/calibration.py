@@ -15,8 +15,8 @@ from stardist.models import StarDist2D
 from stardist.data import test_image_nuclei_2d
 from stardist.plot import render_label
 from csbdeep.utils import normalize
-plt.ion()
 
+plt.ion()
 
 ##############################
 
@@ -40,7 +40,6 @@ class Simulation():
 
     def __init__(self,
                  fname_ttl):
-
         # set location of reading index to 0 at beginning
         self.index = 0
 
@@ -48,9 +47,8 @@ class Simulation():
         self.ttl = np.load(fname_ttl)
 
     def read(self, number_of_samples_per_channel):
-
         # added a 2nd value for the lick detector
-        ttl_val_bscope = self.ttl[self.index:self.index+number_of_samples_per_channel]
+        ttl_val_bscope = self.ttl[self.index:self.index + number_of_samples_per_channel]
         ttl_val_lick_detector = 0
         ttl_val_rotary_encoder_1 = 0
         ttl_val_rotary_encoder_2 = 0
@@ -69,7 +67,6 @@ class Simulation():
         # not required in simulation mode
         pass
 
-
     def close(self):
         # not required in simulation mode
         pass
@@ -79,7 +76,6 @@ class Simulation():
 ################## BMI CLASS ####################
 #################################################
 class BMICalibration():
-
     ''' BMI class
         Inputs:
             - path of Thorimage memmap file where [ca] data is to be saved
@@ -111,8 +107,8 @@ class BMICalibration():
                  video_length):
 
         #
-        print ("... initializing BMI parameters...")
-        print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
+        print("... initializing BMI parameters...")
+        print("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
 
         #
         self.video_width = video_width
@@ -133,7 +129,7 @@ class BMICalibration():
         self.fname_ttl = fname_ttl
 
         #
-        #self.fname_save_data = os.path.split(fname_fluorescence)[0]+"bmi_results.npz"
+        # self.fname_save_data = os.path.split(fname_fluorescence)[0]+"bmi_results.npz"
         self.fname_save_data = os.path.join(os.path.split(fname_fluorescence)[0], "results.npz")
 
         #
@@ -147,13 +143,13 @@ class BMICalibration():
         self.read_data_flag = True
 
         # Define variables
-        self.sampleRate_NI = 1E3     # Sample rate of NI card
+        self.sampleRate_NI = 1E3  # Sample rate of NI card
 
         #
-        self.ttl_pts = 1             # number of values to read from NI card - usually we read a single value to avoid buffering issues
+        self.ttl_pts = 1  # number of values to read from NI card - usually we read a single value to avoid buffering issues
 
         #
-        self.sampleRate_2P = sampleRate_2P      # Sample rate of BScope
+        self.sampleRate_2P = sampleRate_2P  # Sample rate of BScope
 
         # TODO: externalize these parameters
         self.image_width = 512
@@ -161,24 +157,23 @@ class BMICalibration():
 
         #
         self.n_rewards_per_minute = 1
-        self.random_reward_probability = (self.n_rewards_per_minute/(30*60))
-        print (" RANDOM REWARD PROBABILITY (rewards per minute): ", self.n_rewards_per_minute,
-            "; reward prob per TTL frame: ", self.random_reward_probability)
+        self.random_reward_probability = (self.n_rewards_per_minute / (30 * 60))
+        print(" RANDOM REWARD PROBABILITY (rewards per minute): ", self.n_rewards_per_minute,
+              "; reward prob per TTL frame: ", self.random_reward_probability)
         #
         if self.n_rewards_per_minute > 0.5:
             for k in range(10):
-                print (" RANDOM REWARD PROBABILITY IS HIGH!!! (rewards per minute): ", 
-                self.n_rewards_per_minute, "; reward prob per TTL frame: ", self.random_reward_probability)
-
+                print(" RANDOM REWARD PROBABILITY IS HIGH!!! (rewards per minute): ",
+                      self.n_rewards_per_minute, "; reward prob per TTL frame: ", self.random_reward_probability)
 
         #
         self.max_n_seconds_session = max_n_seconds_session
 
         # number of frames to run BMI for
-        self.n_frames = n_frames # OLD WAY OF COMPUTING max_n_seconds_session*sampleRate_2P
+        self.n_frames = n_frames  # OLD WAY OF COMPUTING max_n_seconds_session*sampleRate_2P
 
         # TODO: why do we have 2 of these variables?
-        self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
+        self.n_frames_to_be_acquired = self.n_frames  # Number of frames from BScope
 
         #
         self.n_frames_search_forward = 5
@@ -214,10 +209,10 @@ class BMICalibration():
         self.initialize_bscope_ttl_pulse_reader()
 
         # this gets read simultaneously with all other TTL/BNC channels now
-        #self.initalize_lick_detector_reader()
+        # self.initalize_lick_detector_reader()
 
         # keeps track of lick values
-        self.lick_detector_abstime = [] #np.zeros((self.n_frames,2),dtype=np.float32)
+        self.lick_detector_abstime = []  # np.zeros((self.n_frames,2),dtype=np.float32)
 
         #
         self.initialize_rotary_encoder()
@@ -234,12 +229,13 @@ class BMICalibration():
         # lokcout random reward for at least 5 seconds
 
         #
-        #bmi.shmem_ensemble_state.name,
-        #bmi.shmem_tone_state.name,
-        #bmi.shmem_termination_flag.name,
-        #bmi.shmem_water_reward.name,
+        # bmi.shmem_ensemble_state.name,
+        # bmi.shmem_tone_state.name,
+        # bmi.shmem_termination_flag.name,
+        # bmi.shmem_water_reward.name,
 
         #
+
     def initialize_ensemble_state_and_rois(self):
         '''
             This variable keeps track of the locally computed E1-E2
@@ -259,22 +255,21 @@ class BMICalibration():
 
         #
         self.ensemble_state[:] = aa[:]
-        
+
         # NOTE: this is set to negative only during calibration so there's no feedback
         self.ensemble_state[0] = -3
-        
 
         ########################################
         # make a default size matrix that will hold [n_rois, n_frames]
-        a = np.zeros((4,self.n_frames),
-                      dtype=np.float32)+1E-8
+        a = np.zeros((4, self.n_frames),
+                     dtype=np.float32) + 1E-8
         self.shmem_rois_traces = shared_memory.SharedMemory(create=True,
                                                             size=a.nbytes)
 
         #
         self.rois_traces_smooth = np.ndarray(a.shape,
-                                      dtype=a.dtype,
-                                      buffer=self.shmem_rois_traces.buf)
+                                             dtype=a.dtype,
+                                             buffer=self.shmem_rois_traces.buf)
 
         #
         self.rois_traces_smooth[:] = a[:]
@@ -285,24 +280,21 @@ class BMICalibration():
         #############################################
         self.high_threshold = 10
 
-
-
-
     #
     def initialize_video_frame(self):
         ''' shared variable that keeps current video camera frame in memeory for
         '''
 
         # make a numpy array to hold the rois_traces
-        print ("self.video width: ", self.video_width, " length: ", self.video_length)
-        aa = np.zeros((1,self.video_width,self.video_length), dtype=np.uint8)
+        print("self.video width: ", self.video_width, " length: ", self.video_length)
+        aa = np.zeros((1, self.video_width, self.video_length), dtype=np.uint8)
         self.shmem_live_video_frame = shared_memory.SharedMemory(create=True,
-                                                             size=aa.nbytes)
+                                                                 size=aa.nbytes)
 
         #
         self.live_video_frame = np.ndarray(aa.shape,
-                                        dtype=aa.dtype,
-                                        buffer=self.shmem_live_video_frame.buf)
+                                           dtype=aa.dtype,
+                                           buffer=self.shmem_live_video_frame.buf)
 
         #
         self.live_video_frame[:] = aa[:]
@@ -313,6 +305,7 @@ class BMICalibration():
         # this keeps track of the rotary encoder wheel rotations
         self.rotary_encoder1_abstime = []
         self.rotary_encoder2_abstime = []
+
     #
     def initialize_termination_flag(self):
 
@@ -329,8 +322,8 @@ class BMICalibration():
 
         #
         self.termination_flag = np.ndarray(aa.shape,
-                                     dtype=aa.dtype,
-                                     buffer=self.shmem_termination_flag.buf)
+                                           dtype=aa.dtype,
+                                           buffer=self.shmem_termination_flag.buf)
 
         #
         self.termination_flag[:] = aa[:]
@@ -348,14 +341,14 @@ class BMICalibration():
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros(1,dtype=np.float32)
+        aa = np.zeros(1, dtype=np.float32)
         self.shmem_water_reward = shared_memory.SharedMemory(create=True,
-                                                              size=aa.nbytes)
+                                                             size=aa.nbytes)
 
         #
         self.water_reward = np.ndarray(aa.shape,
-                                         dtype=aa.dtype,
-                                         buffer=self.shmem_water_reward.buf)
+                                       dtype=aa.dtype,
+                                       buffer=self.shmem_water_reward.buf)
 
         #
         self.water_reward[:] = aa[:]
@@ -371,14 +364,14 @@ class BMICalibration():
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros(1,dtype=np.float32)
+        aa = np.zeros(1, dtype=np.float32)
         self.shmem_tone_state = shared_memory.SharedMemory(create=True,
-                                                       size=aa.nbytes)
+                                                           size=aa.nbytes)
 
         #
         self.tone_state = np.ndarray(aa.shape,
-                                         dtype=aa.dtype,
-                                         buffer=self.shmem_tone_state.buf)
+                                     dtype=aa.dtype,
+                                     buffer=self.shmem_tone_state.buf)
 
         #
         self.tone_state[:] = aa[:]
@@ -396,13 +389,14 @@ class BMICalibration():
         # counter that track time after last reward
         self.initialize_reward_lockout_counter()
 
-         #
+        #
+
     def initialize_pbar(self):
         self.pbar = tqdm(total=self.n_frames_to_be_acquired,
-                              desc='% complete',
-                              position=0,
-                              leave=True,
-                              ascii=True)  # Init pbar
+                         desc='% complete',
+                         position=0,
+                         leave=True,
+                         ascii=True)  # Init pbar
 
     #
     def initialize_data_arrays(self):
@@ -410,19 +404,19 @@ class BMICalibration():
 
         '''
         #
-        self.ttl_values = []            # array to hold ttl data being read
-        self.ttl_n_computed = []        # number of ttl pulses computed based on time elapsed
-        self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
-        self.inter_ttl_time = []        # computed time between each detected TTL pluse
-        self.abs_times = []             # Keep of every time TTL is read... important!
-                                        # loop;   might be useful for debugging later on kernel interuptions etc.
-        self.ttl_times = []             # ttl times to be saved
-        self.previous_trigger=0         # time of the previous TTL trigger to be used to determine if next trigger etc
-        self.prev_max = 0               # TTL pulse previous read max value
-        self.prev_min = 0               # TTL pulse previous read min value
-        self.ttl_voltages = []          # ttl_voltages
+        self.ttl_values = []  # array to hold ttl data being read
+        self.ttl_n_computed = []  # number of ttl pulses computed based on time elapsed
+        self.ttl_n_detected = []  # number of ttl pulses detected based on TTL from NI board
+        self.inter_ttl_time = []  # computed time between each detected TTL pluse
+        self.abs_times = []  # Keep of every time TTL is read... important!
+        # loop;   might be useful for debugging later on kernel interuptions etc.
+        self.ttl_times = []  # ttl times to be saved
+        self.previous_trigger = 0  # time of the previous TTL trigger to be used to determine if next trigger etc
+        self.prev_max = 0  # TTL pulse previous read max value
+        self.prev_min = 0  # TTL pulse previous read min value
+        self.ttl_voltages = []  # ttl_voltages
 
-        #self.initialize_n_ttl()
+        # self.initialize_n_ttl()
         self.rewarded_times_abs = []
 
     #
@@ -435,12 +429,12 @@ class BMICalibration():
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1, dtype=np.int64)
         self.shmem_last_reward_ttl = shared_memory.SharedMemory(create=True,
-                                                          size=aa.nbytes)
+                                                                size=aa.nbytes)
 
         #
         self.last_reward_ttl = np.ndarray(aa.shape,
-                                    dtype=aa.dtype,
-                                    buffer=self.shmem_last_reward_ttl.buf)
+                                          dtype=aa.dtype,
+                                          buffer=self.shmem_last_reward_ttl.buf)
 
         #
         self.last_reward_ttl[0] = -1
@@ -456,12 +450,12 @@ class BMICalibration():
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1, dtype=np.int64)
         self.shmem_reward_lockout = shared_memory.SharedMemory(create=True,
-                                                          size=aa.nbytes)
+                                                               size=aa.nbytes)
 
         #
         self.random_reward_lockout_counter = np.ndarray(aa.shape,
-                                    dtype=aa.dtype,
-                                    buffer=self.shmem_reward_lockout.buf)
+                                                        dtype=aa.dtype,
+                                                        buffer=self.shmem_reward_lockout.buf)
 
         #
         self.random_reward_lockout_counter[:] = aa[:]
@@ -474,14 +468,14 @@ class BMICalibration():
         '''
 
         # an array to hold the reward times
-        aa = np.zeros((2,1000), dtype=np.int64)-1
+        aa = np.zeros((2, 1000), dtype=np.int64) - 1
         self.shmem_reward_times = shared_memory.SharedMemory(create=True,
                                                              size=aa.nbytes)
 
         #
         self.reward_times = np.ndarray(aa.shape,
-                                dtype=aa.dtype,
-                                buffer=self.shmem_reward_times.buf)
+                                       dtype=aa.dtype,
+                                       buffer=self.shmem_reward_times.buf)
 
         #
         self.reward_times[:] = aa[:]
@@ -495,28 +489,28 @@ class BMICalibration():
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros((1,512,512), dtype=np.uint16)
+        aa = np.zeros((1, 512, 512), dtype=np.uint16)
         self.shmem_live_frame_plotter = shared_memory.SharedMemory(create=True,
-                                                             size=aa.nbytes)
+                                                                   size=aa.nbytes)
 
         #
         self.live_frame_plotter = np.ndarray(aa.shape,
-                                        dtype=aa.dtype,
-                                        buffer=self.shmem_live_frame_plotter.buf)
+                                             dtype=aa.dtype,
+                                             buffer=self.shmem_live_frame_plotter.buf)
 
         #
         self.live_frame_plotter[:] = aa[:]
 
         # Also initialize a live frame for the
         # make a numpy array to hold the rois_traces
-        aa = np.zeros((1,512,512), dtype=np.uint16)
+        aa = np.zeros((1, 512, 512), dtype=np.uint16)
         self.shmem_live_frame_motion_detector = shared_memory.SharedMemory(create=True,
-                                                             size=aa.nbytes)
+                                                                           size=aa.nbytes)
 
         #
         self.live_frame_motion_detector = np.ndarray(aa.shape,
-                                        dtype=aa.dtype,
-                                        buffer=self.shmem_live_frame_motion_detector.buf)
+                                                     dtype=aa.dtype,
+                                                     buffer=self.shmem_live_frame_motion_detector.buf)
 
         #
         self.live_frame_motion_detector[:] = aa[:]
@@ -553,7 +547,7 @@ class BMICalibration():
         self.n_ttl[:] = aa[:]
 
         #
-        #print(" ttl counter initialized: ", self.n_ttl, self.shmem_n_ttl.name)
+        # print(" ttl counter initialized: ", self.n_ttl, self.shmem_n_ttl.name)
 
     #
     def run_BMI(self):
@@ -562,8 +556,8 @@ class BMICalibration():
         print('Running BMI - Calibrtion (ctrl-c to stop)')
 
         #
-        self.now = time.perf_counter() #time.perf_counter_ns()/1E9
-        self.previous_trigger = time.perf_counter()-2 # set the previous tirgger 2 sec prior to start
+        self.now = time.perf_counter()  # time.perf_counter_ns()/1E9
+        self.previous_trigger = time.perf_counter() - 2  # set the previous tirgger 2 sec prior to start
 
         #
         self.initialize_pbar()
@@ -580,10 +574,9 @@ class BMICalibration():
             self.read_bscope_ttl()
 
             # check of ttl pulse when from high ~5 to low ~0
-            if self.min_<3 and self.prev_max>=3:
-                
+            if self.min_ < 3 and self.prev_max >= 3:
                 #
-                #print ("DETECTED TTL: ", self.n_ttl, ", self.ttl_computed: ", self.ttl_computed)
+                # print ("DETECTED TTL: ", self.n_ttl, ", self.ttl_computed: ", self.ttl_computed)
 
                 # runs the bmi code whenever imaging frame is completed
                 self.bmi_update()
@@ -599,9 +592,9 @@ class BMICalibration():
             self.prev_max = self.max_
 
             # exit OPTION 2 check if estimated recording time + 2mins have been completed
-            if (time.time() - self.start_time_acquisition)>self.max_n_seconds_session:
-                print ("Duration of BMI loop: ", time.time() - self.start_time_acquisition, 'sec',
-                       "  , total requested: ", self.max_n_seconds_session)
+            if (time.time() - self.start_time_acquisition) > self.max_n_seconds_session:
+                print("Duration of BMI loop: ", time.time() - self.start_time_acquisition, 'sec',
+                      "  , total requested: ", self.max_n_seconds_session)
                 break
 
         # save all data acquried during recording
@@ -616,13 +609,13 @@ class BMICalibration():
     def read_bscope_ttl(self):
 
         # get current bscope ttl pulse value from NI card output port
-        #read_values = np.array(self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)).squeeze()
+        # read_values = np.array(self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)).squeeze()
         read_values = self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
 
-        #print ("READ VALUES: ", read_values)
+        # print ("READ VALUES: ", read_values)
 
         # ttl bscope value
-        ttl_value = read_values[0]#.copy()
+        ttl_value = read_values[0]  # .copy()
 
         # lick detector value
         # TODO: IMPORTANT to read out both encoder and lick-detector in high res rate as 30Hz may miss
@@ -641,7 +634,7 @@ class BMICalibration():
         #
 
         # get time of ttl pulse
-        self.now = time.perf_counter() #perf_counter_ns()/1E9
+        self.now = time.perf_counter()  # perf_counter_ns()/1E9
 
         # this helps us figure out how fast this loop runs
         # TODO: we may want to introduce a delay of 5ms or so so we don't constanly read TTL pulses
@@ -652,9 +645,9 @@ class BMICalibration():
     def close(self):
 
         #
-        print (" ... closing BMI, # of ttl pulses processed: ", self.n_ttl)
+        print(" ... closing BMI, # of ttl pulses processed: ", self.n_ttl)
         #
-        print (" ... SENDING TERMIANTION FLAG SIGNAL TO ALL PROCESSES ...")
+        print(" ... SENDING TERMIANTION FLAG SIGNAL TO ALL PROCESSES ...")
         self.termination_flag[0] = 1
 
         #
@@ -671,27 +664,26 @@ class BMICalibration():
             self.bscope_ttl_task = Simulation(self.fname_ttl)
         else:
 
-
             #
             self.bscope_ttl_task = nidaqmx.Task('ttl_reader')
             # set TTL pulse reader from 2p system
             # add ttl pulse channel from bscope
             self.bscope_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai0:4",
-                                                          terminal_config=TerminalConfiguration.NRSE)
+                                                                 terminal_config=TerminalConfiguration.NRSE)
 
             # add lick detector channel
-            #self.bscope_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai1",
+            # self.bscope_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai1",
             #                                              terminal_config=TerminalConfiguration.NRSE)
-            #c
+            # c
             self.bscope_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
-                                                     # samps_per_chan=pointsToPlot*2,
-                                                     sample_mode=AcquisitionType.CONTINUOUS)
+                                                            # samps_per_chan=pointsToPlot*2,
+                                                            sample_mode=AcquisitionType.CONTINUOUS)
 
             # start the TTL reader (not required in simulation mode)
             self.bscope_ttl_task.start()
 
         # list to add to when reading values
-        self.bscope_read_values = np.zeros(2,dtype=np.float32)
+        self.bscope_read_values = np.zeros(2, dtype=np.float32)
 
     #
     def bmi_update(self):
@@ -714,7 +706,8 @@ class BMICalibration():
         self.ttl_times.append(self.now)
 
         #
-        self.n_ttl+=1
+        self.n_ttl += 1
+
     #
 
     def smooth_rois(self):
@@ -729,21 +722,21 @@ class BMICalibration():
         # TODO:  IMPORTANT: implement the identical algorithm used in the calibration step to compute
         #        this step; currently only the smoothing step is shared; need to share DFF0 computation also
         # wait a few seconds until get enough data to smooth out
-        if self.smooth_diff_function_flag and self.n_ttl[0]>self.rois_smooth_window:
+        if self.smooth_diff_function_flag and self.n_ttl[0] > self.rois_smooth_window:
 
             # loop over each cell
             for p in range(self.rois_traces_raw.shape[0]):
                 #
-                temp = self.rois_traces_raw[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
+                temp = self.rois_traces_raw[p, self.n_ttl[0] - self.rois_smooth_window:self.n_ttl[0]]
 
                 # There are two options for deterneding and computing a DFF0
                 # option 1: use the calibration time roi_f0s
                 #  Note: this is risky to do:
                 #          - sometimes there is signficant drift which we don't correct for (yet!)
                 # WE FIXED THIS NOW
-                #if False or self.n_ttl[0]<self.n_ttl_to_start_applying_DFF0_computation:
+                # if False or self.n_ttl[0]<self.n_ttl_to_start_applying_DFF0_computation:
                 if True:
-                    temp = (temp - self.roi_f0s[p])/self.roi_f0s[p]
+                    temp = (temp - self.roi_f0s[p]) / self.roi_f0s[p]
 
                 # Recompute baseline dynamically to ensure alignemtn of data
                 # Note: this is also risky as this means the thresholds computed in the calibration step
@@ -753,16 +746,17 @@ class BMICalibration():
                     # so here we feed current chunk of data going back n frames
                     #  plus the refrenc trace which should be the last n frames of raw data; usually take at least 30 seconds
                     _, temp = compute_dff0_with_reference(temp,
-                                self.rois_traces_raw[p,self.n_ttl[0]-self.n_ttl_to_start_applying_DFF0_computation:
-                                                        self.n_ttl[0]]
-                                                        )
+                                                          self.rois_traces_raw[p,
+                                                          self.n_ttl[0] - self.n_ttl_to_start_applying_DFF0_computation:
+                                                          self.n_ttl[0]]
+                                                          )
 
                 #
-                self.rois_traces_smooth[p,self.n_ttl[0]] = smooth_ca_time_series(temp)
+                self.rois_traces_smooth[p, self.n_ttl[0]] = smooth_ca_time_series(temp)
 
         else:
             #
-            self.rois_traces_smooth[:,self.n_ttl[0]] = self.rois_traces_raw[:,self.n_ttl[0]]
+            self.rois_traces_smooth[:, self.n_ttl[0]] = self.rois_traces_raw[:, self.n_ttl[0]]
 
     #
     def compute_frame_number(self):
@@ -811,50 +805,51 @@ class BMICalibration():
         '''
 
         # initialize raw data arrays
-        if len(self.ttl_n_computed)==0:
+        if len(self.ttl_n_computed) == 0:
 
             #
             if self.read_data_flag:
-                #import mmap
-                print ("  setting up memory map: shape: ", (self.n_frames_to_be_acquired,512,512))
+                # import mmap
+                print("  setting up memory map: shape: ", (self.n_frames_to_be_acquired, 512, 512))
 
                 if True:
                     self.newfp = np.memmap(self.fname_fluorescence,
                                            dtype='uint16',
                                            mode='r',
-                                           shape=self.n_frames_to_be_acquired*512*512)
+                                           shape=self.n_frames_to_be_acquired * 512 * 512)
 
                 #
-                self.newfp = self.newfp.reshape(self.n_frames_to_be_acquired,512,512)
+                self.newfp = self.newfp.reshape(self.n_frames_to_be_acquired, 512, 512)
 
             # reset start time: requird becaues we start the BMI a few seconds before the BScope
-            self.start=self.now
+            self.start = self.now
 
         # after arrays initialized
         else:
 
             # in simulation mode we just assume that we have correctly dected a TTL pulse and add 1 extra
             #   ttl pulse to the stack
-            if self.simulation_mode_bmi==True:
-                self.ttl_computed = self.n_ttl+1  # move to next ttl.
+            if self.simulation_mode_bmi == True:
+                self.ttl_computed = self.n_ttl + 1  # move to next ttl.
                 time.sleep(self.sleep_time_sec)
 
             else:
                 # DISABLE TTL RECOMPUTATION FOR NOW JULY 25
                 if False:
-                    time_passed = self.now-self.start
-                    self.ttl_computed = round((self.now-self.start)*self.sampleRate_2P)
+                    time_passed = self.now - self.start
+                    self.ttl_computed = round((self.now - self.start) * self.sampleRate_2P)
 
                     #
                     if self.verbose:
-                        print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
+                        print(" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
                 #
                 self.ttl_computed = self.n_ttl[0]
+
     #
     def trigger_random_reward(self):
 
         # generate water reward only if we are not in a reward lockout state
-        print (" ****giving random reward at time: ", self.n_ttl)
+        print(" ****giving random reward at time: ", self.n_ttl)
 
         #
         self.water_reward[0] = 1
@@ -886,10 +881,10 @@ class BMICalibration():
         '''
 
         # draw random rewards so that the mouse is rewarded about once every minute
-        
-        if np.random.rand()< self.random_reward_probability and self.random_reward_lockout_counter[0]<1:
+
+        if np.random.rand() < self.random_reward_probability and self.random_reward_lockout_counter[0] < 1:
             #
-            print (" reached RANDOM reward conition: ")
+            print(" reached RANDOM reward conition: ")
 
             # search for the first empty slot in the reward times list
             # TODO: this is a poor way to save these values;
@@ -906,10 +901,9 @@ class BMICalibration():
 
             #
             self.trigger_random_reward()
-            
+
             # NOTE: this is set to negative only during calibration so there's no feedback
             self.ensemble_state[0] = -3
-
 
             # decouple tone etc. from feedback
             self.post_reward_state()
@@ -927,30 +921,28 @@ class BMICalibration():
 
         #
         if self.verbose:
-            print ("self.ttl_computed: ", self.ttl_computed)
+            print("self.ttl_computed: ", self.ttl_computed)
             print("  detected frame #: ", self.n_ttl,
-               " computed_frame : ", self.ttl_computed)
+                  " computed_frame : ", self.ttl_computed)
 
         # search the very first ROI in time from previous frame to future frames until we get a non-zero pixel values;
         #  then we set the time i.e. n_ttl
-        for z in range(-1,self.n_frames_search_forward,1):
+        for z in range(-1, self.n_frames_search_forward, 1):
 
             # TODO ;could just check any part of the FOV to see if there is non zero values
-            #roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels[0]].sum()
+            # roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels[0]].sum()
             # just check any part of the image to see if it's been saved yet
-            roi_sum0 = self.newfp[self.n_ttl[0]+z][self.image_width//2-5:self.image_width//2+5].sum()
+            roi_sum0 = self.newfp[self.n_ttl[0] + z][self.image_width // 2 - 5:self.image_width // 2 + 5].sum()
 
             #
             if roi_sum0 != 0:
-
                 # TODO: reset the n_ttl value here - check that this is safe!!!
                 # self.n_ttl[0] = self.n_ttl[0]+z
 
                 break
 
-
         # Note: in calibration we do not do any motion correction
-        self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
+        self.live_frame_local = self.newfp[self.n_ttl[0] + z].copy()
 
         # there is no motion correction during calibration step
         self.live_frame_local_drift_corrected = self.live_frame_local.copy()
@@ -968,7 +960,6 @@ class BMICalibration():
         # need to also pass the time out counter
         #
         # pass a zero neural state vector??!?!
-
 
         pass
 
@@ -989,829 +980,813 @@ class BMICalibration():
         print("...Saving BMI meta/data...")
 
         for k in range(self.reward_times.shape[1]):
-            if self.reward_times[1,k]==-1:
+            if self.reward_times[1, k] == -1:
                 break
-        print (" .. # of rewards: ", k, ", water volume dispensed (@ 20uL per reward): ",(k)*0.020, "mL")
+        print(" .. # of rewards: ", k, ", water volume dispensed (@ 20uL per reward): ", (k) * 0.020, "mL")
 
         #
         np.savez(self.fname_save_data,
-                 ttl_voltages = self.ttl_voltages,
-                 ttl_n_computed = self.ttl_n_computed,
-                 ttl_n_detected = self.ttl_n_detected,
-                 abs_times = self.abs_times,
-                 ttl_times = self.ttl_times,
-                 #rois_pixels = np.hstack(self.rois_pixels),
-                 #rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
-                 #rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
-                 reward_times = self.reward_times,
-                 rewarded_times_abs = self.rewarded_times_abs,
-                 #ensemble_activity = self.ensemble_activity,
-                 #ensemble_diff_array = self.ensemble_diff_array,
-                 received_random_reward_lockout = self.received_random_reward_lockout,
-                 #max_reward_window = self.max_reward_window,
-                 #missed_reward_lockout = self.missed_reward_lockout,
+                 ttl_voltages=self.ttl_voltages,
+                 ttl_n_computed=self.ttl_n_computed,
+                 ttl_n_detected=self.ttl_n_detected,
+                 abs_times=self.abs_times,
+                 ttl_times=self.ttl_times,
+                 # rois_pixels = np.hstack(self.rois_pixels),
+                 # rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
+                 # rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
+                 reward_times=self.reward_times,
+                 rewarded_times_abs=self.rewarded_times_abs,
+                 # ensemble_activity = self.ensemble_activity,
+                 # ensemble_diff_array = self.ensemble_diff_array,
+                 received_random_reward_lockout=self.received_random_reward_lockout,
+                 # max_reward_window = self.max_reward_window,
+                 # missed_reward_lockout = self.missed_reward_lockout,
 
-                 sampleRate_NI = self.sampleRate_NI,
-                 ttl_pts = self.ttl_pts,
-                 sampleRate_2P = self.sampleRate_2P,
-                 image_width = self.image_width,
-                 image_length = self.image_length ,
-                 max_n_seconds_session = self.max_n_seconds_session,
+                 sampleRate_NI=self.sampleRate_NI,
+                 ttl_pts=self.ttl_pts,
+                 sampleRate_2P=self.sampleRate_2P,
+                 image_width=self.image_width,
+                 image_length=self.image_length,
+                 max_n_seconds_session=self.max_n_seconds_session,
 
-                 n_frames = self.n_frames,
-                 n_frames_to_be_acquired = self.n_frames_to_be_acquired,                #
-                 #rois_smooth_window = self.rois_smooth_window,
-                 #n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
-                 n_frames_search_forward = self.n_frames_search_forward,
-                 #drift_array = self.drift_array,
-                 #template = self.template,
-                 lick_detector_abstime = self.lick_detector_abstime,
-                 rotary_encoder1_abstime = self.rotary_encoder1_abstime,
-                 rotary_encoder2_abstime = self.rotary_encoder2_abstime,
+                 n_frames=self.n_frames,
+                 n_frames_to_be_acquired=self.n_frames_to_be_acquired,  #
+                 # rois_smooth_window = self.rois_smooth_window,
+                 # n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
+                 n_frames_search_forward=self.n_frames_search_forward,
+                 # drift_array = self.drift_array,
+                 # template = self.template,
+                 lick_detector_abstime=self.lick_detector_abstime,
+                 rotary_encoder1_abstime=self.rotary_encoder1_abstime,
+                 rotary_encoder2_abstime=self.rotary_encoder2_abstime,
                  )
-
-
 
 
 ##############################
 class CalibrationTools(object):
-	
+
     #
-	def __init__(self, fname):
+    def __init__(self, fname):
 
-		#
-		self.fname = fname
-
-		# 
-		self.binarize_thresh =.05
-		self.sigma = .5
-		self.order = 0
-		self.n_smooth_steps = 1
-
-		#
-		#data = np.memmap(self.fname, dtype='uint16', mode='r+')
-		#data = np.memmap(self.fname, dtype='uint16', mode='r')
-		data = np.fromfile(self.fname, dtype='uint16')
-		self.data = data.reshape(-1,512,512)
-		print ("memmap : ", self.data.shape)
-		
-	#	
-	def make_corr_map(self):
-		''' Not yet working or tested etc.
-
-		'''
-
-		data = np.memmap(self.fname, dtype='uint16', mode='r')
-		data = data.reshape(-1,512,512)
-		print ("memmap : ", data.shape)
-
-		data_sparse = data[::self.subsample]
-		print ("data into analysis: ", data_sparse.shape)
-
-		# 
-		img = scipy.signal.correlate2d(data_sparse[0], 
-									   data_sparse[1], 
-									   mode='same')
-		
-		# 
-		plt.figure()
-		plt.imshow(img,
-				  )
-		plt.show()
-		
-	
-		return img
-
-		#
-	def make_max_proj_map(self):
-
-		#
-		data_sparse = self.data[::self.subsample]
-		print("data into analysis: ", data_sparse.shape)
-
-		# filter once to remove much of the white noise
-		if False:
-			sigma = 1
-			order = 0
-			print(" gaussian filter width: ", sigma, ", order: ", order)
-			data_sparse = scipy.ndimage.gaussian_filter(data_sparse,
-														sigma,
-														order)
-			print("done filtering... (TO CHECK which axis are we filtering!!)")
-
-		maxproj = np.max(data_sparse, axis=0)
-
-		#std = np.std(data_sparse, axis=0)
-
-		return maxproj
-
-	#
-	def make_std_map(self):
-
-		#
-		data_sparse = self.data[::self.subsample]
-		print ("data into analysis: ", data_sparse.shape)
-
-		# filter once to remove much of the white noise
-		if True:
-			sigma = 1
-			order = 0
-			print (" gaussian filter width: ", sigma, ", order: ", order)
-			data_sparse = scipy.ndimage.gaussian_filter(data_sparse,
-														sigma,
-														order)
-
-			print ("done filtering... (TO CHECK which axis are we filtering!!)")
-        
         #
-		if False:
-			kernel = [7,1,1]   # filter only across time
-			print (" median filter width: ", kernel)
-			data_sparse = signal.medfilt(data_sparse, kernel)
-			print ("done median filtering... ")
-		
-		#
-		if False:
+        self.fname = fname
 
-			#scipy.ndimage.gaussian_filter1d
-			#import scipy.ndimage # import gaussian_filter1d
-			#kernel = [1,1,7]
-			kernel = 30
-			print (" filter1d: ", kernel)
-			data_sparse = scipy.ndimage.gaussian_filter1d(data_sparse, kernel)
-			print ("done filter1d... ", data_sparse.shape)
-		
-		# 
-		if False:
+        #
+        self.binarize_thresh = .05
+        self.sigma = .5
+        self.order = 0
+        self.n_smooth_steps = 1
 
-			#
-			if False:
-				import parmap
-				n_cores = 8
-				idx = np.array_split(np.arange(data_sparse.shape[1]),n_cores)
-				#print ("data split idx: ", idx)
-				
-				res = parmap.map(convolve_parallel, 
-								 idx,
-								 data_sparse,
-								 pm_processes = n_cores,
-								 pm_pbar = True)
-				
-				#
-				print (" len res: ", len(res), res[0].shape)
-				
-				# 
-				data_sparse = np.sum(data_sparse,axis=0)
-				print ("recombined data sparse", data_sparse.shape)
-			
-			#
-			else:
-				data_out = np.zeros(data_sparse.shape)
-				for k in trange(data_sparse.shape[1]):
-					for p in range(data_sparse.shape[2]):
-						data_out[:,k,p] = np.convolve(data_sparse[:,k,p], kernel, mode='same')
-			
-			print ("done window smoothing...")
-				
-		std = np.std(data_sparse,axis=0)
+        #
+        # data = np.memmap(self.fname, dtype='uint16', mode='r+')
+        # data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = np.fromfile(self.fname, dtype='uint16')
+        self.data = data.reshape(-1, 512, 512)
+        print("memmap : ", self.data.shape)
 
-		return std
+    #
+    def make_corr_map(self):
+        ''' Not yet working or tested etc.
 
-	def plot_std_map(self, std):
-		# 
-		temp = std.copy()
-		print ("staring computing std...")
-		print ("done computing std...")
-		#
-		idx = np.where(temp<self.vmin)
-		temp[idx]=0
-		idx = np.where(temp>self.vmax)
-		temp[idx]=self.vmax
+		'''
 
-		# 
-		plt.figure()
-		plt.imshow(temp,
-				  )
-		plt.show()
-		
-		return temp
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = data.reshape(-1, 512, 512)
+        print("memmap : ", data.shape)
 
-	def area_inside_convex_hull(self, pts):
-		lines = np.hstack([pts,np.roll(pts,-1,axis=0)])
-		area = 0.5*abs(sum(x1*y2-x2*y1 for x1,y1,x2,y2 in lines))
-		return area
+        data_sparse = data[::self.subsample]
+        print("data into analysis: ", data_sparse.shape)
 
-	def binarize_data(self, img, thresh):
-		
-		#thresh = .15
-		idx1 = np.where(img>thresh)
-		idx2 = np.where(img<=thresh)
-		img[idx1]=1
-		img[idx2]=0
-			
-		return img
+        #
+        img = scipy.signal.correlate2d(data_sparse[0],
+                                       data_sparse[1],
+                                       mode='same')
 
-	#
-	def find_roi_boundaries(self, data):
+        #
+        plt.figure()
+        plt.imshow(img,
+                   )
+        plt.show()
 
-		#
-		image = data.copy()
+        return img
 
-		for k in trange(self.n_smooth_steps, desc='gaussian filtering data'):
-			image = scipy.ndimage.gaussian_filter(image, 
-												  self.sigma, 
-												  self.order)
+    #
+    def make_max_proj_map(self):
 
-		image = image.astype('int32')
-        
-		#
-		image = self.binarize_data(image, self.vmin)
+        #
+        data_sparse = self.data[::self.subsample]
+        print("data into analysis: ", data_sparse.shape)
 
-		#
-		image = image.astype('int32')
-						
-		# run watershed segmentation
-		distance = ndi.distance_transform_edt(image)
-		coords = peak_local_max(distance, 
-								footprint=np.ones((1, 1)), 
-								labels=image)
+        # filter once to remove much of the white noise
+        if False:
+            sigma = 1
+            order = 0
+            print(" gaussian filter width: ", sigma, ", order: ", order)
+            data_sparse = scipy.ndimage.gaussian_filter(data_sparse,
+                                                        sigma,
+                                                        order)
+            print("done filtering... (TO CHECK which axis are we filtering!!)")
 
-		# 
-		mask = np.zeros(distance.shape, dtype=bool)
-		mask[tuple(coords.T)] = True
-		markers, _ = ndi.label(mask)
-		labels = watershed(-distance, 
-						   markers, 
-						   mask=image)
-		#
-		labels = labels.astype('float32')
+        maxproj = np.max(data_sparse, axis=0)
 
-		# remove very small and very large ROIs
-		min_size = self.min_size_roi
-		max_size = self.max_size_roi
-		roi_centres = []
-		indexes = []
-		for k in tqdm(np.unique(labels), desc='looping over cells'):
-			idx = np.where(labels==k)
-			
-			
-			if idx[0].shape[0]<min_size or idx[0].shape[0]>max_size:
-				labels[idx]=np.nan
-			else:
-				
-				roi_centres.append([np.median(idx[0]),
-									 np.median(idx[1])])
-				indexes.append(idx)
+        # std = np.std(data_sparse, axis=0)
 
-		self.rois = np.vstack(roi_centres)		
-		self.indexes = indexes
-		
-	# 
-	def compute_contour_map(self, std_map, cell_ids):
-		''' Compute contours and save them to disk also
+        return maxproj
+
+    #
+    def make_std_map(self):
+
+        #
+        data_sparse = self.data[::self.subsample]
+        print("data into analysis: ", data_sparse.shape)
+
+        # filter once to remove much of the white noise
+        if True:
+            sigma = 1
+            order = 0
+            print(" gaussian filter width: ", sigma, ", order: ", order)
+            data_sparse = scipy.ndimage.gaussian_filter(data_sparse,
+                                                        sigma,
+                                                        order)
+
+            print("done filtering... (TO CHECK which axis are we filtering!!)")
+
+        #
+        if False:
+            kernel = [7, 1, 1]  # filter only across time
+            print(" median filter width: ", kernel)
+            data_sparse = signal.medfilt(data_sparse, kernel)
+            print("done median filtering... ")
+
+        #
+        if False:
+            # scipy.ndimage.gaussian_filter1d
+            # import scipy.ndimage # import gaussian_filter1d
+            # kernel = [1,1,7]
+            kernel = 30
+            print(" filter1d: ", kernel)
+            data_sparse = scipy.ndimage.gaussian_filter1d(data_sparse, kernel)
+            print("done filter1d... ", data_sparse.shape)
+
+        #
+        if False:
+
+            #
+            if False:
+                import parmap
+                n_cores = 8
+                idx = np.array_split(np.arange(data_sparse.shape[1]), n_cores)
+                # print ("data split idx: ", idx)
+
+                res = parmap.map(convolve_parallel,
+                                 idx,
+                                 data_sparse,
+                                 pm_processes=n_cores,
+                                 pm_pbar=True)
+
+                #
+                print(" len res: ", len(res), res[0].shape)
+
+                #
+                data_sparse = np.sum(data_sparse, axis=0)
+                print("recombined data sparse", data_sparse.shape)
+
+            #
+            else:
+                data_out = np.zeros(data_sparse.shape)
+                for k in trange(data_sparse.shape[1]):
+                    for p in range(data_sparse.shape[2]):
+                        data_out[:, k, p] = np.convolve(data_sparse[:, k, p], kernel, mode='same')
+
+            print("done window smoothing...")
+
+        std = np.std(data_sparse, axis=0)
+
+        return std
+
+    def plot_std_map(self, std):
+        #
+        temp = std.copy()
+        print("staring computing std...")
+        print("done computing std...")
+        #
+        idx = np.where(temp < self.vmin)
+        temp[idx] = 0
+        idx = np.where(temp > self.vmax)
+        temp[idx] = self.vmax
+
+        #
+        plt.figure()
+        plt.imshow(temp,
+                   )
+        plt.show()
+
+        return temp
+
+    def area_inside_convex_hull(self, pts):
+        lines = np.hstack([pts, np.roll(pts, -1, axis=0)])
+        area = 0.5 * abs(sum(x1 * y2 - x2 * y1 for x1, y1, x2, y2 in lines))
+        return area
+
+    def binarize_data(self, img, thresh):
+
+        # thresh = .15
+        idx1 = np.where(img > thresh)
+        idx2 = np.where(img <= thresh)
+        img[idx1] = 1
+        img[idx2] = 0
+
+        return img
+
+    #
+    def find_roi_boundaries(self, data):
+
+        #
+        image = data.copy()
+
+        for k in trange(self.n_smooth_steps, desc='gaussian filtering data'):
+            image = scipy.ndimage.gaussian_filter(image,
+                                                  self.sigma,
+                                                  self.order)
+
+        image = image.astype('int32')
+
+        #
+        image = self.binarize_data(image, self.vmin)
+
+        #
+        image = image.astype('int32')
+
+        # run watershed segmentation
+        distance = ndi.distance_transform_edt(image)
+        coords = peak_local_max(distance,
+                                footprint=np.ones((1, 1)),
+                                labels=image)
+
+        #
+        mask = np.zeros(distance.shape, dtype=bool)
+        mask[tuple(coords.T)] = True
+        markers, _ = ndi.label(mask)
+        labels = watershed(-distance,
+                           markers,
+                           mask=image)
+        #
+        labels = labels.astype('float32')
+
+        # remove very small and very large ROIs
+        min_size = self.min_size_roi
+        max_size = self.max_size_roi
+        roi_centres = []
+        indexes = []
+        for k in tqdm(np.unique(labels), desc='looping over cells'):
+            idx = np.where(labels == k)
+
+            if idx[0].shape[0] < min_size or idx[0].shape[0] > max_size:
+                labels[idx] = np.nan
+            else:
+
+                roi_centres.append([np.median(idx[0]),
+                                    np.median(idx[1])])
+                indexes.append(idx)
+
+        self.rois = np.vstack(roi_centres)
+        self.indexes = indexes
+
+    #
+    def compute_contour_map(self, std_map, cell_ids):
+        ''' Compute contours and save them to disk also
 		
 		'''
-		
-		# 
-		contour_array = []
-		for cell_id in cell_ids:
-			temp = np.zeros(std_map.shape, dtype='uint8')
-			temp[self.indexes[cell_id]]=1
-			#temp = temp.astype('uint8')
-			
-			#
-			contour, _ = cv2.findContours(temp, 
-											cv2.RETR_TREE, 
-											cv2.CHAIN_APPROX_SIMPLE)
-			contour = contour[0].squeeze()
-			contour = np.vstack((contour, contour[0]))
 
-			# 
-			contour_array.append(contour)
-	
+        #
+        contour_array = []
+        for cell_id in cell_ids:
+            temp = np.zeros(std_map.shape, dtype='uint8')
+            temp[self.indexes[cell_id]] = 1
+            # temp = temp.astype('uint8')
 
-		return contour_array
-		
+            #
+            contour, _ = cv2.findContours(temp,
+                                          cv2.RETR_TREE,
+                                          cv2.CHAIN_APPROX_SIMPLE)
+            contour = contour[0].squeeze()
+            contour = np.vstack((contour, contour[0]))
 
-	#
-	def show_contour_map(self, std_map, indexes, cell_ids, fig=False):
-		
-		if fig is True:
-			plt.figure()
-			
-		plt.imshow(std_map,
-				   vmin = self.vmin*0.7,
-				   vmax = self.vmax*1.3)
-		#
-		for p in cell_ids:
-			temp = np.zeros(std_map.shape)
-			temp[indexes[p]]=1
-			temp = temp.astype('uint8')
-			contour, _ = cv2.findContours(temp, 
-											cv2.RETR_TREE, 
-											cv2.CHAIN_APPROX_SIMPLE)
-			contour = contour[0].squeeze()
-			contour = np.vstack((contour, contour[0]))
+            #
+            contour_array.append(contour)
 
-			# 
-			for k in range(len(contour)-1):
-				plt.plot([contour[k][0], contour[k+1][0]],
-						 [contour[k][1], contour[k+1][1]],
-						c='white')
-			# 
-			z = np.vstack(indexes[p]).T
-			plt.text(np.median(z[:,1]), np.median(z[:,0]), str(p),c='red')
+        return contour_array
 
-		plt.show()
+    #
+    def show_contour_map(self, std_map, indexes, cell_ids, fig=False):
 
-	#	def show_contour_map(self, std_map, indexes, cell_ids, fig=None):
+        if fig is True:
+            plt.figure()
 
-	def compute_traces2(self, std_map, cell_ids=None, fig=None):
-		''' Same as below but visualize every single frame
-		'''
-		
-		if cell_ids is None:
-			cell_ids = np.arange(len(self.indexes))
-		print ("plotting cells: ", cell_ids)
-           
-		data = np.memmap(self.fname, dtype='uint16', mode='r')
-		data = data.reshape(-1,512,512)
-		print ("memmap : ", data.shape)
-			
-		#####################################################
-		plt.figure()
-		ax = plt.subplot(121)
-		ax.tick_params(axis='both', which='both', labelsize=20)
-		plt.ylabel("Neuron ID ", fontsize=20)
+        plt.imshow(std_map,
+                   vmin=self.vmin * 0.7,
+                   vmax=self.vmax * 1.3)
+        #
+        for p in cell_ids:
+            temp = np.zeros(std_map.shape)
+            temp[indexes[p]] = 1
+            temp = temp.astype('uint8')
+            contour, _ = cv2.findContours(temp,
+                                          cv2.RETR_TREE,
+                                          cv2.CHAIN_APPROX_SIMPLE)
+            contour = contour[0].squeeze()
+            contour = np.vstack((contour, contour[0]))
 
-		#
-		roi_traces = []
-		for k in range(len(cell_ids)):
-			roi_traces.append([])
-		
-		# loop over each frame
-		for p in trange(0, data.shape[0], self.trace_subsample):
+            #
+            for k in range(len(contour) - 1):
+                plt.plot([contour[k][0], contour[k + 1][0]],
+                         [contour[k][1], contour[k + 1][1]],
+                         c='white')
+            #
+            z = np.vstack(indexes[p]).T
+            plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
 
-			# grab frame
-			frame = data[p]
+        plt.show()
 
-			# loop over ROIS
-			ctr = 0
-			for k in cell_ids:
-				#loc = np.int32(np.array(self.rois[k])/1.5)  # why are we dividing by 1/5?  Is this due to smoothign!?
-				#loc = np.int32(np.array(self.rois[k]))  # why are we dividing by 1/5?  Is this due to smoothign!?
+    #	def show_contour_map(self, std_map, indexes, cell_ids, fig=None):
 
-				# grab roi
-				temp = frame[self.indexes[k]]
+    def compute_traces2(self, std_map, cell_ids=None, fig=None):
+        """ Same as below but visualize every single frame
+		"""
 
-				# normalize by surface area so that cells don't look way different because of footprint size
-				if True:
-					temp = temp/self.indexes[k][0].shape[0]
+        if cell_ids is None:
+            cell_ids = np.arange(len(self.indexes))
+        print("plotting cells: ", cell_ids)
 
-				# add pixel values inside roi
-				temp = np.nansum(temp)
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = data.reshape(-1, 512, 512)
+        print("memmap : ", data.shape)
 
-				# save
-				roi_traces[ctr].append(temp)
-				ctr+=1
-		#
-		roi_traces = np.array(roi_traces)
-		self.roi_traces = roi_traces
+        #####################################################
+        plt.figure()
+        ax = plt.subplot(121)
+        ax.tick_params(axis='both', which='both', labelsize=20)
+        plt.ylabel("Neuron ID ", fontsize=20)
 
-		#	
-		t = np.arange(0, data.shape[0], self.trace_subsample)/30.
-		ctr = 0
+        #
+        roi_traces = []
+        for k in range(len(cell_ids)):
+            roi_traces.append([])
 
-		# save the baselin of the cells in order to be able to offset it in the BMI
-		# TODO: this is important; it functions as a rough DFF method
-		#    TODO: we may wish to implement a more complex version of this
-		self.roi_f0s = np.zeros(len(roi_traces),dtype=np.float32)
-		for k in range(len(roi_traces)):
+        # loop over each frame
+        for p in trange(0, data.shape[0], self.trace_subsample):
 
-			temp = roi_traces[k]
-			self.roi_f0s[k] = np.median(temp)
-			temp = temp - self.roi_f0s[k]
-			plt.plot(t, temp+ctr*self.scale)
-		
-			ctr+=1
-		#
-		labels = cell_ids
-		labels_old = np.arange(0,ctr*self.scale,self.scale)
+            # grab frame
+            frame = data[p]
 
-		#
-		plt.yticks(labels_old, labels, fontsize=10)
-		plt.xlabel("Time (sec)",fontsize=20)
-        
+            # loop over ROIS
+            ctr = 0
+            for k in cell_ids:
+                # grab roi
+                temp = frame[self.indexes[k]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.indexes[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                roi_traces[ctr].append(temp)
+                ctr += 1
+        #
+        roi_traces = np.array(roi_traces)
+        self.roi_traces = roi_traces
+
+        #
+        t = np.arange(0, data.shape[0], self.trace_subsample) / 30.
+        ctr = 0
+
+        # save the baselin of the cells in order to be able to offset it in the BMI
+        # TODO: this is important; it functions as a rough DFF method
+        #    TODO: we may wish to implement a more complex version of this
+        self.roi_f0s = np.zeros(len(roi_traces), dtype=np.float32)
+        for k in range(len(roi_traces)):
+            temp = roi_traces[k]
+            self.roi_f0s[k] = np.median(temp)
+            temp = temp - self.roi_f0s[k]
+            plt.plot(t, temp + ctr * self.scale)
+
+            ctr += 1
+        #
+        labels = cell_ids
+        labels_old = np.arange(0, ctr * self.scale, self.scale)
+
+        #
+        plt.yticks(labels_old, labels, fontsize=10)
+        plt.xlabel("Time (sec)", fontsize=20)
+
         # 
-		ax2=plt.subplot(122)
-		new_plot = False
-		print (cell_ids)
-		self.show_contour_map(std_map,
-							  self.indexes,
-							  cell_ids, new_plot)
+        ax2 = plt.subplot(122)
+        new_plot = False
+        print(cell_ids)
+        self.show_contour_map(std_map,
+                              self.indexes,
+                              cell_ids, new_plot)
 
-		plt.show()
-		
-	def show_traces_ids(self, ids):
-		
-		#
-		fig=plt.figure()
-		
-		#
-		plt.title("Cell Ids: "+str(ids))
-		#	
-		t = np.arange(0, self.roi_traces[0].shape[0],1)/30.*self.trace_subsample
-		ctr = 0
-		for k in ids:
+        plt.show()
 
-			temp = self.roi_traces[k]
-			temp = temp- np.median(temp)
-			plt.plot(t, temp+ctr*self.scale)
-		
-			ctr+=1
-			
-		labels = np.arange(len(ids))
-		labels_old = np.arange(0,ctr*self.scale,self.scale)
-		
-		#
-		plt.yticks(labels_old, labels)
-		plt.xlabel("Time (sec)")
-        
-		plt.show()
+    def show_traces_ids(self, ids):
 
-	#
-	def find_reward_thresholds_absolute(self, normalize_peaks=True):
-		'''  Computes the aboslute |E1-E2|
+        #
+        fig = plt.figure()
+
+        #
+        plt.title("Cell Ids: " + str(ids))
+        #
+        t = np.arange(0, self.roi_traces[0].shape[0], 1) / 30. * self.trace_subsample
+        ctr = 0
+        for k in ids:
+            temp = self.roi_traces[k]
+            temp = temp - np.median(temp)
+            plt.plot(t, temp + ctr * self.scale)
+
+            ctr += 1
+
+        labels = np.arange(len(ids))
+        labels_old = np.arange(0, ctr * self.scale, self.scale)
+
+        #
+        plt.yticks(labels_old, labels)
+        plt.xlabel("Time (sec)")
+
+        plt.show()
+
+    #
+    def find_reward_thresholds_absolute(self, normalize_peaks=True):
+        '''  Computes the aboslute |E1-E2|
 		     and rewards anytime the ensembel goes above this value
 		     Note that self.roi_traces contains only the 4 neurons from the ensembes selected
 		     now
 		     - TODO: change this for the high and high_low functions also
 		
 		'''
-		
-		# TODO: refactor this part and send it to the BMI session code
-		
-		# run smoothing on each ensemble
-		if self.smooth_diff_function_flag:
 
-			# ensemble #1
-			for p in range(2):
-				smooth = np.zeros(self.roi_traces[p].shape)
-				for k in trange(self.rois_smooth_window, self.roi_traces[p].shape[0], 1):
-					smooth[k] = self.smooth_ca_time_series(self.roi_traces[p][k - self.rois_smooth_window:k])
-				#
-				self.roi_traces[p] = smooth
+        # TODO: refactor this part and send it to the BMI session code
 
-			# ensemble #2
-			for p in range(2,4,1):
-				smooth = np.zeros(self.roi_traces[p].shape)
-				for k in trange(self.rois_smooth_window, self.roi_traces[p].shape[0], 1):
-					smooth[k] = self.smooth_ca_time_series(self.roi_traces[p][k - self.rois_smooth_window:k])
-				#
-				self.roi_traces[p] = smooth
-			
-		#
-		self.roi_f0s = []
-		self.dff0 = []
-		for k in range(len(self.roi_traces)):
-			f0, dff0 = self.compute_dff0(self.roi_traces[k])
-			self.roi_f0s.append(f0)
-			self.dff0.append(dff0)
+        # run smoothing on each ensemble
+        if self.smooth_diff_function_flag:
 
-		# compute ensembles using the smooth + baseline removed values
-		E1 = self.dff0[0] - self.dff0[1]
-		E2 = self.dff0[2] - self.dff0[3]
+            # ensemble #1
+            for p in range(2):
+                smooth = np.zeros(self.roi_traces[p].shape)
+                for k in trange(self.rois_smooth_window, self.roi_traces[p].shape[0], 1):
+                    smooth[k] = self.smooth_ca_time_series(self.roi_traces[p][k - self.rois_smooth_window:k])
+                #
+                self.roi_traces[p] = smooth
 
-		# initialize the max and min values
-		max_E1 = np.max(E1)
-		max_E2 = np.max(E2)
+            # ensemble #2
+            for p in range(2, 4, 1):
+                smooth = np.zeros(self.roi_traces[p].shape)
+                for k in trange(self.rois_smooth_window, self.roi_traces[p].shape[0], 1):
+                    smooth[k] = self.smooth_ca_time_series(self.roi_traces[p][k - self.rois_smooth_window:k])
+                #
+                self.roi_traces[p] = smooth
 
-		print ("TODO: Normalize the peaks of the 2 Ensembles so the mice don't learn to use one esnemble against the other!!!!")
-		low = np.nan
-		high = min(max_E1, max_E2)*3
+        #
+        self.roi_f0s = []
+        self.dff0 = []
+        for k in range(len(self.roi_traces)):
+            f0, dff0 = self.compute_dff0(self.roi_traces[k])
+            self.roi_f0s.append(f0)
+            self.dff0.append(dff0)
 
-		print("low, high: ", low, high)
-		# difference between ensemble
-		diff = np.abs(E1 - E2)
+        # compute ensembles using the smooth + baseline removed values
+        E1 = self.dff0[0] - self.dff0[1]
+        E2 = self.dff0[2] - self.dff0[3]
 
-		#
-		self.n_sec_recording = int(diff.shape[0] / self.sample_rate)
-		self.n_rewards_random = self.n_sec_recording // self.sample_rate
-		self.n_rewards_default = int(self.n_rewards_random*0.3)
-		print("nsec recording: ", self.n_sec_recording,
-			  "max # of random rewards (i.e. every 30sec) ", self.n_rewards_random,
-			  "# of rewards for 30% of the time: ", self.n_rewards_default)
+        # initialize the max and min values
+        max_E1 = np.max(E1)
+        max_E2 = np.max(E2)
 
-		# loop over time series decreasing the rewards until we hit the random #
-		n_rewards = 0
-		stepper = 0.95
-		while n_rewards < self.n_rewards_default:
+        print(
+            "TODO: Normalize the peaks of the 2 Ensembles so the mice don't learn to use one esnemble against the other!!!!")
+        low = np.nan
+        high = min(max_E1, max_E2) * 3
 
-			# run inside while loop for eveyr setting of low and high until we hit
-			#   exact number of random rewards
-			k = 0
-			n_rewards = 0
-			reward_times = []
-			while k < diff.shape[0]:
+        print("low, high: ", low, high)
+        # difference between ensemble
+        diff = np.abs(E1 - E2)
 
-				temp_diff = diff[k]
+        #
+        self.n_sec_recording = int(diff.shape[0] / self.sample_rate)
+        self.n_rewards_random = self.n_sec_recording // self.sample_rate
+        self.n_rewards_default = int(self.n_rewards_random * 0.3)
+        print("nsec recording: ", self.n_sec_recording,
+              "max # of random rewards (i.e. every 30sec) ", self.n_rewards_random,
+              "# of rewards for 30% of the time: ", self.n_rewards_default)
 
-				if temp_diff >= high:
-					# high reward state reached
-					n_rewards += 1
-					reward_times.append([k, 1])
-					k += int(self.post_reward_lockout * self.sample_rate)
-				else:
-					k += 1
+        # loop over time series decreasing the rewards until we hit the random #
+        n_rewards = 0
+        stepper = 0.95
+        while n_rewards < self.n_rewards_default:
 
-			# print ("Reard times: ", reward_times)
-			# check exit condition otherwise decrase thresholds
-			#if len(reward_times) > 1:
-			# 	rewarded_times = np.vstack(reward_times)
-			#	high *= stepper
-			#else:
-			high *= stepper
+            # run inside while loop for eveyr setting of low and high until we hit
+            #   exact number of random rewards
+            k = 0
+            n_rewards = 0
+            reward_times = []
+            while k < diff.shape[0]:
 
-		print("updated rwards #: ", n_rewards, low, high)
+                temp_diff = diff[k]
 
-		self.reward_times = np.vstack(reward_times)
+                if temp_diff >= high:
+                    # high reward state reached
+                    n_rewards += 1
+                    reward_times.append([k, 1])
+                    k += int(self.post_reward_lockout * self.sample_rate)
+                else:
+                    k += 1
 
-		self.low = np.nan
-		self.high = high
-		self.E1 = E1
-		self.E2 = E2
-		self.diff = diff
+            # print ("Reard times: ", reward_times)
+            # check exit condition otherwise decrase thresholds
+            # if len(reward_times) > 1:
+            # 	rewarded_times = np.vstack(reward_times)
+            #	high *= stepper
+            # else:
+            high *= stepper
 
-		
+        print("updated rwards #: ", n_rewards, low, high)
 
-	#
-	def find_reward_thresholds_high(self):
+        self.reward_times = np.vstack(reward_times)
 
-		# run smoothing on each ensemble
-		if self.smooth_diff_function_flag:
+        self.low = np.nan
+        self.high = high
+        self.E1 = E1
+        self.E2 = E2
+        self.diff = diff
 
-			# ensemble #1
-			for p in range(2):
-				smooth = np.zeros(self.roi_traces[self.ensemble1[p]].shape)
-				for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble1[p]].shape[0], 1):
-					smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble1[p]][k - self.rois_smooth_window:k])
-				#
-				self.roi_traces[self.ensemble1[p]] = smooth
+    #
+    def find_reward_thresholds_high(self):
 
-			# ensemble #2
-			for p in range(2):
-				smooth = np.zeros(self.roi_traces[self.ensemble2[p]].shape)
-				for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble2[p]].shape[0], 1):
-					smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble2[p]][k - self.rois_smooth_window:k])
-				#
-				self.roi_traces[self.ensemble2[p]] = smooth
+        # run smoothing on each ensemble
+        if self.smooth_diff_function_flag:
 
-		# get baseline f0 after smoothing
-		self.roi_f0s = []
-		self.roi_f0s.append(np.median(self.roi_traces[self.ensemble1[0]], axis=0))
-		self.roi_f0s.append(np.median(self.roi_traces[self.ensemble1[1]], axis=0))
-		self.roi_f0s.append(np.median(self.roi_traces[self.ensemble2[0]], axis=0))
-		self.roi_f0s.append(np.median(self.roi_traces[self.ensemble2[1]], axis=0))
+            # ensemble #1
+            for p in range(2):
+                smooth = np.zeros(self.roi_traces[self.ensemble1[p]].shape)
+                for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble1[p]].shape[0], 1):
+                    smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble1[p]][k - self.rois_smooth_window:k])
+                #
+                self.roi_traces[self.ensemble1[p]] = smooth
 
-		# detrend traces and make ensembles
-		temp0 = self.roi_traces[self.ensemble1[0]] - self.roi_f0s[0]
-		temp1 = self.roi_traces[self.ensemble1[1]] - self.roi_f0s[1]
-		E1 = temp0 + temp1
+            # ensemble #2
+            for p in range(2):
+                smooth = np.zeros(self.roi_traces[self.ensemble2[p]].shape)
+                for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble2[p]].shape[0], 1):
+                    smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble2[p]][k - self.rois_smooth_window:k])
+                #
+                self.roi_traces[self.ensemble2[p]] = smooth
 
-		#
-		temp2 = self.roi_traces[self.ensemble2[0]] - self.roi_f0s[2]
-		temp3 = self.roi_traces[self.ensemble2[1]] - self.roi_f0s[3]
-		E2 = temp2 + temp3
+        # get baseline f0 after smoothing
+        self.roi_f0s = []
+        self.roi_f0s.append(np.median(self.roi_traces[self.ensemble1[0]], axis=0))
+        self.roi_f0s.append(np.median(self.roi_traces[self.ensemble1[1]], axis=0))
+        self.roi_f0s.append(np.median(self.roi_traces[self.ensemble2[0]], axis=0))
+        self.roi_f0s.append(np.median(self.roi_traces[self.ensemble2[1]], axis=0))
 
-		# initialize the max and min values
-		max_E1 = np.max(E1)
-		max_E2 = np.max(E2)
-		low = -max_E1
-		high = max_E2
+        # detrend traces and make ensembles
+        temp0 = self.roi_traces[self.ensemble1[0]] - self.roi_f0s[0]
+        temp1 = self.roi_traces[self.ensemble1[1]] - self.roi_f0s[1]
+        E1 = temp0 + temp1
 
-		print("low, high: ", low, high)
-		# difference between ensemble
-		diff = E1 - E2
+        #
+        temp2 = self.roi_traces[self.ensemble2[0]] - self.roi_f0s[2]
+        temp3 = self.roi_traces[self.ensemble2[1]] - self.roi_f0s[3]
+        E2 = temp2 + temp3
 
-		#
-		n_sec_recording = int(diff.shape[0] / self.sample_rate)
-		n_rewards_random = n_sec_recording // self.sample_rate
-		print("nsec recording: ", n_sec_recording,
-			  "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
+        # initialize the max and min values
+        max_E1 = np.max(E1)
+        max_E2 = np.max(E2)
+        low = -max_E1
+        high = max_E2
 
-		# loop over time series decreasing the rewards until we hit the random #
-		n_rewards = 0
-		stepper = 0.95
-		while n_rewards < n_rewards_random:
+        print("low, high: ", low, high)
+        # difference between ensemble
+        diff = E1 - E2
 
-			# run inside while loop for eveyr setting of low and high until we hit
-			#   exact number of random rewards
-			k = 0
-			n_rewards = 0
-			reward_times = []
-			while k < diff.shape[0]:
+        #
+        n_sec_recording = int(diff.shape[0] / self.sample_rate)
+        n_rewards_random = n_sec_recording // self.sample_rate
+        print("nsec recording: ", n_sec_recording,
+              "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
 
-				temp_diff = diff[k]
+        # loop over time series decreasing the rewards until we hit the random #
+        n_rewards = 0
+        stepper = 0.95
+        while n_rewards < n_rewards_random:
 
-				# #
-				# if temp_diff <= low:
-				# 	# low reward state reached
-				# 	n_rewards += 1
-				# 	reward_times.append([k, 0])
-				# 	k += int(self.post_reward_lockout * self.sample_rate)
-				# elif
-				if temp_diff >= high:
-					# high reward state reached
-					n_rewards += 1
-					reward_times.append([k, 1])
-					k += int(self.post_reward_lockout * self.sample_rate)
-				else:
-					k += 1
+            # run inside while loop for eveyr setting of low and high until we hit
+            #   exact number of random rewards
+            k = 0
+            n_rewards = 0
+            reward_times = []
+            while k < diff.shape[0]:
 
-			# print ("Reard times: ", reward_times)
-			# check exit condition otherwise decrase thresholds
-			if len(reward_times) > 1:
-				rewarded_times = np.vstack(reward_times)
-				high *= stepper
-			else:
-				high *= stepper
+                temp_diff = diff[k]
 
-		print("updated rwards #: ", n_rewards, low, high)
+                # #
+                # if temp_diff <= low:
+                # 	# low reward state reached
+                # 	n_rewards += 1
+                # 	reward_times.append([k, 0])
+                # 	k += int(self.post_reward_lockout * self.sample_rate)
+                # elif
+                if temp_diff >= high:
+                    # high reward state reached
+                    n_rewards += 1
+                    reward_times.append([k, 1])
+                    k += int(self.post_reward_lockout * self.sample_rate)
+                else:
+                    k += 1
 
-		self.reward_times = np.vstack(reward_times)
+            # print ("Reard times: ", reward_times)
+            # check exit condition otherwise decrase thresholds
+            if len(reward_times) > 1:
+                rewarded_times = np.vstack(reward_times)
+                high *= stepper
+            else:
+                high *= stepper
 
-		self.low = np.nan
-		self.high = high
-		self.E1 = E1
-		self.E2 = E2
-		self.diff = diff
+        print("updated rwards #: ", n_rewards, low, high)
 
-	#
-	def find_reward_thresholds_low_and_high(self):
+        self.reward_times = np.vstack(reward_times)
 
-		# run smoothing on each ensemble
-		if self.smooth_diff_function_flag:
+        self.low = np.nan
+        self.high = high
+        self.E1 = E1
+        self.E2 = E2
+        self.diff = diff
 
-			for p in range(2):
-				smooth = np.zeros(self.roi_traces[self.ensemble1[p]].shape)
-				for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble1[p]].shape[0],1):
-					smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble1[p]][k-self.rois_smooth_window:k])
-				#
-				self.roi_traces[self.ensemble1[p]] = smooth
+    #
+    def find_reward_thresholds_low_and_high(self):
 
-			for p in range(2):
-				smooth = np.zeros(self.roi_traces[self.ensemble2[p]].shape)
-				for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble2[p]].shape[0],1):
-					smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble2[p]][k-self.rois_smooth_window:k])
-				#
-				self.roi_traces[self.ensemble2[p]] = smooth
+        # run smoothing on each ensemble
+        if self.smooth_diff_function_flag:
 
+            for p in range(2):
+                smooth = np.zeros(self.roi_traces[self.ensemble1[p]].shape)
+                for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble1[p]].shape[0], 1):
+                    smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble1[p]][k - self.rois_smooth_window:k])
+                #
+                self.roi_traces[self.ensemble1[p]] = smooth
 
-		# detrend traces and make ensembles
-		temp0 = self.roi_traces[self.ensemble1[0]]-np.median(self.roi_traces[self.ensemble1[0]],axis=0)
-		temp1 = self.roi_traces[self.ensemble1[1]]-np.median(self.roi_traces[self.ensemble1[1]],axis=0)
-		E1 = temp0+temp1
+            for p in range(2):
+                smooth = np.zeros(self.roi_traces[self.ensemble2[p]].shape)
+                for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble2[p]].shape[0], 1):
+                    smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble2[p]][k - self.rois_smooth_window:k])
+                #
+                self.roi_traces[self.ensemble2[p]] = smooth
 
-		#
-		temp2 = self.roi_traces[self.ensemble2[0]]-np.median(self.roi_traces[self.ensemble2[0]],axis=0)
-		temp3 = self.roi_traces[self.ensemble2[1]]-np.median(self.roi_traces[self.ensemble2[1]],axis=0)
-		E2 = temp2+temp3
+        # detrend traces and make ensembles
+        temp0 = self.roi_traces[self.ensemble1[0]] - np.median(self.roi_traces[self.ensemble1[0]], axis=0)
+        temp1 = self.roi_traces[self.ensemble1[1]] - np.median(self.roi_traces[self.ensemble1[1]], axis=0)
+        E1 = temp0 + temp1
 
-		# initialize the max and min values
-		max_E1 = np.max(E1)
-		max_E2 = np.max(E2)
-		low = -max_E1
-		high = max_E2
+        #
+        temp2 = self.roi_traces[self.ensemble2[0]] - np.median(self.roi_traces[self.ensemble2[0]], axis=0)
+        temp3 = self.roi_traces[self.ensemble2[1]] - np.median(self.roi_traces[self.ensemble2[1]], axis=0)
+        E2 = temp2 + temp3
 
-		print ("low, high: ", low, high)
-		# difference between ensemble
-		diff = E1-E2
+        # initialize the max and min values
+        max_E1 = np.max(E1)
+        max_E2 = np.max(E2)
+        low = -max_E1
+        high = max_E2
 
-		#
-		n_sec_recording = int(diff.shape[0]/self.sample_rate)
-		n_rewards_random = n_sec_recording//self.sample_rate
-		print ("nsec recording: ", n_sec_recording,
-			   "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
+        print("low, high: ", low, high)
+        # difference between ensemble
+        diff = E1 - E2
 
-		# loop over time series decreasing the rewards until we hit the random #
-		n_rewards = 0
-		stepper = 0.95
-		while n_rewards<n_rewards_random:
+        #
+        n_sec_recording = int(diff.shape[0] / self.sample_rate)
+        n_rewards_random = n_sec_recording // self.sample_rate
+        print("nsec recording: ", n_sec_recording,
+              "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
 
-			# run inside while loop for eveyr setting of low and high until we hit 
-			#   exact number of random rewards
-			k=0
-			n_rewards = 0
-			reward_times = []
-			while k<diff.shape[0]:
-				
-				temp_diff = diff[k]
-				
-				#
-				if temp_diff<=low:
-					# low reward state reached
-					n_rewards+=1
-					reward_times.append([k,0])
-					k+= int(self.post_reward_lockout*self.sample_rate)
-				elif temp_diff>=high:
-					# high reward state reached
-					n_rewards+=1
-					reward_times.append([k,1])
-					k+= int(self.post_reward_lockout*self.sample_rate)
-				else:
-					k+=1
+        # loop over time series decreasing the rewards until we hit the random #
+        n_rewards = 0
+        stepper = 0.95
+        while n_rewards < n_rewards_random:
 
-			#print ("Reard times: ", reward_times)
-			# check exit condition otherwise decrase thresholds
-			if len(reward_times)>1:
-				rewarded_times = np.vstack(reward_times)
-				if self.balance_ensemble_rewards_flag:
-					idx_E1 = np.where(rewarded_times[:,1]==0)[0].shape[0]
-					idx_E2 = np.where(rewarded_times[:,1]==1)[0].shape[0]
-					if idx_E1 <= idx_E2:
-						low*=stepper
-					else:
-						high*=stepper
-				else:
-					low*=stepper
-					high*=stepper
-			else:
-				low*=stepper
-				high*=stepper
+            # run inside while loop for eveyr setting of low and high until we hit
+            #   exact number of random rewards
+            k = 0
+            n_rewards = 0
+            reward_times = []
+            while k < diff.shape[0]:
 
-		print ("updated rwards #: ", n_rewards, low, high)
+                temp_diff = diff[k]
 
-		self.reward_times = np.vstack(reward_times)
-		
-		self.low = low
-		self.high = high
-		self.E1 = E1
-		self.E2 = E2
-		self.diff = diff
-		
-	#
-	def plot_rewarded_ensembles(self):
-		
-		#
-		plt.figure()
-		
-		t = np.arange(self.diff.shape[0])/self.sample_rate
-		plt.plot([t[0],t[-1]], [self.low, self.low], '--', c='grey')
-		plt.plot([t[0],t[-1]], [self.high, self.high], '--', c='grey')
-		plt.plot(t,self.E1,c='blue',alpha=.1,label='E1')
-		plt.plot(t,self.E2,c='red',alpha=.1,label='E2')
-		plt.plot(t, self.diff,c='black', alpha=.8, label='Difference')
-		plt.plot([t[0],t[-1]], [0, 0], c='black', linewidth=3)
+                #
+                if temp_diff <= low:
+                    # low reward state reached
+                    n_rewards += 1
+                    reward_times.append([k, 0])
+                    k += int(self.post_reward_lockout * self.sample_rate)
+                elif temp_diff >= high:
+                    # high reward state reached
+                    n_rewards += 1
+                    reward_times.append([k, 1])
+                    k += int(self.post_reward_lockout * self.sample_rate)
+                else:
+                    k += 1
 
-		ymaxes = np.max(np.abs(self.diff))
-		#
-		for k in range(len(self.reward_times)):
-			temp = self.reward_times[k]
+            # print ("Reard times: ", reward_times)
+            # check exit condition otherwise decrase thresholds
+            if len(reward_times) > 1:
+                rewarded_times = np.vstack(reward_times)
+                if self.balance_ensemble_rewards_flag:
+                    idx_E1 = np.where(rewarded_times[:, 1] == 0)[0].shape[0]
+                    idx_E2 = np.where(rewarded_times[:, 1] == 1)[0].shape[0]
+                    if idx_E1 <= idx_E2:
+                        low *= stepper
+                    else:
+                        high *= stepper
+                else:
+                    low *= stepper
+                    high *= stepper
+            else:
+                low *= stepper
+                high *= stepper
 
-			if temp[1]==0:
-				plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='red')
-			else:
-				plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='blue')
+        print("updated rwards #: ", n_rewards, low, high)
 
-		# replot two random rewards just to make nice legend
-		idx1 = np.where(self.reward_times[:,1]==0)[0].shape[0]
-		idx2 = np.where(self.reward_times[:,1]==1)[0].shape[0]
+        self.reward_times = np.vstack(reward_times)
 
-		plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='red', label='E1 rewarded # '+str(idx1),)
-		plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes,ymaxes], '--', c='blue', label='E2 rewarded # '+str(idx2),)
-		plt.legend()
+        self.low = low
+        self.high = high
+        self.E1 = E1
+        self.E2 = E2
+        self.diff = diff
 
-		plt.title("Rec duration: " + str(int(t[-1])) + " sec "+
-				  "\n expected # of random rewards: "+str(int(t[-1]/30))+
-				  "\n actual # of provided rewards: "+str(self.n_rewards_default))
-		plt.show()
+    #
+    def plot_rewarded_ensembles(self):
 
+        #
+        plt.figure()
 
+        t = np.arange(self.diff.shape[0]) / self.sample_rate
+        plt.plot([t[0], t[-1]], [self.low, self.low], '--', c='grey')
+        plt.plot([t[0], t[-1]], [self.high, self.high], '--', c='grey')
+        plt.plot(t, self.E1, c='blue', alpha=.1, label='E1')
+        plt.plot(t, self.E2, c='red', alpha=.1, label='E2')
+        plt.plot(t, self.diff, c='black', alpha=.8, label='Difference')
+        plt.plot([t[0], t[-1]], [0, 0], c='black', linewidth=3)
+
+        ymaxes = np.max(np.abs(self.diff))
+        #
+        for k in range(len(self.reward_times)):
+            temp = self.reward_times[k]
+
+            if temp[1] == 0:
+                plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='red')
+            else:
+                plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue')
+
+        # replot two random rewards just to make nice legend
+        idx1 = np.where(self.reward_times[:, 1] == 0)[0].shape[0]
+        idx2 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
+
+        plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='red', label='E1 rewarded # ' + str(idx1), )
+        plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E2 rewarded # ' + str(idx2), )
+        plt.legend()
+
+        plt.title("Rec duration: " + str(int(t[-1])) + " sec " +
+                  "\n expected # of random rewards: " + str(int(t[-1] / 30)) +
+                  "\n actual # of provided rewards: " + str(self.n_rewards_default))
+        plt.show()
 
 
 def get_binary_std_map(std,
-					   vmax=1500):
-
+                       vmax=1500):
     #
     fig = plt.figure()
 
     sigma = 1.5
 
     #
-    #ax=plt.subplot(111)
+    # ax=plt.subplot(111)
     plt.title("std map")
     live_image_vmin = 0
     live_image_vmax = vmax
 
     #
     image_obj = plt.imshow(std,
-              vmin=live_image_vmin,
-              vmax=live_image_vmax,
+                           vmin=live_image_vmin,
+                           vmax=live_image_vmax,
                            interpolation='none'
-              )
+                           )
+    plt.colorbar()
 
     axmin = fig.add_axes([0.05, 0.90, 0.1, 0.03])
-    axmax  = fig.add_axes([0.05, 0.93, 0.1, 0.03])
+    axmax = fig.add_axes([0.05, 0.93, 0.1, 0.03])
 
     #
     smin = Slider(axmin, 'Min', 0, live_image_vmax, valinit=live_image_vmin)
@@ -1819,86 +1794,97 @@ def get_binary_std_map(std,
 
     #
     def update_clim1(val):
-        if smin.val<smax.val:
+        if smin.val < smax.val:
             image_obj.set_clim([smin.val,
                                 smax.val])
+
+            #
+            idx = np.where(std<10)
+            std[idx]=np.nan
+
             res = scipy.ndimage.gaussian_filter(std, sigma=sigma)
             image_obj.set_data(res)
         else:
-            smin.val = smax.val-1
+            smin.val = smax.val - 1
 
     #
     smin.on_changed(update_clim1)
     smax.on_changed(update_clim1)
 
     #
-    #plt.show(block=True)
+    # plt.show(block=True)
 
     return smin, smax
 
 
-def get_img_std(smin, smax, std_map,bmi_c):
+def get_img_std(smin, smax, std_map, bmi_c):
     #
-    print ("max proj values (vmin, vmax): ", smin.val, smax.val)
+    print("max proj values (vmin, vmax): ", smin.val, smax.val)
 
     img_std = std_map.copy()
-    idx = np.where(img_std<smin.val)
-    idx2 = np.where(img_std>=smin.val)
+    idx = np.where(img_std < smin.val)
+    idx2 = np.where(img_std >= smin.val)
 
     img_std[idx] = 0
     img_std[idx2] = 1
     sigma = 1.5
     img_std = scipy.ndimage.gaussian_filter(img_std, sigma=sigma)
 
-    bmi_c.vmin = smin.val; bmi_c.vmax = smax.val
-    
+    bmi_c.vmin = smin.val;
+    bmi_c.vmax = smax.val
+
     return bmi_c, img_std
-    
-    
+
+
 #
-def get_rois_stardist2d(img):
+def get_rois_stardist2d(img,
+                        min_size,
+                        max_size):
     # prints a list of available models
-    print (StarDist2D.from_pretrained())
+    print(StarDist2D.from_pretrained())
 
     # creates a pretrained model
     model = StarDist2D.from_pretrained('2D_versatile_fluo')
 
-
-    #img = normalize(img[16], 1,99.8, axis=axis_norm)
+    # img = normalize(img[16], 1,99.8, axis=axis_norm)
     labels, details = model.predict_instances(img)
 
-    plt.figure(figsize=(8,8))
-    plt.imshow(img if img.ndim==2 else img[...,0], clim=(0,1), cmap='gray')
+
+    #######################################
+    #min_size_roi = 15
+    #max_size_roi = 700
+    # bmi_c.sigma = 0.1
+
+    labels = labels.astype('float32')
+
+    # remove very small and very large ROIs
+    #min_size = min_size_roi
+    #max_size = max_size_roi
+    roi_centres = []
+    indexes = []
+    for k in tqdm(np.unique(labels), desc='looping over cells'):
+        idx = np.where(labels == k)
+
+        if idx[0].shape[0] < min_size or idx[0].shape[0] > max_size:
+            labels[idx] = np.nan
+            img[idx] = 0
+        else:
+
+            roi_centres.append([np.median(idx[0]),
+                                np.median(idx[1])])
+            indexes.append(idx)
+
+    rois = np.vstack(roi_centres)
+    indexes = indexes
+
+
+    plt.figure(figsize=(8, 8))
+    plt.imshow(img if img.ndim == 2 else img[..., 0], clim=(0, 1), cmap='gray')
     plt.imshow(labels, cmap='viridis', alpha=0.5)
     plt.axis('off');
 
     plt.show()
 
-    #######################################
-    min_size_roi = 15
-    max_size_roi = 700
-    #bmi_c.sigma = 0.1
-
-    labels = labels.astype('float32')
-
-    # remove very small and very large ROIs
-    min_size = min_size_roi
-    max_size = max_size_roi
-    roi_centres = []
-    indexes = []
-    for k in tqdm(np.unique(labels), desc='looping over cells'):
-        idx = np.where(labels==k)
-
-
-        if idx[0].shape[0]<min_size or idx[0].shape[0]>max_size:
-            labels[idx]=np.nan
-        else:
-
-            roi_centres.append([np.median(idx[0]),
-                                 np.median(idx[1])])
-            indexes.append(idx)
-
-    rois = np.vstack(roi_centres)
-    indexes = indexes
+    #
 
     return rois, indexes
