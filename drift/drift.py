@@ -81,7 +81,7 @@ class DriftCorrection():
                  ):
 
         #
-        self.n_frames_smooth = 5
+        self.n_frames_smooth = 15
         
         # flag that computes average motion over last n frames for recomputing r,c values to bmi
         self.smooth_motion_flag = True

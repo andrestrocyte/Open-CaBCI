@@ -157,7 +157,7 @@ class BMI():
         self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
 
         #
-        self.rois_smooth_window = 5                 # Number of frames to use to smooth the ROI traces
+        self.rois_smooth_window = 15                 # Number of frames to use to smooth the ROI traces
                                                     # to be developed/changed further
 
         # complicated paramter which turns on realitime DFF0 computation only after a certain period of time
@@ -380,7 +380,7 @@ class BMI():
         self.post_reward_lockout = data['post_reward_lockout']
 
         #
-        self.rois_smooth_window = data['rois_smooth_window']
+        #self.rois_smooth_window = data['rois_smooth_window']
 
         #
         self.smooth_diff_function_flag = data['smooth_diff_function_flag']
@@ -822,6 +822,23 @@ class BMI():
         # list to add to when reading values
         self.bscope_read_values = np.zeros(2,dtype=np.float32)
 
+    def f0_update(self):
+        ''' This function is supposed to counter any potential bleaching artifacts
+
+
+        '''
+
+        pass
+
+        if False:
+            _, temp = compute_dff0_with_reference(temp,
+                                              self.rois_traces_raw[p,
+                                              self.n_ttl[0] - self.n_ttl_to_start_applying_DFF0_computation:
+                                              self.n_ttl[0]]
+                                              )
+
+
+
     #
     def bmi_update(self):
 
@@ -836,6 +853,9 @@ class BMI():
 
         # smooth the ROIs using the external function
         self.smooth_rois()
+
+        #
+        #self.f0_update()
 
         # compute the ensemble activity from ROIs loaded
         self.update_ensembles()
@@ -890,13 +910,13 @@ class BMI():
                 # Note: this is also risky as this means the thresholds computed in the calibration step
                 #        might not be completely accurate any longer
                 #
-                else:
-                    # so here we feed current chunk of data going back n frames
-                    #  plus the refrenc trace which should be the last n frames of raw data; usually take at least 30 seconds
-                    _, temp = compute_dff0_with_reference(temp,
-                                self.rois_traces_raw[p,self.n_ttl[0]-self.n_ttl_to_start_applying_DFF0_computation:
-                                                        self.n_ttl[0]]
-                                                        )
+                # else:
+                #     # so here we feed current chunk of data going back n frames
+                #     #  plus the refrenc trace which should be the last n frames of raw data; usually take at least 30 seconds
+                #     _, temp = compute_dff0_with_reference(temp,
+                #                 self.rois_traces_raw[p,self.n_ttl[0]-self.n_ttl_to_start_applying_DFF0_computation:
+                #                                         self.n_ttl[0]]
+                #                                         )
 
                 #
                 self.rois_traces_smooth[p,self.n_ttl[0]] = smooth_ca_time_series(temp)
