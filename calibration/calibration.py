@@ -104,11 +104,15 @@ class BMICalibration():
                  max_n_seconds_session,
                  n_frames,
                  video_width,
-                 video_length):
+                 video_length,
+                 motion_flag):
 
         #
         print("... initializing BMI parameters...")
         print("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
+
+        #
+        self.motion_flag = motion_flag
 
         #
         self.video_width = video_width
@@ -226,16 +230,57 @@ class BMICalibration():
         #
         self.initialize_reward_conditions_and_parameters()
 
-        # lokcout random reward for at least 5 seconds
+        #
+        self.initialize_motion_correction_variable()
 
         #
-        # bmi.shmem_ensemble_state.name,
-        # bmi.shmem_tone_state.name,
-        # bmi.shmem_termination_flag.name,
-        # bmi.shmem_water_reward.name,
+        self.initialize_dynamic_f0_variable()
+
+
+    #
+    def initialize_dynamic_f0_variable(self):
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int32)
+        self.shmem_dynamic_f0_flag = shared_memory.SharedMemory(create=True,
+                                                                       size=aa.nbytes)
 
         #
+        self.dynamic_f0_flag = np.ndarray(aa.shape,
+                                                 dtype=aa.dtype,
+                                                 buffer=self.shmem_dynamic_f0_flag.buf)
 
+        #
+        self.dynamic_f0_flag[0] = 0
+
+    #
+    def initialize_motion_correction_variable(self):
+
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int32)
+        self.shmem_motion_correction_flag = shared_memory.SharedMemory(create=True,
+                                                                     size=aa.nbytes)
+
+        #
+        self.motion_correction_flag = np.ndarray(aa.shape,
+                                             dtype=aa.dtype,
+                                             buffer=self.shmem_motion_correction_flag.buf)
+
+        #
+        self.motion_correction_flag[0] = self.motion_flag
+
+    #
     def initialize_ensemble_state_and_rois(self):
         '''
             This variable keeps track of the locally computed E1-E2

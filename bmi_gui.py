@@ -108,6 +108,7 @@ if __name__ ==  '__main__':
                               n_frames_session,
                               video_width,
                               video_height,
+                              motion_flag,
                               )
     else:
         bmi = BMI(simulation_flag_bmi,
