@@ -364,7 +364,8 @@ class PlotROIs():
             #
             self.image_obj = self.ax_image.imshow(self.live_frame[0],
                                                   vmin=self.live_image_vmin,
-                                                  vmax=self.live_image_vmax)
+                                                  vmax=self.live_image_vmax,
+                                                  interpolation="none")
 
             #
             #axcolor = 'lightgoldenrodyellow'
@@ -417,7 +418,8 @@ class PlotROIs():
                                                 vmin=0,
                                                 vmax=255,
                                                 aspect='auto',
-                                                cmap='binary_r'
+                                                cmap='binary_r',
+                                                interpolation="none"
                                                #
                                               )
 

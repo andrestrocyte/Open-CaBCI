@@ -67,12 +67,10 @@ def correct_drift(iter_number,
 ######################################################################################
 class DriftCorrection():
 
-
     ''' Class that implements ONLINE drift correction of imaging data using phase correlation
 
-        Input: ....
-        Output: ...
-
+        Input: [ca] raw image using shared-memory array from bmi
+        Output: r, c: 2 integers which indicate the shift in the x-y directions
     '''
 
     def __init__(self,
@@ -81,6 +79,15 @@ class DriftCorrection():
                  shmem_drift_xy_values,
                  shmem_termination_flag,
                  ):
+
+        #
+        self.n_frames_smooth = 5
+        
+        # flag that computes average motion over last n frames for recomputing r,c values to bmi
+        self.smooth_motion_flag = True
+        
+        # initialize a small array that will hold the latest n images in memory for smoothing pre-motion detection
+        self.motion_history = np.zeros((self.n_frames_smooth,2), dtype=np.int32)
 
         #
         self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
@@ -112,6 +119,9 @@ class DriftCorrection():
         #
         while True:
 
+            # grab latest image and shift the previous memory frames 1 over
+            self.read_frame_shift_array()
+
             #
             self.detect_drift()
 
@@ -119,8 +129,16 @@ class DriftCorrection():
             if self.termination_flag[0]:
                 break
 
-            #
+    #
+    def read_frame_shift_array(self):
 
+        # shift image array 1 over
+        self.image_array[:-1] = self.image_array[1:]
+
+        # insert the latest image
+        self.image_array[-1] = self.live_frame[0]
+        
+    #
     def initialize_termination_flag(self):
         #
         aa = np.zeros((1,), dtype=np.int64)
@@ -169,6 +187,12 @@ class DriftCorrection():
         self.live_frame = np.ndarray(aa.shape,
                                  dtype=aa.dtype,
                                  buffer=self.existing_shm_live_frame.buf)
+                                 
+        ########################################
+        # initialize a small array that will hold the latest n images in memory for smoothing pre-motion detection
+        self.image_array = np.zeros((self.n_frames_smooth, 512, 512),
+                                    dtype=np.uint16)
+
     #
     def load_template(self):
         ''' Load template computed in the calibration step
@@ -187,23 +211,33 @@ class DriftCorrection():
     def detect_drift(self):
 
         #
-        r, c = compute_drift_single_frame(self.template,
-                                          self.live_frame)
+        #r, c = compute_drift_single_frame(self.template,
+        #                                  self.live_frame)
+
+        #
+        r, c = compute_drift_multiple_frames(self.template,
+                                             self.image_array)
 
         #
         # print ("DRIFT CLASS motion detection (r,c): ", r, c)
 
+        # also shift the motion history over 1 frame:
+        if self.smooth_motion_flag:
+            self.motion_history[:-1] = self.motion_history[1:]
+            self.motion_history[-1] = [r,c]
+            
+            r = np.mean(self.motion_history[:,0])
+            c = np.mean(self.motion_history[:,1])
+
         # check if delta_r and delta_c are too large, and limit huge jumps which could be errors
         # if jumps are too high then just levae the previous drift in place
-        if (self.drift_xy_values_previous[0]-r)<=self.max_motion_per_frame and \
-           (self.drift_xy_values_previous[1] - c) <= self.max_motion_per_frame:
-
-            # save values for bmi to implement
+        if (self.drift_xy_values_previous[0]-r)<=self.max_motion_per_frame:
             self.drift_xy_values[0] = r
+        if (self.drift_xy_values_previous[1] - c) <= self.max_motion_per_frame:
             self.drift_xy_values[1] = c
         else:
+            print ("  ************************** LARGE motion detected > max allowed (x,y detected): ", r,c)
             pass
-            #print ("  ************************** LARGE motion detected > max allowed (x,y detected): ", r,c)
 
 #
 def phase_correlation(a, b):
@@ -413,21 +447,21 @@ def make_template(data,
 
 #
 def compute_drift_multi_frames(iter_number,
-							   bmi_c,
+                               bmi_c,
                                subsample=1,
                                n_cores=1):
-	
-	#							   
+    
+    #                              
     template = bmi_c.template
     data = bmi_c.data
     fname = bmi_c.fname
-	
-	# make sure to save different files each time a step is processed
-	# TODO: no need to work with the entire dataset here, could just do a subset
+    
+    # make sure to save different files each time a step is processed
+    # TODO: no need to work with the entire dataset here, could just do a subset
     if iter_number >0:
         fname = fname.replace('.raw','_'+str(iter_number-1)+".raw")
-	
-	#
+    
+    #
     print ("computing motion on: ", fname)
 
     #
@@ -472,6 +506,30 @@ def compute_drift_multi_frames(iter_number,
     #
     return np.int32(shifts), corr_maxs
 
+
+#
+def compute_drift_multiple_frames(template, images):
+
+    #
+    # take sample of data
+    image = np.mean(images, axis=0)
+
+    #
+    img_corr = phase_correlation(image, template)
+
+    r, c = np.unravel_index(img_corr.argmax(), img_corr.shape)
+
+    #
+    if r > 512 / 2:
+        r = r - 512
+
+    if c > 512 / 2:
+        c = c - 512
+
+    #
+    return int(r), int(c)
+
+
 #
 def compute_drift_single_frame(template, image):
 
@@ -493,10 +551,7 @@ def compute_drift_single_frame(template, image):
     #
     return int(r), int(c)
 
-
-
-
-
+#
 def template_generation(bmi_c,
                         ):
     n_iter = 1
@@ -613,5 +668,5 @@ def make_motion_template_and_correct_data(bmi_c):
 
 
 
-					 
+                     
 
