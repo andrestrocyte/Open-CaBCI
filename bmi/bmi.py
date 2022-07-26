@@ -104,7 +104,8 @@ class BMI():
         print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
 
         #
-        self.apply_motion_correction_flag = motion_flag
+        self.motion_flag = motion_flag
+        self.initialize_motion_correction_variable()
         
         #
         self.video_width = video_width
@@ -160,12 +161,15 @@ class BMI():
         self.rois_smooth_window = 15                 # Number of frames to use to smooth the ROI traces
                                                     # to be developed/changed further
 
-        # complicated paramter which turns on realitime DFF0 computation only after a certain period of time
+        # parameter which turns on realitime DFF0 computation only after a certain period of time
         # TODO: determine if online DFF0 is required:
         #  things to evaluate: bleaching type of slow baseline drift...
         #     but for this slow drift we can use very long windows (like 2mins or more)
         # - for faster update not sure this is correct
-        self.n_ttl_to_start_applying_DFF0_computation = 30 *self.sampleRate_2P
+        self.n_ttl_to_start_applying_dynamic_f0 = 90 *self.sampleRate_2P
+
+        # for dynamic f0 updates how often to update the f0 baseline in frames
+        self.update_f0_time = 10 * self.sampleRate_2P
 
         # start the ttl frame counter at 0
         self.ttl_computed = 0
@@ -231,6 +235,9 @@ class BMI():
         
         #
         self.initialize_video_frame()
+
+        #
+        self.initialize_dynamic_f0_variable()
         
     #
     def initialize_video_frame(self):
@@ -278,6 +285,49 @@ class BMI():
 
         #
         self.termination_flag[:] = aa[:]
+
+        #
+    def initialize_dynamic_f0_variable(self):
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int32)
+        self.shmem_dynamic_f0_flag = shared_memory.SharedMemory(create=True,
+                                                                       size=aa.nbytes)
+
+        #
+        self.dynamic_f0_flag = np.ndarray(aa.shape,
+                                                 dtype=aa.dtype,
+                                                 buffer=self.shmem_dynamic_f0_flag.buf)
+
+        #
+        self.dynamic_f0_flag[0] = 0
+
+    #
+    def initialize_motion_correction_variable(self):
+
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int32)
+        self.shmem_motion_correction_flag = shared_memory.SharedMemory(create=True,
+                                                                     size=aa.nbytes)
+
+        #
+        self.motion_correction_flag = np.ndarray(aa.shape,
+                                             dtype=aa.dtype,
+                                             buffer=self.shmem_motion_correction_flag.buf)
+
+        #
+        self.motion_correction_flag[0] = self.motion_flag
 
     #
     def initialize_water_reward(self):
@@ -768,31 +818,6 @@ class BMI():
         time.sleep(2)
 
     #
-    # def initalize_lick_detector_reader(self):
-    #   #
-    #     if self.simulation_mode_lick_detector == True:
-    #         self.lick_detector_ttl_task = Simulation(self.fname_ttl)
-    #     else:
-    #
-    #         #
-    #         self.lick_detector_ttl_task = nidaqmx.Task('lick_detector')
-    #         #print ("iniitlied bmi online")
-    #         # set TTL pulse reader from 2p system
-    #         self.lick_detector_ttl_task.ai_channels.add_ai_voltage_chan("Dev3/ai1",
-    #                                                       terminal_config=TerminalConfiguration.NRSE)
-    #
-    #         #
-    #         self.lick_detector_ttl_task.timing.cfg_samp_clk_timing(self.sampleRate_NI,
-    #                                                  # samps_per_chan=pointsToPlot*2,
-    #                                                  sample_mode=AcquisitionType.CONTINUOUS )
-    #
-    #         # start the TTL reader (not required in simulation mode)
-    #         self.lick_detector_ttl_task.start()
-    #
-    #     # list that holds all the lick detector infor + meta data
-    #     self.lick_detector_value_abstime_nttl = np.zeros((self.n_frames,2),dtype=np.float32)
-            
-    #
     def initialize_bscope_ttl_pulse_reader(self):
 
         #
@@ -822,22 +847,32 @@ class BMI():
         # list to add to when reading values
         self.bscope_read_values = np.zeros(2,dtype=np.float32)
 
-    def f0_update(self):
+    #
+    def dynamic_f0(self):
+
         ''' This function is supposed to counter any potential bleaching artifacts
-
-
+            it takes the current ROI activity over recent history (set by parameter)
+            and then subtracts
+            - it recomputes f0 every 1 second (or less is also ok)
         '''
 
-        pass
+        # only change f0 values at most every 10 or much more seconds;
+        # use at lesat 90 seconds history or more is even better
+        if self.n_ttl[0]%self.update_f0_time==0:
 
-        if False:
-            _, temp = compute_dff0_with_reference(temp,
-                                              self.rois_traces_raw[p,
-                                              self.n_ttl[0] - self.n_ttl_to_start_applying_DFF0_computation:
-                                              self.n_ttl[0]]
-                                              )
+            #
+            print (">>>>>>>>>>>>>>>Updating f0 values<<<<<<<<<<<<<<<<<<")
 
+            # loop over each cell
+            for p in range(self.rois_traces_raw.shape[0]):
 
+                # compute median value over the past frames
+                roi_history = self.rois_traces_raw[p,
+                                           self.n_ttl[0] - self.n_ttl_to_start_applying_dynamic_f0:
+                                           self.n_ttl[0]]
+
+                #
+                self.roi_f0s[p] = np.median(roi_history, axis=0)
 
     #
     def bmi_update(self):
@@ -854,8 +889,9 @@ class BMI():
         # smooth the ROIs using the external function
         self.smooth_rois()
 
-        #
-        #self.f0_update()
+        # check if doing dynamic f0 updates
+        if self.dynamic_f0_flag[0]:
+            self.dynamic_f0()
 
         # compute the ensemble activity from ROIs loaded
         self.update_ensembles()
@@ -895,31 +931,13 @@ class BMI():
             # loop over each cell
             for p in range(self.rois_traces_raw.shape[0]):
                 #
-                temp = self.rois_traces_raw[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
-
-                # There are two options for deterneding and computing a DFF0 
-                # option 1: use the calibration time roi_f0s
-                #  Note: this is risky to do:
-                #          - sometimes there is signficant drift which we don't correct for (yet!)
-                # WE FIXED THIS NOW
-                #if False or self.n_ttl[0]<self.n_ttl_to_start_applying_DFF0_computation:
-                if True:
-                    temp = (temp - self.roi_f0s[p])/self.roi_f0s[p]
-                
-                # Recompute baseline dynamically to ensure alignemtn of data
-                # Note: this is also risky as this means the thresholds computed in the calibration step
-                #        might not be completely accurate any longer
-                #
-                # else:
-                #     # so here we feed current chunk of data going back n frames
-                #     #  plus the refrenc trace which should be the last n frames of raw data; usually take at least 30 seconds
-                #     _, temp = compute_dff0_with_reference(temp,
-                #                 self.rois_traces_raw[p,self.n_ttl[0]-self.n_ttl_to_start_applying_DFF0_computation:
-                #                                         self.n_ttl[0]]
-                #                                         )
+                roi_history = self.rois_traces_raw[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
 
                 #
-                self.rois_traces_smooth[p,self.n_ttl[0]] = smooth_ca_time_series(temp)
+                rois_dff = (roi_history - self.roi_f0s[p])/self.roi_f0s[p]
+
+                #
+                self.rois_traces_smooth[p,self.n_ttl[0]] = smooth_ca_time_series(rois_dff)
 
         else:
             #
@@ -1190,17 +1208,17 @@ class BMI():
         self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
 
         # # simulate drift....
-        # if False:
-        #     simulated_shift = int(self.n_ttl[0] /1000)
-        #     self.live_frame_local = np.roll(self.live_frame_local,
-        #                                     simulated_shift, axis=0)
-        #     print ("Simulated drift -------> ", simulated_shift)
+        if False:
+            simulated_shift = int(self.n_ttl[0]/300)
+            self.live_frame_local = np.roll(self.live_frame_local,
+                                            simulated_shift, axis=0)
+            print ("Simulated drift -------> ", simulated_shift)
 
         # motion detector gets this frame; and returns drift_xy_values
         self.live_frame_motion_detector[0] = self.live_frame_local.copy()
 
         #
-        if self.apply_motion_correction_flag:
+        if self.motion_correction_flag[0]:
 
             # save most recent drift values from drift module
             self.drift_array.append([self.drift_xy_values[0],
@@ -1333,7 +1351,7 @@ class BMI():
                  n_frames = self.n_frames,
                  n_frames_to_be_acquired = self.n_frames_to_be_acquired,                #
                  rois_smooth_window = self.rois_smooth_window,
-                 n_ttl_to_start_applying_DFF0_computation = self.n_ttl_to_start_applying_DFF0_computation,
+                 n_ttl_to_start_applying_dynamic_f0 = self.n_ttl_to_start_applying_dynamic_f0,
                  n_frames_search_forward = self.n_frames_search_forward,
                  drift_array = self.drift_array,
                  template = self.template,

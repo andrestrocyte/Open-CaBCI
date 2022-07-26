@@ -169,8 +169,11 @@ if __name__ ==  '__main__':
                                             bmi.shmem_termination_flag.name,
                                             bmi.shmem_live_video_frame.name,
                                             video_width,
-                                            video_height
-                                            ))
+                                            video_height,
+                                            bmi.shmem_motion_correction_flag.name,
+                                            motion_flag,
+                                            bmi.shmem_dynamic_f0_flag.name,
+                                                    ))
     plotter_.start()
 
     ###############################################################

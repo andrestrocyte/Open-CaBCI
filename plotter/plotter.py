@@ -39,7 +39,19 @@ class PlotROIs():
                  shmem_live_video_frame,
                  video_width,
                  video_length,
-                 ):
+                 shmem_motion_correction_flag,
+                 motion_flag,
+                 shmem_dynamic_f0_flag,
+    ):
+
+        #
+        self.shmem_motion_correction_flag = shmem_motion_correction_flag
+
+        #
+        self.shmem_dynamic_f0_flag = shmem_dynamic_f0_flag
+
+        #
+        self.motion_flag = motion_flag
 
         #
         self.calibration_flag = calibration_flag
@@ -113,10 +125,13 @@ class PlotROIs():
 
         #
         if self.calibration_flag==False:
+
+            #
             self.initialize_rois_traces()
 
             #
             self.initialize_ROIs_contours()
+
             #
             self.initialize_ensemble_state()
 
@@ -128,6 +143,9 @@ class PlotROIs():
 
             #
             self.initialize_live_image_array()
+
+            #
+            self.initialize_motion_correction_flag()
 
         #
         self.initialize_live_frame_shared_memory()
@@ -143,6 +161,9 @@ class PlotROIs():
 
         #
         self.initialize_camera_frame_shared_memory()
+
+        #
+        self.initialize_dynamic_f0_flag()
 
         #
         self.initialize_plots()
@@ -185,7 +206,7 @@ class PlotROIs():
 
     #
     def initialize_ensemble_state(self):
-        
+
         #
         aa = np.zeros((1,), dtype=np.float32)
 
@@ -199,6 +220,42 @@ class PlotROIs():
 
         #
         self.ensemble_state_counter = 0
+
+    #
+    def initialize_motion_correction_flag(self):
+
+        #
+        aa = np.zeros((1,), dtype=np.float32)
+
+        #
+        self.existing_motion_correction_flag = shared_memory.SharedMemory(name=self.shmem_motion_correction_flag)
+
+        #
+        self.motion_corection_flag = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.existing_motion_correction_flag.buf)
+
+        #
+        self.motion_corection_flag[0] = self.motion_flag
+
+    #
+    def initialize_dynamic_f0_flag(self):
+
+        #
+        aa = np.zeros((1,), dtype=np.float32)
+
+
+
+        #
+        self.existing_dynamic_f0_flag = shared_memory.SharedMemory(name=self.shmem_dynamic_f0_flag)
+
+        #
+        self.dynamic_f0_flag = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.existing_dynamic_f0_flag.buf)
+
+        #
+        self.dynamic_f0_flag[0] = 0
 
     #
     def initialize_ROIs_contours(self):
@@ -340,7 +397,9 @@ class PlotROIs():
         self.cell_f0s = data['cell_f0s']
 
 
-    #
+    ################################################################################################
+    ##################################### INITIALIZE PLOTS #########################################
+    ################################################################################################
     def initialize_plots(self):
 
         #
@@ -355,6 +414,7 @@ class PlotROIs():
         else:
             self.fig = plt.figure(figsize=(8,8))
 
+        #
         self.grid = GridSpec(11, 10)#, left=0.55, right=0.98, hspace=0.05)
 
         #########################################################
@@ -370,28 +430,57 @@ class PlotROIs():
                                                   vmax=self.live_image_vmax,
                                                   interpolation="none")
 
-            #
-            #axcolor = 'lightgoldenrodyellow'
-            axmin = self.fig.add_axes([0.55, 0.90, 0.1, 0.03])
-            axmax  = self.fig.add_axes([0.55, 0.93, 0.1, 0.03])
-            n_frame_ave  = self.fig.add_axes([0.83, 0.93, 0.10, 0.03])
+            # Settings for image visualization
+            axmin = self.fig.add_axes([0.55, 0.94, 0.1, 0.03])
+            axmax  = self.fig.add_axes([0.55, 0.96, 0.1, 0.03])
+            n_frame_ave  = self.fig.add_axes([0.55, 0.92, 0.10, 0.03])
 
+            # settings for image processing
+            motion_correction_slider = self.fig.add_axes([0.83, 0.94, 0.10, 0.03])
+            dynamic_f0_correction_slider = self.fig.add_axes([0.83, 0.96, 0.10, 0.03])
+
+            #
             self.smin = Slider(axmin, 'Min', 0, self.live_image_vmax, valinit=self.live_image_vmin)
             self.smax = Slider(axmax, 'Max', 0, self.live_image_vmax, valinit=self.live_image_vmax)
-            self.n_frame_ave = Slider(n_frame_ave, 'nFrames', 1, 30, valinit=self.live_image_average_n_frames)
 
+            #
+            vals_n_frames = np.arange(1,31,1)
+            self.n_frame_ave = Slider(n_frame_ave, '# Frames', 1, 30, valinit=self.live_image_average_n_frames,
+                                      valstep = vals_n_frames)
+
+            #
+            vals_motion = [0,1]
+            self.motion_slider = Slider(motion_correction_slider, 'Motion correct', 0, 1, valinit=self.motion_corection_flag[0],
+                                      valstep=vals_motion)
+
+            #
+            vals_dynamic_f0 = [0,1]
+            self.dynamic_f0_slider = Slider(dynamic_f0_correction_slider, 'Dynamic F0', 0, 1,
+                                            valinit=self.dynamic_f0_flag[0],
+                                            valstep=vals_dynamic_f0)
             #
             def update_clim(val):
                 self.image_obj.set_clim([self.smin.val,
                                          self.smax.val])
+
+            #
             def update_n_frames_average(val):
                 self.live_image_average_n_frames = int(self.n_frame_ave.val)
 
-            #S
+            #
+            def update_motion_flag(val):
+                self.motion_corection_flag[0] = int(self.motion_slider.val)
+
+            #
+            def update_dynamic_flag(val):
+                self.dynamic_f0_flag[0] = int(self.dynamic_f0_slider.val)
+
+            #
             self.smin.on_changed(update_clim)
             self.smax.on_changed(update_clim)
             self.n_frame_ave.on_changed(update_n_frames_average)
-
+            self.motion_slider.on_changed(update_motion_flag)
+            self.dynamic_f0_slider.on_changed(update_dynamic_flag)
 
             #
             self.ax_image.set_xlim(0,512)
