@@ -524,7 +524,7 @@ class PlotROIs():
             self.ax_traces = self.fig.add_subplot(self.grid[:5, :5])
 
             #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
-            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(4+1.5)+2*self.bmi_high_threshold)
+            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(4+2.5)+2*self.bmi_high_threshold)
             self.ax_traces.set_xlim(-self.plotting_window_width,0)
             self.ax_traces.set_xlabel("Time (sec)")
 
@@ -561,7 +561,7 @@ class PlotROIs():
 
 
             # plot sum ensemble state
-            y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*(k+1.5)
+            y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*(k+2.5)
 
             #
             lineobject, = self.ax_traces.plot(self.plot_times,
@@ -574,8 +574,8 @@ class PlotROIs():
 
             # ADD F0 for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       [0+self.plot_y_scale*(k+1.5),
-                                        0+self.plot_y_scale*(k+1.5)],  # plot last X values depending on length of plttimes
+                                       [0+self.plot_y_scale*(k+2.5),
+                                        0+self.plot_y_scale*(k+2.5)],  # plot last X values depending on length of plttimes
                                        '--',
                                         c='black',
                                        linewidth=2,
@@ -586,8 +586,8 @@ class PlotROIs():
 
             # ADD Reward level for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       [self.plot_y_scale*(k+1.5)+self.bmi_high_threshold,
-                                        self.plot_y_scale*(k+1.5)+self.bmi_high_threshold],  # plot last X values depending on length of plttimes
+                                       [self.plot_y_scale*(k+2.5)+self.bmi_high_threshold,
+                                        self.plot_y_scale*(k+2.5)+self.bmi_high_threshold],  # plot last X values depending on length of plttimes
                                        'r--',
                                        linewidth=2,
                                        )  # Return

@@ -2,15 +2,16 @@ import matplotlib.pyplot as plt
 import nidaqmx
 from nidaqmx.constants import (AcquisitionType)  # https://nidaqmx-python.readthedocs.io/en/latest/constants.html
 from nidaqmx.constants import TerminalConfiguration
-import tqdm # tdqm
+import tqdm  # tdqm
 import os
-from utils.utils import ensemble_to_tone_transfer_function, get_octave_frequencies
+from utils.utils import ensemble_to_tone_transfer_function_absolute, ensemble_to_tone_transfer_function_high_and_low, get_octave_frequencies
 import time
 import numpy as np
 from multiprocessing import shared_memory
 from nidaqmx import stream_writers
 from scipy.signal import chirp, spectrogram
 from scipy import stats
+
 
 #################################################
 ############### TONE PLAYER CLASS ###############
@@ -26,13 +27,13 @@ class PlayTone():
     '''
 
     def __init__(self, fname_roi_pixels_and_thresholds,
-                        shmem_ensemble_state,
-                        shmem_tone_state,
-                        shmem_termination_flag,
-                        shmem_water_reward,
-                        simulation_flag,
-                        calibration_flag):
-		
+                 shmem_ensemble_state,
+                 shmem_tone_state,
+                 shmem_termination_flag,
+                 shmem_water_reward,
+                 simulation_flag,
+                 calibration_flag):
+
         #
         self.calibration_flag = calibration_flag
 
@@ -71,7 +72,7 @@ class PlayTone():
         self.water_spout_ttl_duration = 10000  # duration of water pulse in microseconds
 
         #
-        self.water_spout_ttl_voltage = 5    # water spout voltage in millivolts (?)
+        self.water_spout_ttl_voltage = 5  # water spout voltage in millivolts (?)
 
         #
         self.initialize_tone_state()
@@ -114,7 +115,7 @@ class PlayTone():
 
             #
             if self.termination_flag:
-                print ("...EXITING TONE CLASS...")
+                print("...EXITING TONE CLASS...")
                 break
 
     #
@@ -136,8 +137,8 @@ class PlayTone():
 
         #
         self.octave_freqs = get_octave_frequencies(self.low_freq,
-												   self.high_freq,
-												   self.octave_step)
+                                                   self.high_freq,
+                                                   self.octave_step)
 
     #
     def initialize_termination_flag(self):
@@ -150,8 +151,8 @@ class PlayTone():
 
         #
         self.termination_flag = np.ndarray(aa.shape,
-                                 dtype=aa.dtype,
-                                 buffer=self.existing_shm_termination_flag.buf)
+                                           dtype=aa.dtype,
+                                           buffer=self.existing_shm_termination_flag.buf)
 
     #
     def initialize_thresholds(self):
@@ -165,7 +166,7 @@ class PlayTone():
             self.low_freq = data['low_freq']
             self.high_freq = data['high_freq']
         except:
-            print (" couldn't find roi_pixels file ----> assuming it's a calibration session (setting default freqs)")
+            print(" couldn't find roi_pixels file ----> assuming it's a calibration session (setting default freqs)")
             self.low_freq = 2000
             self.high_freq = 18000
             self.low_threshold = 0
@@ -183,7 +184,7 @@ class PlayTone():
         # y = [amp * np.sin(2 * np.pi * f * (i / fs)) for i in x]
         # y = np.array(y)
         y2 = amp * np.sin(2 * np.pi * f * (x / fs))
-        y2 = y2[:,None]
+        y2 = y2[:, None]
 
         #
         y_new = np.tile(y2, 1)
@@ -194,21 +195,22 @@ class PlayTone():
     def make_frequency_sweep(self):
 
         #
-        t = np.linspace(0, self.duration, int(self.sampleRate_audio*self.duration))
+        t = np.linspace(0, self.duration, int(self.sampleRate_audio * self.duration))
 
         #
-        self.freq_sweep = chirp(t, f0=self.low_freq, f1=self.high_freq, t1=self.duration, method='linear')*self.amplitude
+        self.freq_sweep = chirp(t, f0=self.low_freq, f1=self.high_freq, t1=self.duration,
+                                method='linear') * self.amplitude
 
     #
     def make_white_noise(self):
 
         #
         self.white_noise = stats.truncnorm(-1, 1,
-                                scale=min(2**16, 2**self.amplitude)).rvs(int(self.sampleRate_audio * self.duration))
-
-
+                                           scale=min(2 ** 16, 2 ** self.amplitude)).rvs(
+            int(self.sampleRate_audio * self.duration))
 
         #
+
     def compute_ensemble_to_tone_state(self):
 
         # for now we use a simple scaled difference
@@ -221,12 +223,20 @@ class PlayTone():
         # - it is contained in shared memory variable self.ensemble_state
 
         # compute the tone state in Hz
-        self.tone_state[0] = ensemble_to_tone_transfer_function(self.ensemble_state,
-                                                                self.low_freq,
-                                                                self.high_freq,
-                                                                self.low_threshold,
-                                                                self.high_threshold
-                                                                )
+        # self.tone_state[0] = ensemble_to_tone_transfer_function_absolute(self.ensemble_state,
+        #                                                                 self.low_freq,
+        #                                                                 self.high_freq,
+        #                                                                 self.low_threshold,
+        #                                                                 self.high_threshold
+        #                                                                 )
+        # compute the tone state in Hz
+        self.tone_state[0] = ensemble_to_tone_transfer_function_high_and_low(self.ensemble_state,
+                                                                             self.low_freq,
+                                                                             self.high_freq,
+                                                                             self.low_threshold,
+                                                                             self.high_threshold,
+                                                                             self.octave_freqs
+                                                                            )
 
     #
     def play_reward_tone(self):
@@ -235,7 +245,7 @@ class PlayTone():
         '''
 
         #
-        print ("Playing reward tone: SET TO freq sweep)")
+        print("Playing reward tone: SET TO freq sweep)")
 
         #
         if self.simulation_flag:
@@ -243,7 +253,6 @@ class PlayTone():
 
         #
         self.audio_Writer.write_many_sample(self.freq_sweep.squeeze())
-
 
     #
     def update_tone(self):
@@ -253,12 +262,14 @@ class PlayTone():
         # TODO: 1) whether this is too slow and we end up buffering which not real time
         # TODO: 2) what is the shortest/correct duration to play a tone (probably >10hz) that we wont' notice)
 
-        #
-        if self.calibration_flag==True:
+        # skip for simulation mode
+        if self.calibration_flag == True:
             self.tone_state[0] = 100
+
+        # compute the transfer function
         else:
             self.compute_ensemble_to_tone_state()
-    
+
         # make sure you send a copy of the tone, not the tone
         tone_data = self.make_tone(self.tone_state[0].copy(),
                                    self.amplitude,
@@ -267,7 +278,7 @@ class PlayTone():
         #
         if self.simulation_flag:
             return
-		
+
         #
         self.audio_Writer.write_many_sample(tone_data.squeeze())
 
@@ -287,54 +298,53 @@ class PlayTone():
         #
         self.audio_Task.ao_channels.add_ao_voltage_chan('Dev3/ao0')
         self.audio_Task.timing.cfg_samp_clk_timing(rate=self.sampleRate_audio,
-                                                  # samps_per_chan=100,  # in continuos mode this is the buffer
-                                                  sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+                                                   # samps_per_chan=100,  # in continuos mode this is the buffer
+                                                   sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
 
         #
         self.audio_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(self.audio_Task.out_stream,
                                                                              auto_start=True)
 
-
     #
     def initialize_tone_state(self):
         #
-        #print("  ensemble state memory name : ", self.shmem_tone_state)
+        # print("  ensemble state memory name : ", self.shmem_tone_state)
 
         aa = np.zeros((1,), dtype=np.float32)
 
         # get the rois_traces from the shared memory name
         self.existing_shm_tone_state = shared_memory.SharedMemory(name=self.shmem_tone_state)
-        #print("existing shm: ", self.existing_shm_tone_state)
+        # print("existing shm: ", self.existing_shm_tone_state)
 
         #
         self.tone_state = np.ndarray(aa.shape,
-                                 dtype=aa.dtype,
-                                 buffer=self.existing_shm_tone_state.buf)
+                                     dtype=aa.dtype,
+                                     buffer=self.existing_shm_tone_state.buf)
 
         #
-        #print("  TONE state: ", self.tone_state)
+        # print("  TONE state: ", self.tone_state)
 
     #
     def initialize_ensemble_state(self):
         #
-        #print("  ensemble state memory name : ", self.shmem_ensemble_state)
+        # print("  ensemble state memory name : ", self.shmem_ensemble_state)
 
         aa = np.zeros((1,), dtype=np.float32)
 
         # get the rois_traces from the shared memory name
         self.existing_shm_ensemble_state = shared_memory.SharedMemory(name=self.shmem_ensemble_state)
-        #print("existing shm: ", self.existing_shm_ensemble_state)
+        # print("existing shm: ", self.existing_shm_ensemble_state)
 
         #
         self.ensemble_state = np.ndarray(aa.shape,
-                                 dtype=aa.dtype,
-                                 buffer=self.existing_shm_ensemble_state.buf)
+                                         dtype=aa.dtype,
+                                         buffer=self.existing_shm_ensemble_state.buf)
 
         #
-        #print("  TONE CLASS loaded ensemble_state: ", self.ensemble_state)
+        # print("  TONE CLASS loaded ensemble_state: ", self.ensemble_state)
 
         #
-        #self.ensemble_state_last = self.ensemble_state[0].copy()
+        # self.ensemble_state_last = self.ensemble_state[0].copy()
 
     #
     def initialize_water_reward_variable(self):
@@ -387,11 +397,11 @@ class PlayTone():
                 return
 
             # close the audio writer
-            print ("closing audio writer")
+            print("closing audio writer")
             self.close_audio_writer()
 
             # initialize the output function for water dispesning
-            print ("initializing water writer")
+            print("initializing water writer")
             self.initialize_water_writer()
 
             # put water state to 5volts
@@ -399,9 +409,10 @@ class PlayTone():
             # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
             start = time.time()
             for p in range(self.water_spout_ttl_duration):
-                #print ("water reward loop: ", p)
+                # print ("water reward loop: ", p)
                 self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
-            print (" >>>>>>>>>>>>>>>>>>>>>>>>>>>>released water for: ", time.time()-start, " sec. (Closing water port)")
+            print(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>released water for: ", time.time() - start,
+                  " sec. (Closing water port)")
 
             # return water ttl state to 0volts
             for p in range(self.water_spout_ttl_duration):
@@ -414,11 +425,12 @@ class PlayTone():
             self.initialize_audio_writer()
 
             # play reward tone for 1 second
-            for k in range(int(1/self.duration)):
+            for k in range(int(1 / self.duration)):
                 self.play_reward_tone()
 
-            # NOTE: this is set to negative only during calibration so there's no feedback
-            self.ensemble_state[0] = -3
+            # NOTE: this is set to negative so that during calibration so there's no other sounds outside of
+            # otherwise during online bmi this is overwritten shortly after exiting this conditional
+            self.ensemble_state[0] = -30000
 
             # return tone to default state
             # TODO: this doesn't seem necessary as the rest of pipeline takes care of this

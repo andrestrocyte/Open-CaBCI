@@ -1078,6 +1078,20 @@ class CalibrationTools(object):
         self.data = data.reshape(-1, 512, 512)
         print("memmap : ", self.data.shape)
 
+
+    def load_data_mmap(self, fname, n_frames):
+
+        #
+        data = np.memmap(fname,
+                               dtype='uint16',
+                               mode='r',
+                               shape=n_frames * 512 * 512).reshape(n_frames,512,512)
+
+        print ("loaded: ", fname, data.shape)
+
+        return data
+
+
     #
     def make_corr_map(self):
         ''' Not yet working or tested etc.
@@ -1128,7 +1142,7 @@ class CalibrationTools(object):
         return maxproj
 
     #
-    def make_std_map(self):
+    def filter_data_make_std_map(self):
 
         #
         data_sparse = self.data[::self.subsample]
@@ -1342,11 +1356,107 @@ class CalibrationTools(object):
 
         plt.show()
 
-    #	def show_contour_map(self, std_map, indexes, cell_ids, fig=None):
-
-    def compute_traces2(self, std_map, cell_ids=None, fig=None):
+    #
+    def compute_and_plot_traces2_datafile(self, data, std_map, cell_ids=None, fig=None):
         """ Same as below but visualize every single frame
 		"""
+
+        #
+        clrs = ['blue','green','red','orange']
+
+        #
+        if cell_ids is None:
+            cell_ids = np.arange(len(self.indexes))
+        print("plotting cells: ", cell_ids)
+
+        #####################################################
+        plt.figure()
+        ax = plt.subplot(111)
+        ax.tick_params(axis='both', which='both', labelsize=20)
+        plt.ylabel("Neuron ID ", fontsize=20)
+
+        #
+        new_plot = False
+        print(cell_ids)
+        self.show_contour_map(std_map,
+                              self.indexes,
+                              cell_ids, new_plot)
+
+        plt.show()
+
+        return
+        #####################################################
+        plt.figure()
+        ax = plt.subplot(111)
+
+        #
+        roi_traces = []
+        for k in range(len(cell_ids)):
+            roi_traces.append([])
+
+        # loop over each frame
+        for p in trange(0, data.shape[0], self.trace_subsample):
+
+            # grab frame
+            frame = data[p]
+
+            # loop over ROIS
+            ctr = 0
+            for k in cell_ids:
+                # grab roi
+                temp = frame[self.indexes[k]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.indexes[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                roi_traces[ctr].append(temp)
+                ctr += 1
+        #
+        roi_traces = np.array(roi_traces)
+        self.roi_traces = roi_traces
+
+        #
+        t = np.arange(0, data.shape[0], self.trace_subsample) / 30.
+        ctr = 0
+
+        # save the baselin of the cells in order to be able to offset it in the BMI
+        # TODO: this is important; it functions as a rough DFF method
+        #    TODO: we may wish to implement a more complex version of this
+        self.roi_f0s = np.zeros(len(roi_traces), dtype=np.float32)
+        for k in range(len(roi_traces)):
+            temp = roi_traces[k]
+            self.roi_f0s[k] = np.median(temp)
+            temp = temp - self.roi_f0s[k]
+            plt.plot(t, temp + ctr * self.scale,
+                     linewidth=2,
+                     c=clrs[k])
+
+            # also plot baseline
+            baseline = np.median(temp[:5000] + ctr * self.scale)
+            plt.plot([t[0],t[-1]], [baseline,baseline],'--',
+                     linewidth=4,
+                     c='black')
+            ctr += 1
+        #
+        labels = cell_ids
+        labels_old = np.arange(0, ctr * self.scale, self.scale)
+
+        #
+        plt.yticks(labels_old, labels, fontsize=10)
+        plt.xlabel("Time (sec)", fontsize=20)
+
+
+        plt.show()
+
+        #
+    def compute_traces2(self, std_map, cell_ids=None, fig=None):
+        """ Same as below but visualize every single frame
+        """
 
         if cell_ids is None:
             cell_ids = np.arange(len(self.indexes))
@@ -1416,7 +1526,7 @@ class CalibrationTools(object):
         plt.yticks(labels_old, labels, fontsize=10)
         plt.xlabel("Time (sec)", fontsize=20)
 
-        # 
+        #
         ax2 = plt.subplot(122)
         new_plot = False
         print(cell_ids)
@@ -1426,6 +1536,7 @@ class CalibrationTools(object):
 
         plt.show()
 
+    #
     def show_traces_ids(self, ids):
 
         #
@@ -1559,48 +1670,43 @@ class CalibrationTools(object):
     #
     def find_reward_thresholds_high(self):
 
+        #
+        print ("COMPUTED # of roi traces: ", len(self.roi_traces))
+
         # run smoothing on each ensemble
         if self.smooth_diff_function_flag:
 
             # ensemble #1
-            for p in range(2):
-                smooth = np.zeros(self.roi_traces[self.ensemble1[p]].shape)
-                for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble1[p]].shape[0], 1):
-                    smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble1[p]][k - self.rois_smooth_window:k])
+            for p in range(4):
+                #print ("cell id: ", self.ensemble1[p])
+                smooth = np.zeros(self.roi_traces[p].shape)
+                for k in trange(self.rois_smooth_window, self.roi_traces[p].shape[0], 1):
+                    smooth[k] = smooth_ca_time_series(self.roi_traces[p][k - self.rois_smooth_window:k])
                 #
-                self.roi_traces[self.ensemble1[p]] = smooth
-
-            # ensemble #2
-            for p in range(2):
-                smooth = np.zeros(self.roi_traces[self.ensemble2[p]].shape)
-                for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble2[p]].shape[0], 1):
-                    smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble2[p]][k - self.rois_smooth_window:k])
-                #
-                self.roi_traces[self.ensemble2[p]] = smooth
+                self.roi_traces[p] = smooth
 
         # get baseline f0 after smoothing
         self.roi_f0s = []
-        self.roi_f0s.append(np.median(self.roi_traces[self.ensemble1[0]], axis=0))
-        self.roi_f0s.append(np.median(self.roi_traces[self.ensemble1[1]], axis=0))
-        self.roi_f0s.append(np.median(self.roi_traces[self.ensemble2[0]], axis=0))
-        self.roi_f0s.append(np.median(self.roi_traces[self.ensemble2[1]], axis=0))
+        for k in range(4):
+            self.roi_f0s.append(np.median(self.roi_traces[k], axis=0))
 
         # detrend traces and make ensembles
-        temp0 = self.roi_traces[self.ensemble1[0]] - self.roi_f0s[0]
-        temp1 = self.roi_traces[self.ensemble1[1]] - self.roi_f0s[1]
+        temp0 = (self.roi_traces[0] - self.roi_f0s[0])/self.roi_f0s[0]
+        temp1 = (self.roi_traces[1] - self.roi_f0s[1])/self.roi_f0s[1]
         E1 = temp0 + temp1
 
         #
-        temp2 = self.roi_traces[self.ensemble2[0]] - self.roi_f0s[2]
-        temp3 = self.roi_traces[self.ensemble2[1]] - self.roi_f0s[3]
+        temp2 = (self.roi_traces[2] - self.roi_f0s[2])/self.roi_f0s[2]
+        temp3 = (self.roi_traces[3] - self.roi_f0s[3])/self.roi_f0s[3]
         E2 = temp2 + temp3
 
         # initialize the max and min values
         max_E1 = np.max(E1)
         max_E2 = np.max(E2)
-        low = -max_E1
-        high = max_E2
+        low = -max_E2
+        high = max_E1
 
+        #
         print("low, high: ", low, high)
         # difference between ensemble
         diff = E1 - E2
@@ -1610,6 +1716,9 @@ class CalibrationTools(object):
         n_rewards_random = n_sec_recording // self.sample_rate
         print("nsec recording: ", n_sec_recording,
               "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
+        n_rewards_random = int(n_rewards_random*0.3)
+        print(" @30% reward: ", n_rewards_random)
+        self.n_rewards_default = n_rewards_random
 
         # loop over time series decreasing the rewards until we hit the random #
         n_rewards = 0
@@ -1625,34 +1734,27 @@ class CalibrationTools(object):
 
                 temp_diff = diff[k]
 
-                # #
-                # if temp_diff <= low:
-                # 	# low reward state reached
-                # 	n_rewards += 1
-                # 	reward_times.append([k, 0])
-                # 	k += int(self.post_reward_lockout * self.sample_rate)
-                # elif
+                #
                 if temp_diff >= high:
                     # high reward state reached
                     n_rewards += 1
                     reward_times.append([k, 1])
+
+                    # lock out rewards for some time;
                     k += int(self.post_reward_lockout * self.sample_rate)
                 else:
                     k += 1
 
-            # print ("Reard times: ", reward_times)
             # check exit condition otherwise decrase thresholds
-            if len(reward_times) > 1:
-                rewarded_times = np.vstack(reward_times)
-                high *= stepper
-            else:
-                high *= stepper
+            high *= stepper
+            low *= stepper
 
-        print("updated rwards #: ", n_rewards, low, high)
+        #
+        print("updated rewards #: ", n_rewards, low, high)
 
+        #
         self.reward_times = np.vstack(reward_times)
-
-        self.low = np.nan
+        self.low = low
         self.high = high
         self.E1 = E1
         self.E2 = E2
@@ -1769,29 +1871,32 @@ class CalibrationTools(object):
         t = np.arange(self.diff.shape[0]) / self.sample_rate
         plt.plot([t[0], t[-1]], [self.low, self.low], '--', c='grey')
         plt.plot([t[0], t[-1]], [self.high, self.high], '--', c='grey')
-        plt.plot(t, self.E1, c='blue', alpha=.1, label='E1')
-        plt.plot(t, self.E2, c='red', alpha=.1, label='E2')
+        plt.plot(t, self.E1, c='blue', alpha=.2, label='E1')
+        plt.plot(t, self.E2, c='red', alpha=.2, label='E2')
         plt.plot(t, self.diff, c='black', alpha=.8, label='Difference')
         plt.plot([t[0], t[-1]], [0, 0], c='black', linewidth=3)
 
         ymaxes = np.max(np.abs(self.diff))
+
         #
         for k in range(len(self.reward_times)):
             temp = self.reward_times[k]
 
-            if temp[1] == 0:
-                plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='red')
-            else:
-                plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue')
+            #if temp[1] == 0:
+            #    plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='red')
+            #else:
+            plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue')
 
         # replot two random rewards just to make nice legend
-        idx1 = np.where(self.reward_times[:, 1] == 0)[0].shape[0]
-        idx2 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
+        idx1 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
+        #idx2 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
 
-        plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='red', label='E1 rewarded # ' + str(idx1), )
-        plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E2 rewarded # ' + str(idx2), )
+        #
+        plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E1 rewarded # ' + str(idx1), )
+        #plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='red', label='E2 rewarded # ' + str(idx2), )
         plt.legend()
 
+        #
         plt.title("Rec duration: " + str(int(t[-1])) + " sec " +
                   "\n expected # of random rewards: " + str(int(t[-1] / 30)) +
                   "\n actual # of provided rewards: " + str(self.n_rewards_default))

@@ -158,8 +158,8 @@ class BMI():
         self.n_frames_to_be_acquired = self.n_frames   # Number of frames from BScope
 
         #
-        self.rois_smooth_window = 15                 # Number of frames to use to smooth the ROI traces
-                                                    # to be developed/changed further
+        #self.rois_smooth_window = 15                 # Number of frames to use to smooth the ROI traces
+        #                                            # to be developed/changed further
 
         # parameter which turns on realitime DFF0 computation only after a certain period of time
         # TODO: determine if online DFF0 is required:
@@ -264,6 +264,7 @@ class BMI():
         # this keeps track of the rotary encoder wheel rotations
         self.rotary_encoder1_abstime = []
         self.rotary_encoder2_abstime = []
+
     #
     def initialize_termination_flag(self):
 
@@ -429,8 +430,8 @@ class BMI():
         #
         self.post_reward_lockout = data['post_reward_lockout']
 
-        #
-        #self.rois_smooth_window = data['rois_smooth_window']
+        # NEED THIS: it is set in the calibration step;  DO NOT CHANGE IT
+        self.rois_smooth_window = data['rois_smooth_window']
 
         #
         self.smooth_diff_function_flag = data['smooth_diff_function_flag']
@@ -475,7 +476,7 @@ class BMI():
                                          buffer=self.shmem_ensemble_state.buf)
 
         #
-        self.ensemble_state [:] = aa[:]
+        self.ensemble_state[:] = aa[:]
 
 
     #
@@ -1282,8 +1283,12 @@ class BMI():
         # Compute the E1-E2 for current time point
         # this value goes to the tone package which converts it into a tone
         # TODO: this value is sometimes zero, not clear why, perhaps we are readng too far ahead
-        self.ensemble_state[0] = abs(self.ensemble_activity[0, self.n_ttl[0]] -
-                                     self.ensemble_activity[1, self.n_ttl[0]])
+        #self.ensemble_state[0] = abs(self.ensemble_activity[0, self.n_ttl[0]] -
+        #                             self.ensemble_activity[1, self.n_ttl[0]])
+
+        # use the same diff funtion as in the calibration set
+        self.ensemble_state[0] = (self.ensemble_activity[0, self.n_ttl[0]] -
+                                  self.ensemble_activity[1, self.n_ttl[0]])
 
         #
         self.ensemble_diff_array[self.n_ttl[0]] = self.ensemble_state[0]

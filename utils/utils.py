@@ -73,11 +73,44 @@ def get_octave_frequencies(low_freq,
 
 
 #
-def ensemble_to_tone_transfer_function(ensemble_state,
-									   low_freq,
-									   high_freq,
-									   low_threshold,
-									   high_threshold):
+def ensemble_to_tone_transfer_function_high_and_low(ensemble_state,
+												    low_freq,
+												    high_freq,
+												    low_threshold,
+												    high_threshold,
+													octave_freqs):
+
+	# for now do a linear projection between the neural states and the
+	# TODO: calibrate the speaker so that it macthes the assumed playback states
+	#
+
+	# scale from 0..1
+	#
+	#
+	n_octaves = len(octave_freqs)
+	baseline_freq = octave_freqs[n_octaves//2]
+
+	#
+	if ensemble_state>=0:
+		tone_raw = baseline_freq + (ensemble_state/high_threshold)*(high_freq-baseline_freq)
+	else:
+		tone_raw = baseline_freq - (ensemble_state/low_threshold)*(baseline_freq-low_freq)
+
+	# map onto frequencies selected
+	#tone = tone*(high_freq-low_freq)+low_freq
+
+	# find closest octave frequency to the tone
+	idx = np.argmin(np.abs(octave_freqs-tone_raw))
+	tone = octave_freqs[idx]
+
+	return tone
+
+#
+def ensemble_to_tone_transfer_function_absolute(ensemble_state,
+											   low_freq,
+											   high_freq,
+											   low_threshold,
+											   high_threshold):
 
 	# for now do a linear projection between the neural states and the
 	# TODO: calibrate the speaker so that it macthes the assumed playback states
