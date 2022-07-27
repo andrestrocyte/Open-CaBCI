@@ -438,20 +438,20 @@ class PlotROIs():
         clrs=['blue','magenta','red','orange']
 
         #
-        if self.calibration_flag==True:
-            self.fig = plt.figure(figsize=(8,5))
-        else:
-            self.fig = plt.figure(figsize=(8,8))
+        #if self.calibration_flag==True:
+        self.fig = plt.figure(figsize=(8,5))
+        #else:
+        #    self.fig = plt.figure(figsize=(8,5))
 
         #
-        self.grid = GridSpec(9, 11)#, left=0.55, right=0.98, hspace=0.05)
+        self.grid = GridSpec(8, 12)#, left=0.55, right=0.98, hspace=0.05)
 
         #########################################################
         ######################### PLOT CA IMAGE #################
         #########################################################
         if self.calibration_flag==False:
             # TODO: refactor this plot to another function
-            self.ax_image = self.fig.add_subplot(self.grid[:5, 5:])
+            self.ax_image = self.fig.add_subplot(self.grid[:, 4:])
 
             #
             self.image_obj = self.ax_image.imshow(self.live_frame[0],
@@ -541,7 +541,7 @@ class PlotROIs():
         #########################################################
         # TODO: refactor this plot to another function
         if self.calibration_flag==False:
-            self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
+            self.ax_camera = self.fig.add_subplot(self.grid[5:, :4])
         else:
             self.ax_camera = self.fig.add_subplot(self.grid[:, :])
 
@@ -566,10 +566,10 @@ class PlotROIs():
             #self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
 
             #
-            axleft = plt.axes([0.75, 0.35, 0.05, 0.05])
-            axright = plt.axes([0.85, 0.35, 0.05, 0.05])
-            axup = plt.axes([0.80, 0.4, 0.05, 0.05])
-            axdown = plt.axes([0.80, 0.3, 0.05, 0.05])
+            axleft = plt.axes([0.9, 0.2, 0.04, 0.04])
+            axright = plt.axes([.95, 0.2, 0.04, 0.04])
+            axup = plt.axes([0.925, 0.25, 0.04, 0.04])
+            axdown = plt.axes([0.925, 0.15, 0.04, 0.04])
 
 
             def shift_fov_right(event):
@@ -603,7 +603,7 @@ class PlotROIs():
         #########################################################
         if self.calibration_flag==False:
             # TODO: refactor this plot to another function
-            self.ax_traces = self.fig.add_subplot(self.grid[:5, :5])
+            self.ax_traces = self.fig.add_subplot(self.grid[:4, :4])
 
             #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
             self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(4+2.5)+2*self.bmi_high_threshold)
