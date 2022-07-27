@@ -238,7 +238,37 @@ class BMI():
 
         #
         self.initialize_dynamic_f0_variable()
-        
+
+        #
+        #self.initialize_dynamic_template_flag()
+
+        #
+        self.initialize_manual_motion_correction_array()
+
+    #
+    def initialize_manual_motion_correction_array(self):
+
+        '''
+            Left-Right and Up-Down motion correction
+            Array index 0 controls left-right shifts
+            Array index 1 controls up-down shifts
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((2), dtype=np.int32)
+        self.shmem_manual_motion_correction_array = shared_memory.SharedMemory(create=True,
+                                                                 size=aa.nbytes)
+
+        #
+        self.manual_motion_correction_array = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.shmem_manual_motion_correction_array.buf)
+
+        #
+        self.manual_motion_correction_array[:] = aa[:]
+
+        #
+
     #
     def initialize_video_frame(self):
         ''' shared variable that keeps current video camera frame in memeory for
@@ -454,7 +484,7 @@ class BMI():
         print (">>>>>>>>>>>> MISSED-REWARD LOCKOUT: ", self.missed_reward_lockout, "sec")
 
         #
-        self.template = data['calibration_template']
+        #self.template = data['calibration_template']
 
     #
     def initialize_ensemble_state(self):
@@ -1208,12 +1238,12 @@ class BMI():
         # NOTE: outside functions do not see it unless explicitly copied
         self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
 
-        # # simulate drift....
-        if False:
-            simulated_shift = int(self.n_ttl[0]/300)
-            self.live_frame_local = np.roll(self.live_frame_local,
-                                            simulated_shift, axis=0)
-            print ("Simulated drift -------> ", simulated_shift)
+        # # # simulate drift....
+        # if False:
+        #     simulated_shift = int(self.n_ttl[0]/300)
+        #     self.live_frame_local = np.roll(self.live_frame_local,
+        #                                     simulated_shift, axis=0)
+        #     print ("Simulated drift -------> ", simulated_shift)
 
         # motion detector gets this frame; and returns drift_xy_values
         self.live_frame_motion_detector[0] = self.live_frame_local.copy()
@@ -1232,6 +1262,16 @@ class BMI():
 
         else:
             self.live_frame_local_drift_corrected = self.live_frame_local.copy()
+
+        # apply manual drift correction:
+        if True:
+            #print ("motion correcting: ", self.manual_motion_correction_array)
+            self.live_frame_local_drift_corrected = np.roll(self.live_frame_local_drift_corrected,
+                                                            self.manual_motion_correction_array[0],
+                                                            axis=1)
+            self.live_frame_local_drift_corrected = np.roll(self.live_frame_local_drift_corrected,
+                                                            -self.manual_motion_correction_array[1],
+                                                            axis=0)
 
         # this is the frame that the plotting function sees
         self.live_frame_plotter[0] = self.live_frame_local_drift_corrected.copy()
@@ -1359,7 +1399,7 @@ class BMI():
                  n_ttl_to_start_applying_dynamic_f0 = self.n_ttl_to_start_applying_dynamic_f0,
                  n_frames_search_forward = self.n_frames_search_forward,
                  drift_array = self.drift_array,
-                 template = self.template,
+                 #template = self.template,  # no need to save this; at least not now
                  lick_detector_abstime = self.lick_detector_abstime,
                  rotary_encoder1_abstime = self.rotary_encoder1_abstime,
                  rotary_encoder2_abstime = self.rotary_encoder2_abstime,

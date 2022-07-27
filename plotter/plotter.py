@@ -42,10 +42,14 @@ class PlotROIs():
                  shmem_motion_correction_flag,
                  motion_flag,
                  shmem_dynamic_f0_flag,
-    ):
+                 shmem_manual_motion_correction_array,
+                 ):
 
         #
         self.shmem_motion_correction_flag = shmem_motion_correction_flag
+
+        #
+        self.shmem_manual_motion_correction_array = shmem_manual_motion_correction_array
 
         #
         self.shmem_dynamic_f0_flag = shmem_dynamic_f0_flag
@@ -166,6 +170,9 @@ class PlotROIs():
         self.initialize_dynamic_f0_flag()
 
         #
+        self.initialize_manual_motion_correction_array()
+
+        #
         self.initialize_plots()
 
         #
@@ -203,6 +210,22 @@ class PlotROIs():
                                            )
 
         #self.video_frame[:] = aa[:]
+
+    #
+    def initialize_manual_motion_correction_array(self):
+
+        #
+        aa = np.zeros((2), dtype=np.int32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shmem_manual_motion_correction_array = shared_memory.SharedMemory(name=self.shmem_manual_motion_correction_array)
+
+        #
+        self.manual_motion_correction_array = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.existing_shmem_manual_motion_correction_array.buf)
+
+
 
     #
     def initialize_ensemble_state(self):
@@ -515,6 +538,46 @@ class PlotROIs():
                                                 interpolation="none"
                                                #
                                               )
+
+        #########################################################
+        ########## INITIALIZE DRIFT BUTTONS ######################
+        #########################################################
+        #
+        if self.calibration_flag == False:
+            #self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
+
+            #
+            axleft = plt.axes([0.75, 0.4, 0.05, 0.05])
+            axright = plt.axes([0.85, 0.4, 0.05, 0.05])
+            axup = plt.axes([0.80, 0.45, 0.05, 0.05])
+            axdown = plt.axes([0.80, 0.35, 0.05, 0.05])
+
+
+            def shift_fov_right(event):
+                self.manual_motion_correction_array[0]+=1
+                print ("moving FOV right")
+
+            def shift_fov_left(event):
+                self.manual_motion_correction_array[0]-=1
+                print ("moving FOV left")
+
+            def shift_fov_up(event):
+                self.manual_motion_correction_array[1]+=1
+                print ("moving FOV up")
+
+            def shift_fov_down(event):
+                self.manual_motion_correction_array[1]-=1
+                print ("moving FOV down")
+
+            #
+            bleft = Button(axleft, 'LEFT')
+            bleft.on_clicked(shift_fov_left)
+            bright = Button(axright, 'RIGHT')
+            bright.on_clicked(shift_fov_right)
+            bup = Button(axup, 'UP')
+            bup.on_clicked(shift_fov_up)
+            bdown = Button(axdown, 'DOWN')
+            bdown.on_clicked(shift_fov_down)
 
         #########################################################
         ##################### PLOT ROI TRACES ###################

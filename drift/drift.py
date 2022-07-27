@@ -76,7 +76,11 @@ class DriftCorrection():
                  shmem_live_frame,
                  shmem_drift_xy_values,
                  shmem_termination_flag,
+                 dynamic_template_flag,
                  ):
+
+        #
+        self.dynamic_template_flag = dynamic_template_flag
 
         #
         self.n_frames_smooth = 15
@@ -115,6 +119,9 @@ class DriftCorrection():
         self.initialize_termination_flag()
 
         #
+        self.initialize_dynamic_template_flag()
+
+        #
         while True:
 
             # grab latest image and shift the previous memory frames 1 over
@@ -126,6 +133,28 @@ class DriftCorrection():
             #
             if self.termination_flag[0]:
                 break
+
+    #
+    def initialize_dynamic_template_flag(self):
+
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int64)
+        self.shmem_dynamic_template_flag = shared_memory.SharedMemory(create=True,
+                                                                 size=aa.nbytes)
+
+        #
+        self.dynamic_template_flag  = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.shmem_dynamic_template_flag.buf)
+
+        #
+        self.dynamic_template_flag[:] = aa[:]
 
     #
     def read_frame_shift_array(self):
@@ -356,7 +385,6 @@ def phase_correlation_parallel(idx_parmap,
 
     #
     return np.int32(shifts), corr_maxs
-
 
 #
 def make_template(data,

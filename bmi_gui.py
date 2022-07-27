@@ -62,8 +62,13 @@ if __name__ ==  '__main__':
     calibration_flag = (calibration_read=="True")       # Runs the water class in simulation mode
     motion_flag = (motion_read=="True")       # Runs the motion correction algorithm
 
+    #
+    dynamic_template_flag= 0
+
     # parameter used for simulation mode to add a delay instead of waiting for ttl pulse
     sleep_time_sec = float(simulation_sleep)
+
+
 
     ##########################################################################
     #################### LOAD FILE/DIRECTORY LOCATIONS ####################### 
@@ -174,6 +179,7 @@ if __name__ ==  '__main__':
                                             bmi.shmem_motion_correction_flag.name,
                                             motion_flag,
                                             bmi.shmem_dynamic_f0_flag.name,
+                                            bmi.shmem_manual_motion_correction_array.name,
                                                     ))
     plotter_.start()
 
@@ -189,6 +195,7 @@ if __name__ ==  '__main__':
                                                 bmi.shmem_live_frame_motion_detector.name,
                                                 bmi.shmem_drift_xy_values.name,
                                                 bmi.shmem_termination_flag.name,
+                                                dynamic_template_flag,
                                                 ))
         drift_.start()
 
