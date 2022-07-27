@@ -294,6 +294,12 @@ class PlotROIs():
         self.rois_contours.append(data['cell2_contour'])
         self.rois_contours.append(data['cell3_contour'])
 
+        #
+        self.contours_all_cells = data['contours_all_cells']
+        print ("LOADED ALL CELL CONTOURS: ", len(self.contours_all_cells),
+               "example cell contour shape: ", self.contours_all_cells[0].shape)
+
+
     #
     def initialize_live_image_array(self):
 
@@ -452,8 +458,33 @@ class PlotROIs():
                                                   vmin=self.live_image_vmin,
                                                   vmax=self.live_image_vmax,
                                                   interpolation="none")
+            #
+            self.ax_image.set_xlim(0,512)
+            self.ax_image.set_ylim(512,0)
 
-            # Settings for image visualization
+            # PLOT ROI CONTOURS
+            # add contours on top of cells
+            for c in range(len(self.rois_contours)):
+                for k in range(len(self.rois_contours[c])-1):
+                    self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k+1][0]],
+                                       [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
+                                        c=clrs[c],
+                                       linewidth=3)
+
+            # add random cells to the data
+            n_cells_to_add = min(25, len(self.contours_all_cells))
+            ids = np.linspace(0, len(self.contours_all_cells)-1, n_cells_to_add).astype('int32')
+            for c in ids:
+                for k in range(len(self.contours_all_cells[c])-1):
+                    self.ax_image.plot([self.contours_all_cells[c][k][0], self.contours_all_cells[c][k+1][0]],
+                                       [self.contours_all_cells[c][k][1], self.contours_all_cells[c][k + 1][1]],
+                                        c='white',
+                                       linewidth=1)
+
+            #################################################
+            ############ ADD IMAGINING VIS BUTTONS ##########
+            #################################################
+            # add all the buttons/for visualization
             axmin = self.fig.add_axes([0.55, 0.94, 0.1, 0.03])
             axmax  = self.fig.add_axes([0.55, 0.96, 0.1, 0.03])
             n_frame_ave  = self.fig.add_axes([0.55, 0.92, 0.10, 0.03])
@@ -504,18 +535,6 @@ class PlotROIs():
             self.n_frame_ave.on_changed(update_n_frames_average)
             self.motion_slider.on_changed(update_motion_flag)
             self.dynamic_f0_slider.on_changed(update_dynamic_flag)
-
-            #
-            self.ax_image.set_xlim(0,512)
-            self.ax_image.set_ylim(512,0)
-
-            # add contours on top of cells
-            for c in range(len(self.rois_contours)):
-                for k in range(len(self.rois_contours[c])-1):
-                    self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k+1][0]],
-                                       [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
-                                        c=clrs[c],
-                                       linewidth=2)
 
         #########################################################
         ################# PLOT VIDEO IMAGE ######################
