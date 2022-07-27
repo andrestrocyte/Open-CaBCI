@@ -444,7 +444,7 @@ class PlotROIs():
             self.fig = plt.figure(figsize=(8,8))
 
         #
-        self.grid = GridSpec(11, 10)#, left=0.55, right=0.98, hspace=0.05)
+        self.grid = GridSpec(9, 11)#, left=0.55, right=0.98, hspace=0.05)
 
         #########################################################
         ######################### PLOT CA IMAGE #################
@@ -566,10 +566,10 @@ class PlotROIs():
             #self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
 
             #
-            axleft = plt.axes([0.75, 0.4, 0.05, 0.05])
-            axright = plt.axes([0.85, 0.4, 0.05, 0.05])
-            axup = plt.axes([0.80, 0.45, 0.05, 0.05])
-            axdown = plt.axes([0.80, 0.35, 0.05, 0.05])
+            axleft = plt.axes([0.75, 0.35, 0.05, 0.05])
+            axright = plt.axes([0.85, 0.35, 0.05, 0.05])
+            axup = plt.axes([0.80, 0.4, 0.05, 0.05])
+            axdown = plt.axes([0.80, 0.3, 0.05, 0.05])
 
 
             def shift_fov_right(event):
