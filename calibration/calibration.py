@@ -178,7 +178,32 @@ class BMICalibration():
         #
         self.initialize_dynamic_f0_variable()
 
+        #
+        self.initialize_manual_motion_correction_array()
 
+    #
+    def initialize_manual_motion_correction_array(self):
+
+        '''
+            Left-Right and Up-Down motion correction
+            Array index 0 controls left-right shifts
+            Array index 1 controls up-down shifts
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((2), dtype=np.int32)
+        self.shmem_manual_motion_correction_array = shared_memory.SharedMemory(create=True,
+                                                                 size=aa.nbytes)
+
+        #
+        self.manual_motion_correction_array = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.shmem_manual_motion_correction_array.buf)
+
+        #
+        self.manual_motion_correction_array[:] = aa[:]
+        
+        
     #
     def initialize_dynamic_f0_variable(self):
         '''
