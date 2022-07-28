@@ -472,7 +472,7 @@ class PlotROIs():
                                        linewidth=3)
 
             # add random cells to the data
-            ids = np.arange(0,max(80,len(self.contours_all_cells)),1)
+            ids = np.arange(0,min(80,len(self.contours_all_cells)),1)
             for c in ids:
                 # plot each cell contour
                 for k in range(len(self.contours_all_cells[c])-1):
