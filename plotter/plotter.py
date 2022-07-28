@@ -472,9 +472,9 @@ class PlotROIs():
                                        linewidth=3)
 
             # add random cells to the data
-            n_cells_to_add = min(25, len(self.contours_all_cells))
-            ids = np.linspace(0, len(self.contours_all_cells)-1, n_cells_to_add).astype('int32')
+            ids = np.arange(0,max(80,len(self.contours_all_cells)),1)
             for c in ids:
+                # plot each cell contour
                 for k in range(len(self.contours_all_cells[c])-1):
                     self.ax_image.plot([self.contours_all_cells[c][k][0], self.contours_all_cells[c][k+1][0]],
                                        [self.contours_all_cells[c][k][1], self.contours_all_cells[c][k + 1][1]],

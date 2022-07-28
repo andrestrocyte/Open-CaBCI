@@ -544,7 +544,7 @@ def compute_drift_multi_frames(iter_number,
 
         #
         idx_parmap = np.array_split(idx_all,
-                                    40)
+                                    12)
         #
         res = parmap.map(phase_correlation_parallel,
                          idx_parmap,  # indexes of each image to process
@@ -576,7 +576,6 @@ def compute_drift_multi_frames(iter_number,
 
     #
     return np.int32(shifts), corr_maxs
-
 
 #
 def compute_drift_multiple_frames(template, images):
