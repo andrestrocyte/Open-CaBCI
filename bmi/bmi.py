@@ -58,6 +58,8 @@ class BMI():
 
         #
         self.motion_flag = motion_flag
+
+        #
         self.initialize_motion_correction_variable()
         
         #
@@ -1216,7 +1218,8 @@ class BMI():
         else:
             self.live_frame_local_drift_corrected = self.live_frame_local.copy()
 
-        # apply manual drift correction:
+        # manual drift correction is always online;
+        # TODO: Check to see how slow this roll is... shouldn't be, but in case!
         if True:
             #print ("motion correcting: ", self.manual_motion_correction_array)
             self.live_frame_local_drift_corrected = np.roll(self.live_frame_local_drift_corrected,
@@ -1228,7 +1231,6 @@ class BMI():
 
         # this is the frame that the plotting function sees
         self.live_frame_plotter[0] = self.live_frame_local_drift_corrected.copy()
-
 
     #
     def update_rois(self):

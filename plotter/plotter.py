@@ -445,6 +445,31 @@ class PlotROIs():
 
         #
         self.grid = GridSpec(8, 12)#, left=0.55, right=0.98, hspace=0.05)
+		
+		#########################################################
+        ################# PLOT VIDEO IMAGE ######################
+        #########################################################
+        # TODO: refactor this plot to another function
+        if self.calibration_flag==False:
+            self.ax_camera = self.fig.add_subplot(self.grid[5:, :4])
+        else:
+            self.ax_camera = self.fig.add_subplot(self.grid[:, :])
+		
+		#
+        self.ax_camera.set_xticks([])
+        self.ax_camera.set_yticks([])
+        
+        #
+        self.camera_obj = self.ax_camera.imshow(self.live_video_frame[0].T[::self.video_show_downscale_factor,
+																			::self.video_show_downscale_factor],
+                                                vmin=0,
+                                                vmax=255,
+                                                aspect='auto',
+                                                cmap='binary_r',
+                                                interpolation="none"
+                                               #
+                                              )
+
 
         #########################################################
         ######################### PLOT CA IMAGE #################
@@ -536,28 +561,7 @@ class PlotROIs():
             self.motion_slider.on_changed(update_motion_flag)
             self.dynamic_f0_slider.on_changed(update_dynamic_flag)
 
-        #########################################################
-        ################# PLOT VIDEO IMAGE ######################
-        #########################################################
-        # TODO: refactor this plot to another function
-        if self.calibration_flag==False:
-            self.ax_camera = self.fig.add_subplot(self.grid[5:, :4])
-        else:
-            self.ax_camera = self.fig.add_subplot(self.grid[:, :])
-
-        self.ax_camera.set_xticks([])
-        self.ax_camera.set_yticks([])
-        #
-        self.camera_obj = self.ax_camera.imshow(self.live_video_frame[0].T[::self.video_show_downscale_factor,
-																			::self.video_show_downscale_factor],
-                                                vmin=0,
-                                                vmax=255,
-                                                aspect='auto',
-                                                cmap='binary_r',
-                                                interpolation="none"
-                                               #
-                                              )
-
+       
         #########################################################
         ########## INITIALIZE DRIFT BUTTONS ######################
         #########################################################
@@ -571,7 +575,7 @@ class PlotROIs():
             axup = plt.axes([0.925, 0.25, 0.04, 0.04])
             axdown = plt.axes([0.925, 0.15, 0.04, 0.04])
 
-
+			#
             def shift_fov_right(event):
                 self.manual_motion_correction_array[0]+=1
                 print ("moving FOV right")
@@ -696,7 +700,6 @@ class PlotROIs():
             self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
 
         self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_camera.bbox))
-
 
         #
         plt.show(block=False)

@@ -1040,8 +1040,8 @@ def get_binary_std_map(std,
                                 smax.val])
 
             #
-            idx = np.where(std < 10)
-            std[idx] = np.nan
+            #idx = np.where(std < 10)
+            #std[idx] = np.nan
 
             res = scipy.ndimage.gaussian_filter(std, sigma=sigma)
             image_obj.set_data(res)

@@ -247,12 +247,12 @@ class DriftCorrection():
         #
         # print ("DRIFT CLASS motion detection (r,c): ", r, c)
 
-        # also shift the motion history over 1 frame:
+        # shift the motion history over 1 frame:
         if self.smooth_motion_flag:
             self.motion_history[:-1] = self.motion_history[1:]
             self.motion_history[-1] = [r, c]
 
-            # print ("Computed presmooth SHIFTS rc, : ", r,c)
+            # use median motion history...
             r = np.median(self.motion_history[:, 0])
             c = np.median(self.motion_history[:, 1])
 
@@ -262,7 +262,6 @@ class DriftCorrection():
             self.drift_xy_values[0] = int(r)
         if (self.drift_xy_values_previous[1] - c) <= self.max_motion_per_frame:
             self.drift_xy_values[1] = int(c)
-
 
 #
 def phase_correlation(a, b):
