@@ -818,7 +818,7 @@ class CalibrationTools(object):
         n_rewards_random = n_sec_recording // self.sample_rate
         print("nsec recording: ", n_sec_recording,
               "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
-        n_rewards_random = int(n_rewards_random * 0.3)
+        n_rewards_random = int(n_rewards_random * self.reward_rate)
         print(" @30% reward: ", n_rewards_random)
         self.n_rewards_default = n_rewards_random
 
@@ -969,39 +969,74 @@ class CalibrationTools(object):
 
         #
         plt.figure()
-
+        ####################################################
+        ################# VISUALIZE ROIS ###################
+        ####################################################
+        ax=plt.subplot(2,1,1)
+        plt.title("ROIs")
         t = np.arange(self.diff.shape[0]) / self.sample_rate
-        plt.plot([t[0], t[-1]], [self.low, self.low], '--', c='grey')
-        plt.plot([t[0], t[-1]], [self.high, self.high], '--', c='grey')
-        plt.plot(t, self.E1, c='blue', alpha=.2, label='E1')
-        plt.plot(t, self.E2, c='red', alpha=.2, label='E2')
-        plt.plot(t, self.diff, c='black', alpha=.8, label='Difference')
-        plt.plot([t[0], t[-1]], [0, 0], c='black', linewidth=3)
+        plt.plot([t[0], t[-1]], [self.low, self.low], '--', c='grey')#, label='Low threshold')
+        plt.plot([t[0], t[-1]], [self.high, self.high], '--', c='grey')#, label='high threshold')
+
+
+        # show rois
+        clrs = ['lightblue','darkblue','lightcoral','red']
+        names = ["Roi #1","Roi #2","Roi #3","Roi #4",]
+        for k in range(len(self.roi_traces_fullres)):
+            temp0 = (self.roi_traces_fullres[k] - self.roi_f0s[k]) / self.roi_f0s[k]
+            plt.plot(t, temp0, c=clrs[k], alpha=.8, label=names[k])
+        #plt.plot(t, self.E2, c='red', alpha=.2, label='E2')
+        plt.plot(t, self.diff, c='black', alpha=1, label='Global ensemble state (i.e. E1-E2)')
+        plt.plot([t[0], t[-1]], [0, 0], '--', c='black', linewidth=1, alpha=.5)
+
+        ymaxes = np.max(np.abs(self.diff))
+
+        # show locations of rewards
+        for k in range(len(self.reward_times)):
+            temp = self.reward_times[k]
+            plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue')
+
+        # replot two random rewards just to make nice legend
+        idx1 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
+
+        #
+        plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E1 rewarded # ' + str(idx1), )
+        plt.legend()
+        plt.xlim(t[0],t[-1])
+
+        ####################################################
+        ################## VISUALIZE ENSEMBELS #############
+        ####################################################
+        ax=plt.subplot(2,1,2)
+        plt.title("ENSEMBLES")
+        plt.plot([t[0], t[-1]], [self.low, self.low], '--', c='grey')#, label='Low threshold')
+        plt.plot([t[0], t[-1]], [self.high, self.high], '--', c='grey')#', label='high threshold')
+        plt.plot(t, self.E1, c='darkblue', alpha=1, label='E1')
+        plt.plot(t, self.E2, c='darkred', alpha=1, label='E2')
+        plt.xlim(t[0],t[-1])
+        #
+        plt.plot(t, self.diff, c='black', alpha=1, label='Global ensemble state (i.e. E1-E2)')
+        plt.plot([t[0], t[-1]], [0, 0], '--', c='black', linewidth=1, alpha=.5)
 
         ymaxes = np.max(np.abs(self.diff))
 
         #
         for k in range(len(self.reward_times)):
             temp = self.reward_times[k]
-
-            # if temp[1] == 0:
-            #    plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='red')
-            # else:
             plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue')
 
         # replot two random rewards just to make nice legend
         idx1 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
-        # idx2 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
 
         #
         plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E1 rewarded # ' + str(idx1), )
-        # plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='red', label='E2 rewarded # ' + str(idx2), )
         plt.legend()
 
         #
-        plt.title("Rec duration: " + str(int(t[-1])) + " sec " +
+        plt.suptitle("Rec duration: " + str(int(t[-1])) + " sec " +
                   "\n expected # of random rewards: " + str(int(t[-1] / 30)) +
                   "\n actual # of provided rewards: " + str(self.reward_times.shape[0]))
+        plt.xlabel("Time (sec)", fontsize=20)
         plt.show()
 
 
