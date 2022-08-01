@@ -122,7 +122,7 @@ class DriftCorrection():
         self.initialize_dynamic_template_flag()
 
         #
-        while True:
+        while False:
 
             # grab latest image and shift the previous memory frames 1 over
             self.read_frame_shift_array()
@@ -671,7 +671,6 @@ def plot_mean_vs_template(bmi_c):
                )
     #
     plt.show()
-
 
 #
 def make_motion_template_and_correct_data(bmi_c):
