@@ -898,7 +898,7 @@ class BMI():
         self.update_rois()
 
         # smooth the ROIs using the external function
-        self.smooth_rois()
+        self.compute_dff_and_smooth_rois()
 
         # check if doing dynamic f0 updates
         if self.dynamic_f0_flag[0]:
@@ -925,7 +925,7 @@ class BMI():
         self.n_ttl+=1
     #
 
-    def smooth_rois(self):
+    def compute_dff_and_smooth_rois(self):
 
         ''' Function that smooths the raw roi traces;
             - this is required for both visualization but also ensemble computations as

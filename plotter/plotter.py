@@ -655,7 +655,7 @@ class PlotROIs():
             n_cells = 0
             n_cells+= len(self.rois_traces_ensemble1)
             n_cells+= len(self.rois_traces_ensemble2)
-            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(n_cells+5)+2*self.bmi_high_threshold)
+            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(n_cells*1.5)+2*self.bmi_high_threshold)
             self.ax_traces.set_xlim(-self.plotting_window_width,0)
             self.ax_traces.set_xlabel("Time (sec)")
 
@@ -724,11 +724,11 @@ class PlotROIs():
             ############ INITIALIZE ENSEMBLE STATES ################
             ########################################################
             # plot sum ensemble state
-            self.ensemble_state_y_scaling = 2
+            self.ensemble_state_y_scaling = 1
             self.ensemble_state_y_offset = 2.5
             y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]*self.ensemble_state_y_scaling+\
-                       self.plot_y_scale*(ctr+self.ensemble_state_y_offset)
-
+                       self.plot_y_scale*(ctr)+self.ensemble_state_y_offset
+                            #+self.plot_y_scale*ctr
             #
             lineobject, = self.ax_traces.plot(self.plot_times,
                                        y_values,  # plot last X values depending on length of plttimes
@@ -740,8 +740,8 @@ class PlotROIs():
 
             # ADD F0 for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       [0+self.plot_y_scale*(ctr+self.ensemble_state_y_offset),
-                                        0+self.plot_y_scale*(ctr+self.ensemble_state_y_offset)],  # plot last X values depending on length of plttimes
+                                       [0+self.plot_y_scale*(ctr)+self.ensemble_state_y_offset,
+                                        0+self.plot_y_scale*(ctr)+self.ensemble_state_y_offset],  # plot last X values depending on length of plttimes
                                        '--',
                                         c='black',
                                        linewidth=2,
@@ -751,9 +751,10 @@ class PlotROIs():
 
             # ADD Reward level for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       [self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.bmi_high_threshold,
-                                        self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.bmi_high_threshold],  # plot last X values depending on length of plttimes
-                                       'r--',
+                                       [self.plot_y_scale*(ctr)+self.ensemble_state_y_offset+self.bmi_high_threshold*self.plot_y_scale,
+                                        self.plot_y_scale*(ctr)+self.ensemble_state_y_offset+self.bmi_high_threshold*self.plot_y_scale],  # plot last X values depending on length of plttimes
+                                       '--',
+                                        c='green',
                                        linewidth=2,
                                        )  # Return
 
