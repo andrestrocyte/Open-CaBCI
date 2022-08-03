@@ -22,13 +22,6 @@ class PlotROIs():
         Input: shared memory
 
     '''
-    # calibration_flag,
-    # fname_rois_pixels_and_thresholds,
-    # bmi.shmem_rois_traces_ensemble1.name,
-    # bmi.shmem_rois_traces_ensemble2.name,
-    # bmi.shmem_n_ttl.name,
-    # bmi.rois_traces_raw_ensemble1.shape,
-    # bmi.rois_traces_raw_ensemble2.shape,
 
     #
     def __init__(self,
@@ -59,8 +52,8 @@ class PlotROIs():
         self.shmem_rois_traces_ensemble2 = shmem_rois_traces_ensemble2
 
         #
-        self.rois_traces_raw_ensemble1_shape = rois_traces_raw_ensemble1_shape
-        self.rois_traces_raw_ensemble2_shape = rois_traces_raw_ensemble2_shape
+        self.rois_traces_raw_shape_ensemble1 = rois_traces_raw_ensemble1_shape
+        self.rois_traces_raw_shape_ensemble2 = rois_traces_raw_ensemble2_shape
 
         #
         self.shmem_motion_correction_flag = shmem_motion_correction_flag
@@ -299,11 +292,12 @@ class PlotROIs():
         # TODO: generalize some of this code to allow different #s of cells; - not a priority
         data = np.load(self.fname_rois_pixels_and_thresholds,
                        allow_pickle=True)
-        self.rois_contours = []
-        self.rois_contours.append(data['cell0_contour'])
-        self.rois_contours.append(data['cell1_contour'])
-        self.rois_contours.append(data['cell2_contour'])
-        self.rois_contours.append(data['cell3_contour'])
+
+        # LOAD ensemble 1 contours
+        self.rois_contours_ensemble1 = data['ensemble1_contours']
+
+        # LOAD ensemble 2 contours
+        self.rois_contours_ensemble2 = data['ensemble2_contours']
 
         #
         self.contours_all_cells = data['contours_all_cells']
@@ -418,35 +412,41 @@ class PlotROIs():
         
         #
         #self.ensemble_state_array = np.zeros(self.rois_traces.shape[1]+100)  # add a small bufffer in case things don't shut down immediately
-        self.ensemble_state_array = np.zeros(self.rois_traces.shape[1]+100) + np.nan # add a small bufffer in case things don't shut down immediately
+        self.ensemble_state_array = np.zeros(self.rois_traces_ensemble1.shape[1]+100) + np.nan # add a small bufffer in case things don't shut down immediately
 
     #
     def initialize_rois_traces(self):
 
         #######################################################################
-        #######################################################################
+        ######################### LOAD ENSEMBLE 1 #############################
         #######################################################################
         # get the rois_traces from the shared memory name
         self.existing_shm_rois_traces_ensemble1 = shared_memory.SharedMemory(name=self.shmem_rois_traces_ensemble1)
 
         #
-        self.rois_traces_ensemble1 = np.ndarray((self.rois_traces_shape_ensemble1[0],
-                                                 self.rois_traces_shape_ensemble1[1]),
+        self.rois_traces_ensemble1 = np.ndarray((self.rois_traces_raw_shape_ensemble1[0],
+                                                 self.rois_traces_raw_shape_ensemble1[1]),
                                                  dtype=np.float32,
                                                  buffer=self.existing_shm_rois_traces_ensemble1.buf)
 
         # also load the F0 computed from the calibration session
         data = np.load(self.fname_rois_pixels_and_thresholds)
-
-        #
-        data = np.load(self.fname_rois_pixels_thresholds,
-                       allow_pickle=True)
-
-        #############################################################
-        #################### LOAD ENSEMBLE 1 DATA ###################
-        #############################################################
         self.cell_f0s_ensemble1 = data['ensemble1_f0s']
 
+        #######################################################################
+        ######################### LOAD ENSEMBLE 2 #############################
+        #######################################################################
+        # get the rois_traces from the shared memory name
+        self.existing_shm_rois_traces_ensemble2 = shared_memory.SharedMemory(name=self.shmem_rois_traces_ensemble2)
+
+        #
+        self.rois_traces_ensemble2 = np.ndarray((self.rois_traces_raw_shape_ensemble2[0],
+                                                 self.rois_traces_raw_shape_ensemble2[1]),
+                                                 dtype=np.float32,
+                                                 buffer=self.existing_shm_rois_traces_ensemble2.buf)
+
+        # also load the F0 computed from the calibration session
+        self.cell_f0s_ensemble2 = data['ensemble2_f0s']
 
     ################################################################################################
     ##################################### INITIALIZE PLOTS #########################################
@@ -454,7 +454,7 @@ class PlotROIs():
     def initialize_plots(self):
 
         #
-        self.plot_y_scale = 1
+        self.plot_y_scale = 10
 
         #
         clrs=['blue','magenta','red','orange']
@@ -509,16 +509,31 @@ class PlotROIs():
             self.ax_image.set_xlim(0,512)
             self.ax_image.set_ylim(512,0)
 
-            # PLOT ROI CONTOURS
-            # add contours on top of cells
-            for c in range(len(self.rois_contours)):
-                for k in range(len(self.rois_contours[c])-1):
-                    self.ax_image.plot([self.rois_contours[c][k][0], self.rois_contours[c][k+1][0]],
-                                       [self.rois_contours[c][k][1], self.rois_contours[c][k + 1][1]],
-                                        c=clrs[c],
+
+            ################################################
+            ############## PLOT ROI CONTOURS ###############
+            ################################################
+            # ROI contours ensemble 1
+            for c in range(len(self.rois_contours_ensemble1)):
+                for k in range(len(self.rois_contours_ensemble1[c])-1):
+                    self.ax_image.plot([self.rois_contours_ensemble1[c][k][0],
+                                        self.rois_contours_ensemble1[c][k+1][0]],
+                                       [self.rois_contours_ensemble1[c][k][1],
+                                        self.rois_contours_ensemble1[c][k + 1][1]],
+                                        c='blue',
                                        linewidth=3)
 
-            # add random cells to the data
+            # ROI contours ensemble 2
+            for c in range(len(self.rois_contours_ensemble2)):
+                for k in range(len(self.rois_contours_ensemble2[c])-1):
+                    self.ax_image.plot([self.rois_contours_ensemble2[c][k][0],
+                                        self.rois_contours_ensemble2[c][k+1][0]],
+                                       [self.rois_contours_ensemble2[c][k][1],
+                                        self.rois_contours_ensemble2[c][k + 1][1]],
+                                        c='blue',
+                                       linewidth=3)
+
+            # add other cell contours to the data
             ids = np.arange(0,min(80,len(self.contours_all_cells)),1)
             for c in ids:
                 # plot each cell contour
@@ -632,44 +647,78 @@ class PlotROIs():
             self.ax_traces = self.fig.add_subplot(self.grid[:4, :4])
 
             #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
-            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(4+2.5)+2*self.bmi_high_threshold)
+            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(10+2.5)+2*self.bmi_high_threshold)
             self.ax_traces.set_xlim(-self.plotting_window_width,0)
             self.ax_traces.set_xlabel("Time (sec)")
 
             self.plot_times = np.arange(-self.plotting_window_width*self.sampleRate_2P,0,1)/self.sampleRate_2P
 
             # make a list to hold the matplotlib line objects
-            self.time_course_objects = []
+            self.time_course_objects_ensemble1 = []
+            self.time_course_objects_ensemble2 = []
+            self.time_course_objects_ensemble_sum = []
             self.f0_objects = []
 
-            # plot ROIS
-            for k in range(self.rois_traces.shape[0]):
+            # plot ROIS ensemble 1
+            ctr=0
+            for k in range(self.rois_traces_ensemble1.shape[0]):
 
                 #
-                y_values = self.rois_traces[k,:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*k
+                y_values = self.rois_traces_ensemble1[k,:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*k
 
                 #
                 lineobject, = self.ax_traces.plot(self.plot_times,
                                            #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                            y_values,  # plot last X values depending on length of plttimes
-                                           c=clrs[k]
+                                           c='blue'
                                               #'r-'
                                            )  # Returns a tuple of line objects, thus the comma
                 #
-                self.time_course_objects.append(lineobject)
+                self.time_course_objects_ensemble1.append(lineobject)
 
                 # also draw the f0 baseline of each cell!!
                 f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
                                            # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                            [0+self.plot_y_scale*k,0+self.plot_y_scale*k],  # plot last X values depending on length of plttimes
                                            '--',
-                                           c=clrs[k]
+                                           c='blue'
                                            )  # Return
                 self.f0_objects.append(f0object)
+                ctr+=1
 
+            # plot ROIS ensemble 2
+            for k in range(self.rois_traces_ensemble2.shape[0]):
 
+                #
+                y_values = self.rois_traces_ensemble2[k,:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*ctr
+
+                #
+                lineobject, = self.ax_traces.plot(self.plot_times,
+                                           #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
+                                           y_values,  # plot last X values depending on length of plttimes
+                                           c='red'
+                                              #'r-'
+                                           )  # Returns a tuple of line objects, thus the comma
+                #
+                self.time_course_objects_ensemble2.append(lineobject)
+
+                # also draw the f0 baseline of each cell!!
+                f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
+                                           # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
+                                           [0+self.plot_y_scale*ctr,0+self.plot_y_scale*ctr],  # plot last X values depending on length of plttimes
+                                           '--',
+                                           c='red'
+                                           )  # Return
+                self.f0_objects.append(f0object)
+                ctr+=1
+
+            ########################################################
+            ################### ENSEMBLE STATES ####################
+            ########################################################
             # plot sum ensemble state
-            y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]+self.plot_y_scale*(k+2.5)
+            self.ensemble_state_y_scaling = .3
+            y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]*self.ensemble_state_y_scaling+\
+                       self.plot_y_scale*(ctr+2.5)
 
             #
             lineobject, = self.ax_traces.plot(self.plot_times,
@@ -678,12 +727,12 @@ class PlotROIs():
                                        c='black'
                                        )  # Returns a tuple of line objects, thus the comma
             #
-            self.time_course_objects.append(lineobject)
+            self.time_course_objects_ensemble_sum.append(lineobject)
 
             # ADD F0 for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       [0+self.plot_y_scale*(k+2.5),
-                                        0+self.plot_y_scale*(k+2.5)],  # plot last X values depending on length of plttimes
+                                       [0+self.plot_y_scale*(ctr+2.5),
+                                        0+self.plot_y_scale*(ctr+2.5)],  # plot last X values depending on length of plttimes
                                        '--',
                                         c='black',
                                        linewidth=2,
@@ -701,7 +750,6 @@ class PlotROIs():
                                        )  # Return
 
             self.f0_objects.append(f0object)
-
 
         #
         self.fig.canvas.flush_events()
@@ -760,7 +808,6 @@ class PlotROIs():
         for k in range(len(self.axbackground)):
             self.fig.canvas.restore_region(self.axbackground[k])
 
-
         ####################################
         ########### UPDATE IMAGE ###########
         ####################################
@@ -814,15 +861,16 @@ class PlotROIs():
             x_values = np.arange(0, min(self.n_ttl_current, self.plotting_window_width*self.sampleRate_2P), 1) / 30 - self.plotting_window_width
             x_values1 = np.array([x_values[0], x_values[-1]])
 
-            # plot roi time courses
-            for k in range(self.rois_traces.shape[0]):
+            # plot roi time courses - ensemble1
+            ctr=0
+            for k in range(self.rois_traces_ensemble1.shape[0]):
 
                 #
-                y_values = self.rois_traces[k,
+                y_values = self.rois_traces_ensemble1[k,
                                         max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):self.n_ttl_current]+self.plot_y_scale*k
 
                 #
-                self.time_course_objects[k].set_data(x_values,
+                self.time_course_objects_ensemble1[k].set_data(x_values,
                                                     y_values
                                                     )
 
@@ -834,19 +882,43 @@ class PlotROIs():
                 self.f0_objects[k].set_data(x_values1,
                                             y_values1
                                            )
+                ctr+=1
+
+            # plot roi time courses - ensemble2
+            for k in range(self.rois_traces_ensemble2.shape[0]):
+
+                #
+                y_values = self.rois_traces_ensemble2[k,
+                                        max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):self.n_ttl_current]+self.plot_y_scale*ctr
+
+                #
+                self.time_course_objects_ensemble2[k].set_data(x_values,
+                                                    y_values
+                                                    )
+
+                # redraw baseline for each cell
+                # TODO: note that we want to reset to 0 not the actual f0 values
+                y_values1 = np.array([self.plot_y_scale*k,self.plot_y_scale*k])
+
+                #
+                self.f0_objects[k].set_data(x_values1,
+                                            y_values1
+                                           )
+                ctr+=1
+
         ################################################
         ############ UPDATE ENSEMBLE STATE #############
         ################################################
         if self.calibration_flag==False:
             # update ensemble state
             y_values = self.ensemble_state_array[max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):
-                                                    self.n_ttl_current]+self.plot_y_scale*(k+1.5)
+                                                    self.n_ttl_current]*self.ensemble_state_y_scaling+self.plot_y_scale*(k+1.5)
 
             #
             #print (" esnemble values: ", y_values)
 
             #
-            self.time_course_objects[k+1].set_data(x_values,
+            self.time_course_objects_ensemble_sum[0].set_data(x_values,
                                                    y_values
                                                     )
             # update F0
@@ -880,8 +952,13 @@ class PlotROIs():
 
         # add the drawn lines to the plot
         if self.calibration_flag==False:
-            for k in range(len(self.rois_traces)):
-                self.ax_traces.draw_artist(self.time_course_objects[k])
+            for k in range(len(self.rois_traces_ensemble1)):
+                self.ax_traces.draw_artist(self.time_course_objects_ensemble1[k])
+
+            for k in range(len(self.rois_traces_ensemble1)):
+                self.ax_traces.draw_artist(self.time_course_objects_ensemble2[k])
+
+            for k in range(len(self.f0_objects)):
                 self.ax_traces.draw_artist(self.f0_objects[k])
 
         if self.calibration_flag==False:

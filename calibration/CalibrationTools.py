@@ -414,7 +414,7 @@ class CalibrationTools(object):
 
         plt.show()
 
-    def reorder_cells_by_snr_or_f0(self,
+    def compute_f0_and_reorder_cells(self,
                                    order_type):
 
         #
@@ -469,7 +469,7 @@ class CalibrationTools(object):
         for k in range(self.roi_traces.shape[0]):
 
             #
-            f0 = np.nanmedian(self.roi_traces[k])
+            f0 = np.median(self.roi_traces[k])
 
             #
             self.roi_f0s[k] = f0
@@ -503,7 +503,6 @@ class CalibrationTools(object):
     def compute_traces_ensembles(self, std_map):
         """ Same as below but visualize every single frame
         """
-
 
         data = np.memmap(self.fname, dtype='uint16', mode='r')
         data = data.reshape(-1, 512, 512)
@@ -560,7 +559,6 @@ class CalibrationTools(object):
                 # save
                 self.ensemble2_traces[ctr].append(temp)
                 ctr += 1
-
 
         #
         plt.figure()

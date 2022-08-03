@@ -144,7 +144,7 @@ class BMI():
         self.ensemble_diff_array = np.zeros(self.n_frames_to_be_acquired)
 
         # initailize the realtime roi states; these hold the smooth/processed version of the realtime roi
-        self.rois_activity_realtime = np.zeros(len(self.rois_pixels),dtype=np.float32)
+        #self.rois_activity_realtime = np.zeros(len(self.rois_pixels),dtype=np.float32)
 
         # initialize all arrays to be used, mostly to save data after BMI run
         self.initialize_data_arrays()
@@ -1189,7 +1189,7 @@ class BMI():
             #                      self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].sum()
 
             # TODO ;could just check any part of the FOV to see if there is non zero values
-            roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels[0]].sum()
+            roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels_ensemble1[0]].sum()
 
             #
             if roi_sum0 != 0:
@@ -1367,10 +1367,12 @@ class BMI():
                  ttl_n_detected = self.ttl_n_detected,
                  abs_times = self.abs_times,
                  ttl_times = self.ttl_times,
-                 rois_pixels = np.hstack(self.rois_pixels),
+                 rois_pixels_ensemble1 = np.hstack(self.rois_pixels_ensemble1),
+                 rois_pixels_ensemble2 = np.hstack(self.rois_pixels_ensemble2),
                  rois_traces_raw_ensemble1 = np.array(self.rois_traces_raw_ensemble1,dtype='object'),
                  rois_traces_raw_ensemble2 = np.array(self.rois_traces_raw_ensemble2,dtype='object'),
-                 rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
+                 rois_traces_smooth1 = np.array(self.rois_traces_smooth_ensemble1,dtype='object'),
+                 rois_traces_smooth2 = np.array(self.rois_traces_smooth_ensemble2,dtype='object'),
                  reward_times = self.reward_times,
                  rewarded_times_abs = self.rewarded_times_abs,
                  ensemble_activity = self.ensemble_activity,
