@@ -632,55 +632,69 @@ class BMI():
             TODO: Must properly transfer ROIs to this function not just use a box aroudn a point of interest
         '''
 
-        #####################################################
-        # load individual cell ROIs as saved by the calibration step
         # TODO: generalize some of this code to allow different #s of cells; - not a priority
         data = np.load(self.fname_rois_pixels_thresholds,
                        allow_pickle=True)
-        self.rois_pixels = []
-        self.rois_pixels.append(data['cell0_footprint'])
-        self.rois_pixels.append(data['cell1_footprint'])
-        self.rois_pixels.append(data['cell2_footprint'])
-        self.rois_pixels.append(data['cell3_footprint'])
+
+        #############################################################
+        #################### LOAD ENSEMBLE 1 DATA ###################
+        #############################################################
+        self.roi_f0s_ensemble1 = data['ensemble1_f0s']
+
+        # also load the ensemble footprints
+        ensemble1_footprints = data['ensemble1_footprints']
+        self.rois_pixels_ensemble1=[]
+        for k in range(len(ensemble1_footprints)):
+            self.rois_pixels_ensemble1.append(ensemble1_footprints[k].T)
 
         # make a default size matrix that will hold [n_rois, n_frames]
-        a = np.zeros((len(self.rois_pixels),self.n_frames),
+        a = np.zeros((len(self.rois_pixels_ensemble1),self.n_frames),
                       dtype=np.float32)+1E-8
 
         # rois traces raw: contains the raw ROIs (i.e. summed pixels etc in each ROI)
-        # these are NOT shared with external classes, unless needed in future
-        self.rois_traces_raw = np.zeros(a.shape, dtype=np.float32)
-        
-        # these are the (raw - F0)/F0 traces
-        # note the calibration class also shares code
-        # do not change their computation without changing it also in the calibration class
-        self.rois_traces_dff0 = np.zeros(a.shape, dtype=np.float32)
-        
-
-        # also load the f0 for each cell computed by calibration step (hopefully within a few mins of BMI step)
-        # TODO: this calculation is simplified, make sure you don't change power, settings etc.
-        #       between calibartion seession and BMI session
-        #      - to use an identical function between calibration and bmi whenever possible/required
-        # NOTE June 9 - NOT SURE WE WANT TO RESUSE CALIBRATION TIME F0s anylonger
-        self.roi_f0s = data['cell_f0s']
-
-        #####################################
-        # initialize the fluorescence time series called rois_traces which keeps
-        #  track of time series for all the ROIs
-        # Note: we have to share this with the plotting function so we use sharedmemory
-        # NOTE we want to share the smooth traces with the plotting function as that is what the
-        #      reward condition computation is based on
-
-        self.shmem_rois_traces = shared_memory.SharedMemory(create=True,
-                                                            size=a.nbytes)
+        self.rois_traces_raw_ensemble1 = np.zeros(a.shape, dtype=np.float32)
 
         #
-        self.rois_traces_smooth = np.ndarray(a.shape,
-                                      dtype=a.dtype,
-                                      buffer=self.shmem_rois_traces.buf)
+        self.shmem_rois_traces_ensemble1 = shared_memory.SharedMemory(create=True,
+                                                                   size=a.nbytes)
 
         #
-        self.rois_traces_smooth[:] = a[:]
+        self.rois_traces_smooth_ensemble1 = np.ndarray(a.shape,
+                                              dtype=a.dtype,
+                                              buffer=self.shmem_rois_traces_ensemble1.buf)
+
+        #
+        self.rois_traces_smooth_ensemble1[:] = a[:]
+
+        #############################################################
+        #################### LOAD ENSEMBLE 2 DATA ###################
+        #############################################################
+        self.roi_f0s_ensemble2 = data['ensemble2_f0s']
+
+        #
+        ensemble2_footprints = data['ensemble2_footprints']
+        self.rois_pixels_ensemble2 = []
+        for k in range(len(ensemble2_footprints)):
+            self.rois_pixels_ensemble2.append(ensemble2_footprints[k].T)
+
+        # make a default size matrix that will hold [n_rois, n_frames]
+        a = np.zeros((len(self.rois_pixels_ensemble2),self.n_frames),
+                      dtype=np.float32)+1E-8
+
+        #
+        self.rois_traces_raw_ensemble2 = np.zeros(a.shape, dtype=np.float32)
+
+        #
+        self.shmem_rois_traces_ensemble2 = shared_memory.SharedMemory(create=True,
+                                                                   size=a.nbytes)
+
+        #
+        self.rois_traces_smooth_ensemble2 = np.ndarray(a.shape,
+                                              dtype=a.dtype,
+                                              buffer=self.shmem_rois_traces_ensemble2.buf)
+
+        #
+        self.rois_traces_smooth_ensemble2[:] = a[:]
 
     #
     def run_BMI(self):
@@ -844,21 +858,32 @@ class BMI():
 
         # only change f0 values at most every 10 or much more seconds;
         # use at lesat 90 seconds history or more is even better
-        if self.n_ttl[0]%self.update_f0_time==0:
+        if self.n_ttl[0]%self.update_f0_time==0 and self.n_ttl[0]>(self.n_ttl_to_start_applying_dynamic_f0*self.sampleRate_2P):
 
             #
             print (">>>>>>>>>>>>>>>Updating f0 values<<<<<<<<<<<<<<<<<<")
 
-            # loop over each cell
-            for p in range(self.rois_traces_raw.shape[0]):
+            # loop over ensembel 1
+            for p in range(len(self.rois_traces_raw_ensemble1)):
 
                 # compute median value over the past frames
-                roi_history = self.rois_traces_raw[p,
+                roi_history = self.rois_traces_raw_ensemble1[p,
                                            self.n_ttl[0] - self.n_ttl_to_start_applying_dynamic_f0:
                                            self.n_ttl[0]]
 
                 #
-                self.roi_f0s[p] = np.median(roi_history, axis=0)
+                self.roi_f0s_ensemble1[p] = np.median(roi_history, axis=0)
+
+            # loop over ensembel 2
+            for p in range(len(self.rois_traces_raw_ensemble2)):
+
+                # compute median value over the past frames
+                roi_history = self.rois_traces_raw_ensemble2[p,
+                                           self.n_ttl[0] - self.n_ttl_to_start_applying_dynamic_f0:
+                                           self.n_ttl[0]]
+
+                #
+                self.roi_f0s_ensemble2[p] = np.median(roi_history, axis=0)
 
     #
     def bmi_update(self):
@@ -914,20 +939,36 @@ class BMI():
         # wait a few seconds until get enough data to smooth out
         if self.smooth_diff_function_flag and self.n_ttl[0]>self.rois_smooth_window:
 
-            # loop over each cell
-            for p in range(self.rois_traces_raw.shape[0]):
+            # Ensemble 1
+            for p in range(len(self.rois_traces_raw_ensemble1)):
                 #
-                roi_history = self.rois_traces_raw[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
+                roi_history = self.rois_traces_raw_ensemble1[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
 
                 #
-                rois_dff = (roi_history - self.roi_f0s[p])/self.roi_f0s[p]
+                rois_dff = (roi_history - self.roi_f0s_ensemble1[p])/self.roi_f0s_ensemble1[p]
 
                 #
-                self.rois_traces_smooth[p,self.n_ttl[0]] = smooth_ca_time_series(rois_dff)
+                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = smooth_ca_time_series(rois_dff)
 
+            # Ensemble 2
+            for p in range(len(self.rois_traces_raw_ensemble2)):
+                #
+                roi_history = self.rois_traces_raw_ensemble2[p,self.n_ttl[0]-self.rois_smooth_window:self.n_ttl[0]]
+
+                #
+                rois_dff = (roi_history - self.roi_f0s_ensemble2[p])/self.roi_f0s_ensemble2[p]
+
+                #
+                self.rois_traces_smooth_ensemble2[p,self.n_ttl[0]] = smooth_ca_time_series(rois_dff)
         else:
             #
-            self.rois_traces_smooth[:,self.n_ttl[0]] = self.rois_traces_raw[:,self.n_ttl[0]]
+            for p in range(len(self.rois_traces_raw_ensemble1)):
+                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = self.rois_traces_raw_ensemble1[p,self.n_ttl[0]]
+
+            #
+            for p in range(len(self.rois_traces_raw_ensemble2)):
+                self.rois_traces_smooth_ensemble2[p, self.n_ttl[0]] = self.rois_traces_raw_ensemble2[p, self.n_ttl[0]]
+
 
     #
     def compute_frame_number(self):
@@ -1081,29 +1122,6 @@ class BMI():
 
         '''
 
-        # IF E1 reward state reached
-        # if (self.ensemble_state >= self.low_threshold) and (self.reward_lockout_counter[0]<=0):
-
-            # # low reward state reached
-            # # search for the first empty slot in the reward times list
-            # for k in range(self.reward_times.shape[1]):
-                # if self.reward_times[0,k]==-1:
-                    # self.reward_times[0,k] = self.n_ttl[0]     # save current reward time
-                    # break
-
-            # # same variable as above; probably need to reduce osme of this redundancy at some point
-            # # - this is a list though, more useful for other things also
-            # self.rewarded_times.append([0, self.n_ttl[0], self.abs_times])
-
-            # # reset last reward time to current time
-            # self.last_reward_ttl[0] = self.n_ttl[0]
-
-            # #
-            # self.trigger_reward()
-
-            # # decouple tone etc. from feedback
-            # self.post_reward_state()
-            
         #
         if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
 
@@ -1235,17 +1253,17 @@ class BMI():
     #
     def update_rois(self):
 
-        # loop over the remaning cells on the last frame 'z'
-        for p in range(0,len(self.rois_pixels),1):
+        # update ROIs ensemble 1
+        for p in range(0,len(self.rois_pixels_ensemble1),1):
 
             # new way use exact pixel location
-            temp = self.live_frame_local_drift_corrected[self.rois_pixels[p].T[:, 0],        # broadcast/index into the frame as per ROI pixels
-                                                         self.rois_pixels[p].T[:, 1]]
+            temp = self.live_frame_local_drift_corrected[self.rois_pixels_ensemble1[p].T[:, 0],        # broadcast/index into the frame as per ROI pixels
+                                                         self.rois_pixels_ensemble1[p].T[:, 1]]
 
             # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
             # TODO: these algorithms must match the default water disposal algorithms
             # TODO: USE A FUNCTION OVER THIS AND FOLLOWING STEP THAT IS SHARED WITH CALIBRATION CODE
-            roi_sum0 = temp / self.rois_pixels[p][0].shape[0]
+            roi_sum0 = temp / self.rois_pixels_ensemble1[p][0].shape[0]
 
             # sum
             # TODO: not sure this is the correct function; to check literature
@@ -1254,7 +1272,28 @@ class BMI():
 
             # Note: Do not remove baseline yet; this is done in the smoothing step;
             # TODO: make sure that this approach is correct
-            self.rois_traces_raw[p,self.n_ttl[0]] = roi_sum0
+            self.rois_traces_raw_ensemble1[p,self.n_ttl[0]] = roi_sum0
+
+        # update ROIS ensemble 2
+        for p in range(0,len(self.rois_pixels_ensemble2),1):
+
+            # new way use exact pixel location
+            temp = self.live_frame_local_drift_corrected[self.rois_pixels_ensemble2[p].T[:, 0],        # broadcast/index into the frame as per ROI pixels
+                                                         self.rois_pixels_ensemble2[p].T[:, 1]]
+
+            # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
+            # TODO: these algorithms must match the default water disposal algorithms
+            # TODO: USE A FUNCTION OVER THIS AND FOLLOWING STEP THAT IS SHARED WITH CALIBRATION CODE
+            roi_sum0 = temp / self.rois_pixels_ensemble2[p][0].shape[0]
+
+            # sum
+            # TODO: not sure this is the correct function; to check literature
+            # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
+            roi_sum0 = np.nansum(roi_sum0)
+
+            # Note: Do not remove baseline yet; this is done in the smoothing step;
+            # TODO: make sure that this approach is correct
+            self.rois_traces_raw_ensemble2[p,self.n_ttl[0]] = roi_sum0
 
         #
         if self.verbose:
@@ -1268,18 +1307,16 @@ class BMI():
         if self.n_ttl[0]>self.rois_smooth_window:
 
             # compute ensemble 1
-            self.ensemble_activity[0,self.n_ttl[0]] = (self.rois_traces_smooth[0, self.n_ttl[0]]+
-                                                       self.rois_traces_smooth[1, self.n_ttl[0]])
+            for k in range(len(self.rois_traces_smooth_ensemble1)):
+                self.ensemble_activity[0, self.n_ttl[0]]+= self.rois_traces_smooth_ensemble1[k, self.n_ttl[0]]
 
             # compute ensemble 1
-            self.ensemble_activity[1,self.n_ttl[0]] = (self.rois_traces_smooth[2, self.n_ttl[0]]+
-                                                       self.rois_traces_smooth[3, self.n_ttl[0]])
+            for k in range(len(self.rois_traces_smooth_ensemble2)):
+                self.ensemble_activity[1, self.n_ttl[0]]+= self.rois_traces_smooth_ensemble2[k, self.n_ttl[0]]
 
         # Compute the E1-E2 for current time point
         # this value goes to the tone package which converts it into a tone
         # TODO: this value is sometimes zero, not clear why, perhaps we are readng too far ahead
-        #self.ensemble_state[0] = abs(self.ensemble_activity[0, self.n_ttl[0]] -
-        #                             self.ensemble_activity[1, self.n_ttl[0]])
 
         # use the same diff funtion as in the calibration set
         self.ensemble_state[0] = (self.ensemble_activity[0, self.n_ttl[0]] -
@@ -1331,7 +1368,8 @@ class BMI():
                  abs_times = self.abs_times,
                  ttl_times = self.ttl_times,
                  rois_pixels = np.hstack(self.rois_pixels),
-                 rois_traces_raw = np.array(self.rois_traces_raw,dtype='object'),
+                 rois_traces_raw_ensemble1 = np.array(self.rois_traces_raw_ensemble1,dtype='object'),
+                 rois_traces_raw_ensemble2 = np.array(self.rois_traces_raw_ensemble2,dtype='object'),
                  rois_traces_smooth = np.array(self.rois_traces_smooth,dtype='object'),
                  reward_times = self.reward_times,
                  rewarded_times_abs = self.rewarded_times_abs,

@@ -164,9 +164,11 @@ if __name__ ==  '__main__':
     plotter_ = Process(target=PlotROIs, args=(
                                             calibration_flag,
                                             fname_rois_pixels_and_thresholds,
-                                            bmi.shmem_rois_traces.name,
+                                            bmi.shmem_rois_traces_ensemble1.name,
+                                            bmi.shmem_rois_traces_ensemble2.name,
                                             bmi.shmem_n_ttl.name,
-                                            bmi.rois_traces_raw.shape,
+                                            bmi.rois_traces_raw_ensemble1.shape,
+                                            bmi.rois_traces_raw_ensemble2.shape,
                                             bmi.shmem_reward_times.name,
                                             bmi.shmem_tone_state.name,
                                             bmi.shmem_live_frame_plotter.name,
@@ -180,7 +182,7 @@ if __name__ ==  '__main__':
                                             motion_flag,
                                             bmi.shmem_dynamic_f0_flag.name,
                                             bmi.shmem_manual_motion_correction_array.name,
-                                                    ))
+                                              ))
     plotter_.start()
 
     ###############################################################

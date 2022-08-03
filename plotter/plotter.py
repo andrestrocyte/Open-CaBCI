@@ -22,14 +22,23 @@ class PlotROIs():
         Input: shared memory
 
     '''
+    # calibration_flag,
+    # fname_rois_pixels_and_thresholds,
+    # bmi.shmem_rois_traces_ensemble1.name,
+    # bmi.shmem_rois_traces_ensemble2.name,
+    # bmi.shmem_n_ttl.name,
+    # bmi.rois_traces_raw_ensemble1.shape,
+    # bmi.rois_traces_raw_ensemble2.shape,
 
     #
     def __init__(self,
                  calibration_flag,
                  fname_rois_pixels_and_thresholds,
-                 shmem_rois_traces,
+                 shmem_rois_traces_ensemble1,
+                 shmem_rois_traces_ensemble2,
                  shmem_n_ttl,
-                 rois_traces_shape,
+                 rois_traces_raw_ensemble1_shape,
+                 rois_traces_raw_ensemble2_shape,
                  shmem_reward_times,
                  shmem_tone_state,
                  shmem_live_frame,
@@ -44,6 +53,14 @@ class PlotROIs():
                  shmem_dynamic_f0_flag,
                  shmem_manual_motion_correction_array,
                  ):
+
+        #
+        self.shmem_rois_traces_ensemble1 = shmem_rois_traces_ensemble1
+        self.shmem_rois_traces_ensemble2 = shmem_rois_traces_ensemble2
+
+        #
+        self.rois_traces_raw_ensemble1_shape = rois_traces_raw_ensemble1_shape
+        self.rois_traces_raw_ensemble2_shape = rois_traces_raw_ensemble2_shape
 
         #
         self.shmem_motion_correction_flag = shmem_motion_correction_flag
@@ -111,12 +128,6 @@ class PlotROIs():
 
         #
         self.shmem_ensemble_state = shmem_ensemble_state
-
-        #
-        self.shmem_rois_traces = shmem_rois_traces
-
-        #
-        self.rois_traces_shape = rois_traces_shape
 
         #
         self.shmem_n_ttl = shmem_n_ttl
@@ -412,18 +423,29 @@ class PlotROIs():
     #
     def initialize_rois_traces(self):
 
+        #######################################################################
+        #######################################################################
+        #######################################################################
         # get the rois_traces from the shared memory name
-        self.existing_shm_rois_traces = shared_memory.SharedMemory(name=self.shmem_rois_traces)
+        self.existing_shm_rois_traces_ensemble1 = shared_memory.SharedMemory(name=self.shmem_rois_traces_ensemble1)
 
         #
-        self.rois_traces = np.ndarray((self.rois_traces_shape[0],
-                                       self.rois_traces_shape[1]),
-                                       dtype=np.float32,
-                                       buffer=self.existing_shm_rois_traces.buf)
+        self.rois_traces_ensemble1 = np.ndarray((self.rois_traces_shape_ensemble1[0],
+                                                 self.rois_traces_shape_ensemble1[1]),
+                                                 dtype=np.float32,
+                                                 buffer=self.existing_shm_rois_traces_ensemble1.buf)
 
         # also load the F0 computed from the calibration session
         data = np.load(self.fname_rois_pixels_and_thresholds)
-        self.cell_f0s = data['cell_f0s']
+
+        #
+        data = np.load(self.fname_rois_pixels_thresholds,
+                       allow_pickle=True)
+
+        #############################################################
+        #################### LOAD ENSEMBLE 1 DATA ###################
+        #############################################################
+        self.cell_f0s_ensemble1 = data['ensemble1_f0s']
 
 
     ################################################################################################

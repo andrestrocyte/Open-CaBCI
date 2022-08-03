@@ -500,6 +500,131 @@ class CalibrationTools(object):
 
     #
 
+    def compute_traces_ensembles(self, std_map):
+        """ Same as below but visualize every single frame
+        """
+
+
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = data.reshape(-1, 512, 512)
+
+        ########################################################
+        ########################################################
+        ########################################################
+        # loop over each frame
+        self.ensemble1_traces = []
+        for k in range(len(self.ensemble1)):
+            self.ensemble1_traces.append([])
+
+        #
+        self.ensemble2_traces = []
+        for k in range(len(self.ensemble2)):
+            self.ensemble2_traces.append([])
+
+        #
+        for p in trange(0, data.shape[0], self.trace_subsample):
+
+            # grab frame
+            frame = data[p]
+
+            # loop over ensemble1 traces
+            ctr = 0
+            for k in self.ensemble1:
+                # grab roi
+                temp = frame[self.footprints[k]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.footprints[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                self.ensemble1_traces[ctr].append(temp)
+                ctr += 1
+
+            # loop over ensemble2 traces
+            ctr = 0
+            for k in self.ensemble2:
+                # grab roi
+                temp = frame[self.footprints[k]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.footprints[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                self.ensemble2_traces[ctr].append(temp)
+                ctr += 1
+
+
+        #
+        plt.figure()
+        ax = plt.subplot(121)
+        ax.tick_params(axis='both', which='both', labelsize=20)
+        plt.ylabel("Neuron ID ", fontsize=20)
+
+        # plot ensemble 1 cells
+        ctr=0
+        for k in range(len(self.ensemble1_traces)):
+            temp = self.ensemble1_traces[k]
+
+            # normalize by the correct cell id, not the one computed above
+            temp = (temp - self.roi_f0s[self.ensemble1[k]])/self.roi_f0s[self.ensemble1[k]]
+
+            # we update the selected traces time dynamics
+            self.ensemble1_traces[k] = temp
+
+            #
+            t = np.linspace(0, data.shape[0], temp.shape[0]) / 30.
+            plt.plot(t, self.ensemble1_traces[k] + ctr * self.scale,
+                     c='blue')
+
+            ctr += 1
+
+        # plot ensemble 2 cells
+        for k in range(len(self.ensemble2_traces)):
+            temp = self.ensemble2_traces[k]
+
+            # normalize by the correct cell id, not the one computed above
+            temp = (temp - self.roi_f0s[self.ensemble2[k]]) / self.roi_f0s[self.ensemble2[k]]
+
+            # we update the selected traces time dynamics
+            self.ensemble2_traces[k] = temp
+
+            #
+            t = np.linspace(0, data.shape[0], temp.shape[0]) / 30.
+            plt.plot(t, self.ensemble2_traces[k] + ctr * self.scale,
+                     c='red')
+
+            ctr += 1
+
+        #
+        cell_ids = np.hstack((self.ensemble1, self.ensemble2))
+
+        #
+        labels = cell_ids
+        labels_old = np.arange(0, ctr * self.scale, self.scale)
+
+        #
+        plt.yticks(labels_old, labels, fontsize=10)
+        plt.xlabel("Time (sec)", fontsize=20)
+
+        #
+        plt.subplot(122)
+        new_plot = False
+        self.show_contour_map(std_map,
+                              self.footprints,
+                              cell_ids, new_plot)
+
+        plt.show()
+
+
+
         #
     def compute_traces2(self, std_map, cell_ids=None, fig=None):
         """ Same as below but visualize every single frame
@@ -775,28 +900,48 @@ class CalibrationTools(object):
 
         #
         print("COMPUTED # of roi traces: ", len(self.roi_traces))
-        self.roi_traces_fullres_dff_smooth=[]
         # run smoothing on each ensemble
-        if self.smooth_diff_function_flag:
+        self.ensemble1_traces_smooth=[]
+        for p in range(len(self.ensemble1)):
 
-            # ensemble #1
-            for p in range(4):
+            if self.smooth_diff_function_flag:
+
                 # print ("cell id: ", self.ensemble1[p])
-                smooth = np.zeros(self.roi_traces_fullres_dff[p].shape)
+                smooth = np.zeros(self.ensemble1_traces[p].shape)
 
                 # smooth each time point based on history/etc... this is how the online BMI does things
-                for k in trange(self.rois_smooth_window, self.roi_traces_fullres_dff[p].shape[0], 1):
-                    smooth[k] = smooth_ca_time_series(self.roi_traces_fullres_dff[p][k - self.rois_smooth_window:k])
+                for k in trange(self.rois_smooth_window, self.ensemble1_traces[p].shape[0], 1):
+                    smooth[k] = smooth_ca_time_series(self.ensemble1_traces[p][k - self.rois_smooth_window:k])
 
                 #
-                self.roi_traces_fullres_dff_smooth.append(smooth)
+                self.ensemble1_traces_smooth.append(smooth)
 
-        else:
-            self.roi_traces_fullres_dff_smooth.append(self.roi_traces_fullres_dff[k])
+            else:
+                self.ensemble1_traces_smooth.append(self.ensemble1_traces[p])
+
+        # ensemble #2
+        self.ensemble2_traces_smooth=[]
+        for p in range(len(self.ensemble2)):
+
+            if self.smooth_diff_function_flag:
+
+                # print ("cell id: ", self.ensemble1[p])
+                smooth = np.zeros(self.ensemble2_traces[p].shape)
+
+                # smooth each time point based on history/etc... this is how the online BMI does things
+                for k in trange(self.rois_smooth_window, self.ensemble2_traces[p].shape[0], 1):
+                    smooth[k] = smooth_ca_time_series(self.ensemble2_traces[p][k - self.rois_smooth_window:k])
+
+                #
+                self.ensemble2_traces_smooth.append(smooth)
+
+            else:
+                self.ensemble2_traces_smooth.append(self.ensemble2_traces[p])
 
         #
-        E1 = self.roi_traces_fullres_dff_smooth[0] + self.roi_traces_fullres_dff_smooth[1]
-        E2 = self.roi_traces_fullres_dff_smooth[2] + self.roi_traces_fullres_dff_smooth[3]
+        E1 = np.sum(self.ensemble1_traces_smooth, axis=0)
+        E2 = np.sum(self.ensemble2_traces_smooth, axis=0)
+
 
         # initialize the max and min values
         max_E1 = np.max(E1)
@@ -859,108 +1004,6 @@ class CalibrationTools(object):
         self.diff = diff
 
     #
-    # def find_reward_thresholds_low_and_high(self):
-    #     # NOTE: NOTUSED, NEEDS SIGNIFCANCT CHANGES
-    #     # run smoothing on each ensemble
-    #     if self.smooth_diff_function_flag:
-    #
-    #         for p in range(2):
-    #             smooth = np.zeros(self.roi_traces[self.ensemble1[p]].shape)
-    #             for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble1[p]].shape[0], 1):
-    #                 smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble1[p]][k - self.rois_smooth_window:k])
-    #             #
-    #             self.roi_traces[self.ensemble1[p]] = smooth
-    #
-    #         for p in range(2):
-    #             smooth = np.zeros(self.roi_traces[self.ensemble2[p]].shape)
-    #             for k in trange(self.rois_smooth_window, self.roi_traces[self.ensemble2[p]].shape[0], 1):
-    #                 smooth[k] = smooth_ca_time_series(self.roi_traces[self.ensemble2[p]][k - self.rois_smooth_window:k])
-    #             #
-    #             self.roi_traces[self.ensemble2[p]] = smooth
-    #
-    #     # detrend traces and make ensembles
-    #     temp0 = self.roi_traces[self.ensemble1[0]] - np.median(self.roi_traces[self.ensemble1[0]], axis=0)
-    #     temp1 = self.roi_traces[self.ensemble1[1]] - np.median(self.roi_traces[self.ensemble1[1]], axis=0)
-    #     E1 = temp0 + temp1
-    #
-    #     #
-    #     temp2 = self.roi_traces[self.ensemble2[0]] - np.median(self.roi_traces[self.ensemble2[0]], axis=0)
-    #     temp3 = self.roi_traces[self.ensemble2[1]] - np.median(self.roi_traces[self.ensemble2[1]], axis=0)
-    #     E2 = temp2 + temp3
-    #
-    #     # initialize the max and min values
-    #     max_E1 = np.max(E1)
-    #     max_E2 = np.max(E2)
-    #     low = -max_E1
-    #     high = max_E2
-    #
-    #     print("low, high: ", low, high)
-    #     # difference between ensemble
-    #     diff = E1 - E2
-    #
-    #     #
-    #     n_sec_recording = int(diff.shape[0] / self.sample_rate)
-    #     n_rewards_random = n_sec_recording // self.sample_rate
-    #     print("nsec recording: ", n_sec_recording,
-    #           "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
-    #
-    #     # loop over time series decreasing the rewards until we hit the random #
-    #     n_rewards = 0
-    #     stepper = 0.95
-    #     while n_rewards < n_rewards_random:
-    #
-    #         # run inside while loop for eveyr setting of low and high until we hit
-    #         #   exact number of random rewards
-    #         k = 0
-    #         n_rewards = 0
-    #         reward_times = []
-    #         while k < diff.shape[0]:
-    #
-    #             temp_diff = diff[k]
-    #
-    #             #
-    #             if temp_diff <= low:
-    #                 # low reward state reached
-    #                 n_rewards += 1
-    #                 reward_times.append([k, 0])
-    #                 k += int(self.post_reward_lockout * self.sample_rate)
-    #             elif temp_diff >= high:
-    #                 # high reward state reached
-    #                 n_rewards += 1
-    #                 reward_times.append([k, 1])
-    #                 k += int(self.post_reward_lockout * self.sample_rate)
-    #             else:
-    #                 k += 1
-    #
-    #         # print ("Reard times: ", reward_times)
-    #         # check exit condition otherwise decrase thresholds
-    #         if len(reward_times) > 1:
-    #             rewarded_times = np.vstack(reward_times)
-    #             if self.balance_ensemble_rewards_flag:
-    #                 idx_E1 = np.where(rewarded_times[:, 1] == 0)[0].shape[0]
-    #                 idx_E2 = np.where(rewarded_times[:, 1] == 1)[0].shape[0]
-    #                 if idx_E1 <= idx_E2:
-    #                     low *= stepper
-    #                 else:
-    #                     high *= stepper
-    #             else:
-    #                 low *= stepper
-    #                 high *= stepper
-    #         else:
-    #             low *= stepper
-    #             high *= stepper
-    #
-    #     print("updated rwards #: ", n_rewards, low, high)
-    #
-    #     self.reward_times = np.vstack(reward_times)
-    #
-    #     self.low = low
-    #     self.high = high
-    #     self.E1 = E1
-    #     self.E2 = E2
-    #     self.diff = diff
-
-    #
     def plot_rewarded_ensembles(self):
 
         #
@@ -976,10 +1019,17 @@ class CalibrationTools(object):
 
 
         # show rois
-        clrs = ['lightblue','darkblue','lightcoral','red']
-        names = ["Roi #1","Roi #2","Roi #3","Roi #4",]
-        for k in range(len(self.roi_traces_fullres_dff_smooth)):
-            plt.plot(t, self.roi_traces_fullres_dff_smooth[k], c=clrs[k], alpha=.8, label=names[k])
+        #clrs = ['lightblue','darkblue','lightcoral','red']
+        #names = ["Roi #1","Roi #2","Roi #3","Roi #4",]
+        # ensembel 1
+        for k in range(len(self.ensemble1_traces_smooth)):
+            plt.plot(t, self.ensemble1_traces_smooth[k],
+                             c='blue', alpha=.8)
+
+        #
+        for k in range(len(self.ensemble2_traces_smooth)):
+            plt.plot(t, self.ensemble2_traces_smooth[k],
+                             c='red', alpha=.8)
 
         #
         plt.plot(t, self.diff, c='black', alpha=1, label='Global ensemble state (i.e. E1-E2)')
