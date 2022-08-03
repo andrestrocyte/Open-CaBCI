@@ -294,11 +294,16 @@ class PlotROIs():
                        allow_pickle=True)
 
         # LOAD ensemble 1 contours
-        self.rois_contours_ensemble1 = data['ensemble1_contours']
+        contours_local = data['ensemble1_contours']
+        self.rois_contours_ensemble1 = []
+        for k in range(len(contours_local)):
+            self.rois_contours_ensemble1.append(contours_local[k][0])
 
         # LOAD ensemble 2 contours
-        self.rois_contours_ensemble2 = data['ensemble2_contours']
-
+        contours_local2 = data['ensemble2_contours']
+        self.rois_contours_ensemble2 = []
+        for k in range(len(contours_local2)):
+            self.rois_contours_ensemble2.append(contours_local2[k][0])
         #
         self.contours_all_cells = data['contours_all_cells']
         print ("LOADED ALL CELL CONTOURS: ", len(self.contours_all_cells),
@@ -454,7 +459,7 @@ class PlotROIs():
     def initialize_plots(self):
 
         #
-        self.plot_y_scale = 10
+        self.plot_y_scale = 1
 
         #
         clrs=['blue','magenta','red','orange']
@@ -509,19 +514,19 @@ class PlotROIs():
             self.ax_image.set_xlim(0,512)
             self.ax_image.set_ylim(512,0)
 
-
             ################################################
             ############## PLOT ROI CONTOURS ###############
             ################################################
             # ROI contours ensemble 1
             for c in range(len(self.rois_contours_ensemble1)):
                 for k in range(len(self.rois_contours_ensemble1[c])-1):
+
                     self.ax_image.plot([self.rois_contours_ensemble1[c][k][0],
                                         self.rois_contours_ensemble1[c][k+1][0]],
                                        [self.rois_contours_ensemble1[c][k][1],
-                                        self.rois_contours_ensemble1[c][k + 1][1]],
+                                        self.rois_contours_ensemble1[c][k+1][1]],
                                         c='blue',
-                                       linewidth=3)
+                                        linewidth=5)
 
             # ROI contours ensemble 2
             for c in range(len(self.rois_contours_ensemble2)):
@@ -529,9 +534,9 @@ class PlotROIs():
                     self.ax_image.plot([self.rois_contours_ensemble2[c][k][0],
                                         self.rois_contours_ensemble2[c][k+1][0]],
                                        [self.rois_contours_ensemble2[c][k][1],
-                                        self.rois_contours_ensemble2[c][k + 1][1]],
-                                        c='blue',
-                                       linewidth=3)
+                                        self.rois_contours_ensemble2[c][k+1][1]],
+                                        c='red',
+                                       linewidth=5)
 
             # add other cell contours to the data
             ids = np.arange(0,min(80,len(self.contours_all_cells)),1)
@@ -647,7 +652,10 @@ class PlotROIs():
             self.ax_traces = self.fig.add_subplot(self.grid[:4, :4])
 
             #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
-            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(10+2.5)+2*self.bmi_high_threshold)
+            n_cells = 0
+            n_cells+= len(self.rois_traces_ensemble1)
+            n_cells+= len(self.rois_traces_ensemble2)
+            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(n_cells+5)+2*self.bmi_high_threshold)
             self.ax_traces.set_xlim(-self.plotting_window_width,0)
             self.ax_traces.set_xlabel("Time (sec)")
 
@@ -713,12 +721,13 @@ class PlotROIs():
                 ctr+=1
 
             ########################################################
-            ################### ENSEMBLE STATES ####################
+            ############ INITIALIZE ENSEMBLE STATES ################
             ########################################################
             # plot sum ensemble state
-            self.ensemble_state_y_scaling = .3
+            self.ensemble_state_y_scaling = 2
+            self.ensemble_state_y_offset = 2.5
             y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]*self.ensemble_state_y_scaling+\
-                       self.plot_y_scale*(ctr+2.5)
+                       self.plot_y_scale*(ctr+self.ensemble_state_y_offset)
 
             #
             lineobject, = self.ax_traces.plot(self.plot_times,
@@ -731,8 +740,8 @@ class PlotROIs():
 
             # ADD F0 for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       [0+self.plot_y_scale*(ctr+2.5),
-                                        0+self.plot_y_scale*(ctr+2.5)],  # plot last X values depending on length of plttimes
+                                       [0+self.plot_y_scale*(ctr+self.ensemble_state_y_offset),
+                                        0+self.plot_y_scale*(ctr+self.ensemble_state_y_offset)],  # plot last X values depending on length of plttimes
                                        '--',
                                         c='black',
                                        linewidth=2,
@@ -740,11 +749,10 @@ class PlotROIs():
 
             self.f0_objects.append(f0object)
 
-
             # ADD Reward level for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       [self.plot_y_scale*(k+2.5)+self.bmi_high_threshold,
-                                        self.plot_y_scale*(k+2.5)+self.bmi_high_threshold],  # plot last X values depending on length of plttimes
+                                       [self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.bmi_high_threshold,
+                                        self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.bmi_high_threshold],  # plot last X values depending on length of plttimes
                                        'r--',
                                        linewidth=2,
                                        )  # Return
@@ -876,10 +884,10 @@ class PlotROIs():
 
                 # redraw baseline for each cell
                 # TODO: note that we want to reset to 0 not the actual f0 values
-                y_values1 = np.array([self.plot_y_scale*k,self.plot_y_scale*k])
+                y_values1 = np.array([self.plot_y_scale*ctr,self.plot_y_scale*ctr])
 
                 #
-                self.f0_objects[k].set_data(x_values1,
+                self.f0_objects[ctr].set_data(x_values1,
                                             y_values1
                                            )
                 ctr+=1
@@ -898,10 +906,10 @@ class PlotROIs():
 
                 # redraw baseline for each cell
                 # TODO: note that we want to reset to 0 not the actual f0 values
-                y_values1 = np.array([self.plot_y_scale*k,self.plot_y_scale*k])
+                y_values1 = np.array([self.plot_y_scale*ctr,self.plot_y_scale*ctr])
 
                 #
-                self.f0_objects[k].set_data(x_values1,
+                self.f0_objects[ctr].set_data(x_values1,
                                             y_values1
                                            )
                 ctr+=1
@@ -912,7 +920,7 @@ class PlotROIs():
         if self.calibration_flag==False:
             # update ensemble state
             y_values = self.ensemble_state_array[max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):
-                                                    self.n_ttl_current]*self.ensemble_state_y_scaling+self.plot_y_scale*(k+1.5)
+                                                       self.n_ttl_current]*self.ensemble_state_y_scaling+self.plot_y_scale*(ctr+self.ensemble_state_y_offset)
 
             #
             #print (" esnemble values: ", y_values)
@@ -922,15 +930,15 @@ class PlotROIs():
                                                    y_values
                                                     )
             # update F0
-            y_values1 = np.array([self.plot_y_scale*(k+1.5),self.plot_y_scale*(k*1.5)])
-            self.f0_objects[k+1].set_data(x_values1,
-                                        y_values1
-                                       )
+            y_values1 = np.array([self.plot_y_scale*(ctr+self.ensemble_state_y_offset),self.plot_y_scale*(ctr+self.ensemble_state_y_offset)])
+            self.f0_objects[ctr].set_data(x_values1,
+                                          y_values1
+                                         )
 
-            # update ensembel threshold
-            y_values1 = np.array([self.plot_y_scale*(k+1.5)+self.bmi_high_threshold,
-                                  self.plot_y_scale*(k*1.5)+self.bmi_high_threshold])
-            self.f0_objects[k+2].set_data(x_values1,
+            # update ensemble state threshold
+            y_values1 = np.array([self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.bmi_high_threshold,
+                                  self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.bmi_high_threshold])
+            self.f0_objects[ctr+1].set_data(x_values1,
                                         y_values1
                                        )
         
