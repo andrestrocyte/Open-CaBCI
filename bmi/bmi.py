@@ -858,33 +858,35 @@ class BMI():
 
         # only change f0 values at most every 10 or much more seconds;
         # use at lesat 90 seconds history or more is even better
-        if self.n_ttl[0]%self.update_f0_time==0 and self.n_ttl[0]>(self.n_ttl_to_start_applying_dynamic_f0*self.sampleRate_2P):
-
-            #
-            print (">>>>>>>>>>>>>>>Updating f0 values<<<<<<<<<<<<<<<<<<")
-
-            # loop over ensembel 1
-            for p in range(len(self.rois_traces_raw_ensemble1)):
-
-                # compute median value over the past frames
-                roi_history = self.rois_traces_raw_ensemble1[p,
-                                           self.n_ttl[0] - self.n_ttl_to_start_applying_dynamic_f0:
-                                           self.n_ttl[0]]
+        if self.n_ttl[0]%self.update_f0_time==0:
+            if self.n_ttl[0]>(self.n_ttl_to_start_applying_dynamic_f0):
 
                 #
-                self.roi_f0s_ensemble1[p] = np.median(roi_history, axis=0)
+                print (">>>>>>>>>>>>>>>Updating f0 values<<<<<<<<<<<<<<<<<<")
 
-            # loop over ensembel 2
-            for p in range(len(self.rois_traces_raw_ensemble2)):
+                # loop over ensembel 1
+                for p in range(len(self.rois_traces_raw_ensemble1)):
 
-                # compute median value over the past frames
-                roi_history = self.rois_traces_raw_ensemble2[p,
-                                           self.n_ttl[0] - self.n_ttl_to_start_applying_dynamic_f0:
-                                           self.n_ttl[0]]
+                    # compute median value over the past frames
+                    roi_history = self.rois_traces_raw_ensemble1[p,
+                                               self.n_ttl[0] - self.n_ttl_to_start_applying_dynamic_f0:
+                                               self.n_ttl[0]]
 
-                #
-                self.roi_f0s_ensemble2[p] = np.median(roi_history, axis=0)
+                    #
+                    self.roi_f0s_ensemble1[p] = np.median(roi_history, axis=0)
 
+                # loop over ensembel 2
+                for p in range(len(self.rois_traces_raw_ensemble2)):
+
+                    # compute median value over the past frames
+                    roi_history = self.rois_traces_raw_ensemble2[p,
+                                               self.n_ttl[0] - self.n_ttl_to_start_applying_dynamic_f0:
+                                               self.n_ttl[0]]
+
+                    #
+                    self.roi_f0s_ensemble2[p] = np.median(roi_history, axis=0)
+            else:
+                print (" Too soon to recompute baseline... please wait 90 seconds at least from start")
     #
     def bmi_update(self):
 
