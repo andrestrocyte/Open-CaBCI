@@ -766,15 +766,24 @@ class BMI():
     #     # saves updated values
     #     self.lick_detector_value_abstime_nttl[self.n_ttl[0]] = self.lick_detector_ttl_value, self.now
 
+    def read_ttl(self):
+
+        try:
+            read_values = self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
+            return True, read_values
+        except:
+            print (" >>>>>>>>>>> ERROR READING NI CARD TTL <<<<<<<<<<<<<<<<")
+            return False, []
+
     #
     def read_bscope_ttl(self):
 
         # get current bscope ttl pulse value from NI card output port
-        #read_values = np.array(self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)).squeeze()
-        read_values = self.bscope_ttl_task.read(number_of_samples_per_channel=self.ttl_pts)
+        # TODO: this call periodically crashes, not clear why NI card falls behind on read statements
+        ttl_flag = False
+        while ttl_flag == False:
+            ttl_flag, read_values = self.read_ttl()
 
-        #print ("READ VALUES: ", read_values)
-                
         # ttl bscope value
         ttl_value = read_values[0]#.copy()
 
