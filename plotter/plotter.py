@@ -282,7 +282,7 @@ class PlotROIs():
                                          buffer=self.existing_dynamic_f0_flag.buf)
 
         #
-        self.dynamic_f0_flag[0] = 0
+        self.dynamic_f0_flag[0] = 1
 
     #
     def initialize_ROIs_contours(self):
