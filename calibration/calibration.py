@@ -247,13 +247,80 @@ class BMICalibration():
         #
         self.motion_correction_flag[0] = self.motion_flag
 
-    #
+
+
     def initialize_ensemble_state_and_rois(self):
+
         '''
-            This variable keeps track of the locally computed E1-E2
-            - it is shared with a different process which plays tones
-            - TODO: perhaps want a better name like neural_state - to disambugate from ensembel states
+            Initialize the ROIs and ensemble arrays to be used below
+
+            TODO: Must properly transfer ROIs to this function not just use a box aroudn a point of interest
         '''
+
+        # TODO: generalize some of this code to allow different #s of cells; - not a priority
+        data = np.load(self.fname_rois_pixels_thresholds,
+                       allow_pickle=True)
+
+        #############################################################
+        #################### LOAD ENSEMBLE 1 DATA ###################
+        #############################################################
+        self.roi_f0s_ensemble1 = data['ensemble1_f0s']
+
+        # also load the ensemble footprints
+        ensemble1_footprints = data['ensemble1_footprints']
+        self.rois_pixels_ensemble1=[]
+        for k in range(len(ensemble1_footprints)):
+            self.rois_pixels_ensemble1.append(ensemble1_footprints[k].T)
+
+        # make a default size matrix that will hold [n_rois, n_frames]
+        a = np.zeros((len(self.rois_pixels_ensemble1),self.n_frames),
+                      dtype=np.float32)+1E-8
+
+        # rois traces raw: contains the raw ROIs (i.e. summed pixels etc in each ROI)
+        self.rois_traces_raw_ensemble1 = np.zeros(a.shape, dtype=np.float32)
+
+        #
+        self.shmem_rois_traces_ensemble1 = shared_memory.SharedMemory(create=True,
+                                                                   size=a.nbytes)
+
+        #
+        self.rois_traces_smooth_ensemble1 = np.ndarray(a.shape,
+                                              dtype=a.dtype,
+                                              buffer=self.shmem_rois_traces_ensemble1.buf)
+
+        #
+        self.rois_traces_smooth_ensemble1[:] = a[:]
+
+        #############################################################
+        #################### LOAD ENSEMBLE 2 DATA ###################
+        #############################################################
+        self.roi_f0s_ensemble2 = data['ensemble2_f0s']
+
+        #
+        ensemble2_footprints = data['ensemble2_footprints']
+        self.rois_pixels_ensemble2 = []
+        for k in range(len(ensemble2_footprints)):
+            self.rois_pixels_ensemble2.append(ensemble2_footprints[k].T)
+
+        # make a default size matrix that will hold [n_rois, n_frames]
+        a = np.zeros((len(self.rois_pixels_ensemble2),self.n_frames),
+                      dtype=np.float32)+1E-8
+
+        #
+        self.rois_traces_raw_ensemble2 = np.zeros(a.shape, dtype=np.float32)
+
+        #
+        self.shmem_rois_traces_ensemble2 = shared_memory.SharedMemory(create=True,
+                                                                   size=a.nbytes)
+
+        #
+        self.rois_traces_smooth_ensemble2 = np.ndarray(a.shape,
+                                              dtype=a.dtype,
+                                              buffer=self.shmem_rois_traces_ensemble2.buf)
+
+        #
+        self.rois_traces_smooth_ensemble2[:] = a[:]
+
 
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1, dtype=np.float32)
@@ -270,24 +337,6 @@ class BMICalibration():
 
         # NOTE: this is set to negative only during calibration so there's no feedback
         self.ensemble_state[0] = -3
-
-        ########################################
-        # make a default size matrix that will hold [n_rois, n_frames]
-        a = np.zeros((4, self.n_frames),
-                     dtype=np.float32) + 1E-8
-        self.shmem_rois_traces = shared_memory.SharedMemory(create=True,
-                                                            size=a.nbytes)
-
-        #
-        self.rois_traces_smooth = np.ndarray(a.shape,
-                                             dtype=a.dtype,
-                                             buffer=self.shmem_rois_traces.buf)
-
-        #
-        self.rois_traces_smooth[:] = a[:]
-
-        ##############################################################
-        self.rois_traces_raw = np.zeros(a.shape, dtype=np.float32)
 
         #############################################
         self.high_threshold = 10
