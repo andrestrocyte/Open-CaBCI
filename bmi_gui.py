@@ -151,6 +151,7 @@ if __name__ ==  '__main__':
                                                   bmi.shmem_tone_state.name,
                                                   bmi.shmem_termination_flag.name,
                                                   bmi.shmem_water_reward.name,
+                                                  bmi.shmem_reward_lockout_counter.name,
                                                   simulation_flag_tone,
                                                   calibration_flag,))
     tone_player_.start()

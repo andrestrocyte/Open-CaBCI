@@ -306,8 +306,8 @@ class PlotROIs():
             self.rois_contours_ensemble2.append(contours_local2[k][0])
         #
         self.contours_all_cells = data['contours_all_cells']
-        print ("LOADED ALL CELL CONTOURS: ", len(self.contours_all_cells),
-               "example cell contour shape: ", self.contours_all_cells[0].shape)
+        #print ("LOADED ALL CELL CONTOURS: ", len(self.contours_all_cells),
+        #       "example cell contour shape: ", self.contours_all_cells[0].shape)
 
 
     #

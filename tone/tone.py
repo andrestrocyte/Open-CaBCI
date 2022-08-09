@@ -31,8 +31,12 @@ class PlayTone():
                  shmem_tone_state,
                  shmem_termination_flag,
                  shmem_water_reward,
+                 shmem_reward_lockout_counter,
                  simulation_flag,
                  calibration_flag):
+
+        #
+        self.shmem_reward_lockout_counter = shmem_reward_lockout_counter
 
         #
         self.calibration_flag = calibration_flag
@@ -105,6 +109,9 @@ class PlayTone():
         self.make_white_noise()
 
         #
+        self.initialize_reward_lockout_counter()
+
+        #
         while True:
 
             #
@@ -140,6 +147,21 @@ class PlayTone():
                                                    self.high_freq,
                                                    self.octave_step)
 
+    #
+    def initialize_reward_lockout_counter(self):
+
+        #
+        aa = np.zeros((1,), dtype=np.int64)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_reward_lockout_counter = shared_memory.SharedMemory(name=self.shmem_reward_lockout_counter)
+
+        #
+        self.reward_lockout_counter = np.ndarray(aa.shape,
+                                           dtype=aa.dtype,
+                                           buffer=self.existing_shm_reward_lockout_counter.buf)
+
+        #
     #
     def initialize_termination_flag(self):
 
@@ -262,8 +284,8 @@ class PlayTone():
         # TODO: 1) whether this is too slow and we end up buffering which not real time
         # TODO: 2) what is the shortest/correct duration to play a tone (probably >10hz) that we wont' notice)
 
-        # skip for simulation mode
-        if self.calibration_flag == True:
+        # skip for simulation mode or while the reward lockout counter is off
+        if (self.calibration_flag == True) or (self.reward_lockout_counter[0]>0):
             self.tone_state[0] = 100
 
         # compute the transfer function

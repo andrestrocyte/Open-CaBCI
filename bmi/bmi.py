@@ -425,7 +425,7 @@ class BMI():
         self.initialize_last_reward_ttl()
 
         # reward lockout time after a positive reward - in seconds
-        self.received_reward_lockout = 15
+        self.received_reward_lockout = 10
         print (">>>>>>>>>>>> POST-REWARD LOCKOUT: ", self.received_reward_lockout, "sec")
 
         # counter that track time after last reward
@@ -523,13 +523,13 @@ class BMI():
 
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1, dtype=np.int64)
-        self.shmem_reward_lockout = shared_memory.SharedMemory(create=True,
+        self.shmem_reward_lockout_counter= shared_memory.SharedMemory(create=True,
                                                           size=aa.nbytes)
 
         #
         self.reward_lockout_counter = np.ndarray(aa.shape,
                                     dtype=aa.dtype,
-                                    buffer=self.shmem_reward_lockout.buf)
+                                    buffer=self.shmem_reward_lockout_counter.buf)
 
         #
         self.reward_lockout_counter[:] = aa[:]
