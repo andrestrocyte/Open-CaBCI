@@ -102,7 +102,7 @@ class BMICalibration():
         self.image_length = 512
 
         #
-        self.n_rewards_per_minute = 0.3
+        self.n_rewards_per_minute = 0.01
         self.random_reward_probability = (self.n_rewards_per_minute / (30 * 60))
         print(" RANDOM REWARD PROBABILITY (rewards per minute): ", self.n_rewards_per_minute,
               "; reward prob per TTL frame: ", self.random_reward_probability)
@@ -254,26 +254,19 @@ class BMICalibration():
         '''
             Initialize the ROIs and ensemble arrays to be used below
 
-            TODO: Must properly transfer ROIs to this function not just use a box aroudn a point of interest
+            THESE VARIABLES ARE NOT USED FOR CALIBARTION STEP
         '''
 
         # TODO: generalize some of this code to allow different #s of cells; - not a priority
-        data = np.load(self.fname_rois_pixels_thresholds,
-                       allow_pickle=True)
+        #data = np.load(self.fname_rois_pixels_thresholds,
+        #               allow_pickle=True)
 
         #############################################################
         #################### LOAD ENSEMBLE 1 DATA ###################
         #############################################################
-        self.roi_f0s_ensemble1 = data['ensemble1_f0s']
-
-        # also load the ensemble footprints
-        ensemble1_footprints = data['ensemble1_footprints']
-        self.rois_pixels_ensemble1=[]
-        for k in range(len(ensemble1_footprints)):
-            self.rois_pixels_ensemble1.append(ensemble1_footprints[k].T)
 
         # make a default size matrix that will hold [n_rois, n_frames]
-        a = np.zeros((len(self.rois_pixels_ensemble1),self.n_frames),
+        a = np.zeros((10,self.n_frames),
                       dtype=np.float32)+1E-8
 
         # rois traces raw: contains the raw ROIs (i.e. summed pixels etc in each ROI)
@@ -294,16 +287,9 @@ class BMICalibration():
         #############################################################
         #################### LOAD ENSEMBLE 2 DATA ###################
         #############################################################
-        self.roi_f0s_ensemble2 = data['ensemble2_f0s']
-
-        #
-        ensemble2_footprints = data['ensemble2_footprints']
-        self.rois_pixels_ensemble2 = []
-        for k in range(len(ensemble2_footprints)):
-            self.rois_pixels_ensemble2.append(ensemble2_footprints[k].T)
 
         # make a default size matrix that will hold [n_rois, n_frames]
-        a = np.zeros((len(self.rois_pixels_ensemble2),self.n_frames),
+        a = np.zeros((10,self.n_frames),
                       dtype=np.float32)+1E-8
 
         #
@@ -322,6 +308,9 @@ class BMICalibration():
         self.rois_traces_smooth_ensemble2[:] = a[:]
 
 
+        #############################################################
+        #################### LOAD ENSEMBLE 2 DATA ###################
+        #############################################################
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1, dtype=np.float32)
         self.shmem_ensemble_state = shared_memory.SharedMemory(create=True,
