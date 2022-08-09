@@ -510,13 +510,13 @@ class BMICalibration():
 
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1, dtype=np.int64)
-        self.shmem_reward_lockout = shared_memory.SharedMemory(create=True,
+        self.shmem_reward_lockout_counter = shared_memory.SharedMemory(create=True,
                                                                size=aa.nbytes)
 
         #
         self.random_reward_lockout_counter = np.ndarray(aa.shape,
                                                         dtype=aa.dtype,
-                                                        buffer=self.shmem_reward_lockout.buf)
+                                                        buffer=self.shmem_reward_lockout_counter.buf)
 
         #
         self.random_reward_lockout_counter[:] = aa[:]
