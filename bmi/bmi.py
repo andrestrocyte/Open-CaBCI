@@ -56,6 +56,15 @@ class BMI():
         print ("... initializing BMI parameters...")
         print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
 
+        # flag which prevents return to rewards until the ensemble state drops substantially
+        self.dynamic_reward_lockout = True
+
+        # flag which indicates whether we are in the period post-reward that we want to lockout
+        self.dynamic_reward_lockout_state = False
+
+        # how far must the ensemble state drop before we reset the reward states
+        self.dynamic_reward_lockout_threshold = 0.3
+
         #
         self.motion_flag = motion_flag
 
@@ -895,7 +904,8 @@ class BMI():
                     #
                     self.roi_f0s_ensemble2[p] = np.median(roi_history, axis=0)
             else:
-                print (" Too soon to recompute baseline... please wait 90 seconds at least from start")
+                pass
+                #print (" Too soon to recompute baseline... please wait 90 seconds at least from start")
     #
     def bmi_update(self):
 
@@ -1082,20 +1092,36 @@ class BMI():
     #
     def trigger_reward(self):
 
+        #
+        print(" reached high reward condition: ")
+        print(" ensemble state: ", self.ensemble_state)
+        print(" high_threshold: ", self.high_threshold)
+
+        # search for the first empty slot in the reward times list
+        # TODO: this is a poor way to save these values;
+        #   TODO: have a shared memory variable separate from one that keeps track of the times
+        for k in range(self.reward_times.shape[1]):
+            if self.reward_times[1, k] == -1:
+                self.reward_times[1, k] = self.n_ttl[0]  # save current reward time
+                break
+        #
+        self.rewarded_times_abs.append([1, self.n_ttl[0], self.abs_times])
+
+        # reset last reward time to current time
+        self.last_reward_ttl[0] = self.n_ttl[0]
+
         # generate water reward only if we are not in a reward lockout state
         print (" ****giving reward at time: ", self.n_ttl)
 
         #
         self.water_reward[0] = 1
 
-        # start a counter that
-        self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
-
     #
-    def post_reward_state(self):
-
-        # disable tone playback;
-        self.tone_off()
+    # #
+    # def post_reward_state(self):
+    #
+    #     # disable tone playback;
+    #     self.tone_off()
 
     #
     def check_missed_reward_state(self):
@@ -1109,8 +1135,8 @@ class BMI():
             self.reward_lockout_counter[0] = self.missed_reward_lockout * self.sampleRate_2P
 
             # turn tone off; but better might be to play white noise!?
-            print(".... may wish to play white noise to dsituish between post-reward state")
-            self.tone_off()
+            #print(".... may wish to play white noise to dsituish between post-reward state")
+            #self.tone_off()
 
             # reset the last rewarded time to
             self.last_reward_ttl[0] = self.n_ttl[0]
@@ -1132,33 +1158,50 @@ class BMI():
         ''' We check if reward condition was reached
 
         '''
+        # for dynamic lockout we have to track find the first time the self.ensemble-state drops
+        #  below 0.3 x self.high-threshold, then we can turn back to
+        if self.dynamic_reward_lockout:
 
-        #
-        if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
+            # if we are in a lockout period; mouse not eligible for reward
+            if self.dynamic_reward_lockout_state==True:
 
-            #
-            print (" reached high reward conition: ")
-            print (" ensemble state: ", self.ensemble_state)
-            print (" high_threshold: ", self.high_threshold)
+                # check to see if ensembles dropped below threshold:
+                if self.ensemble_state[0] <= (self.high_threshold*self.dynamic_reward_lockout_threshold):
 
-            # search for the first empty slot in the reward times list
-            # TODO: this is a poor way to save these values; 
-            #   TODO: have a shared memory variable separate from one that keeps track of the times
-            for k in range(self.reward_times.shape[1]):
-                if self.reward_times[1, k] == -1:
-                    self.reward_times[1, k] = self.n_ttl[0]  # save current reward time
-                    break
-            #
-            self.rewarded_times_abs.append([1, self.n_ttl[0], self.abs_times])
+                    # reset the state back so mouse can get rewards again
+                    self.dynamic_reward_lockout_state = False
 
-            # reset last reward time to current time
-            self.last_reward_ttl[0] = self.n_ttl[0]
+                    # reset the reward counter to negative values, which means the mouse can now get rewards
+                    self.reward_lockout_counter[0] = -1
 
-            #
-            self.trigger_reward()
+                else:
+                    # make sure the reward lockout counter is high so that no rewards/tones etc can be played
+                    self.reward_lockout_counter[0] = 1000
 
-            # decouple tone etc. from feedback
-            self.post_reward_state()
+                    #
+            # mouse can get rewards if ensemble over threshold;
+            else:
+                if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0] <= 0):
+
+                    #
+                    self.trigger_reward()
+
+                    #
+                    print ("RESET dynamic_reward_lockout_state")
+                    self.dynamic_reward_lockout_state=True
+
+        else:
+            if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
+
+                #
+                self.trigger_reward()
+
+                # reset the reward counter for ~10sec for the non-dynamic version of the code
+                self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
+
+                #
+                # # decouple tone etc. from feedback
+                # self.post_reward_state()
 
     #
     def load_current_frame_and_apply_drift_correction(self):
