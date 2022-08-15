@@ -275,6 +275,28 @@ class PlayTone():
 
         #
         self.audio_Writer.write_many_sample(self.freq_sweep.squeeze())
+        
+    #
+    def play_reward_tone_high_freq(self):
+
+        ''' Playing white noise for reward tone
+        '''
+
+        #
+        print("Playing reward tone: SET TO high frequency")
+
+        #
+        if self.simulation_flag:
+            return
+
+        #
+        self.tone_state[0] = 16000
+
+        #
+        tone_data = self.make_tone(self.tone_state[0], self.amplitude, self.duration)
+        
+        #
+        self.audio_Writer.write_many_sample(tone_data.squeeze())  
 
     #
     def update_tone(self):
@@ -448,7 +470,7 @@ class PlayTone():
 
             # play reward tone for 1 second
             for k in range(int(1 / self.duration)):
-                self.play_reward_tone()
+                self.play_reward_tone_high_freq()
 
             # NOTE: this is set to negative so that during calibration so there's no other sounds outside of
             # otherwise during online bmi this is overwritten shortly after exiting this conditional

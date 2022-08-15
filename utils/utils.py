@@ -66,8 +66,19 @@ def get_octave_frequencies(low_freq,
 		if temp > high_freq:
 			break
 		octaves.append(temp)
-
-	return np.array(octaves)
+	"""
+	low_freq = 1000
+	high_freq = 16000
+	octaves = np.arange(int(low_freq/1000), 1+int(high_freq/1000))
+    
+	octaves = 2**(octave_size*x)
+    
+	#
+	return np.array(1000*octaves)
+	"""
+	x = np.arange(int(low_freq/1000), 1+int(high_freq/1000))
+	octaves = 2**(octave_size*x)
+	return np.array(1000*octaves)
 
 	#
 
@@ -92,10 +103,11 @@ def ensemble_to_tone_transfer_function_high_and_low(ensemble_state,
 
 	#
 	if ensemble_state>=0:
-		tone_raw = baseline_freq + (ensemble_state/high_threshold)*(high_freq-baseline_freq)
+		#tone_raw = baseline_freq + (ensemble_state/high_threshold)*(high_freq-baseline_freq)
+		tone_raw = octave_freqs[min(len(octave_freqs)-1,len(octave_freqs)//2+int(len(octave_freqs)//2*ensemble_state/high_threshold))]
 	else:
-		tone_raw = baseline_freq - (ensemble_state/low_threshold)*(baseline_freq-low_freq)
-
+		#tone_raw = baseline_freq - (ensemble_state/low_threshold)*(baseline_freq-low_freq)
+		tone_raw = octave_freqs[max(0,len(octave_freqs)//2-int(len(octave_freqs)//2*ensemble_state/low_threshold))]
 	# map onto frequencies selected
 	#tone = tone*(high_freq-low_freq)+low_freq
 
