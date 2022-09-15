@@ -72,6 +72,9 @@ class PlayTone():
         # TODO: for now we update at 10hz
         self.duration = 0.1
 
+        # number of seconds to play the reward tone of ~16Khz
+        self.n_sec_reward_tone = 2
+
         # TODO: unclear what these units are?
         self.water_spout_ttl_duration = 10000  # duration of water pulse in microseconds
 
@@ -436,6 +439,7 @@ class PlayTone():
             print('   releasing water for ', self.water_spout_ttl_duration,
                   "microsec, at ", self.water_spout_ttl_voltage, " mV")
 
+            # if we are in simulation mode, just return
             if self.simulation_flag:
                 self.water_reward[0] = 0
                 return
@@ -444,7 +448,7 @@ class PlayTone():
             print("closing audio writer")
             self.close_audio_writer()
 
-            # initialize the output function for water dispesning
+            # initialize the output function for water dispensing
             print("initializing water writer")
             self.initialize_water_writer()
 
@@ -469,7 +473,7 @@ class PlayTone():
             self.initialize_audio_writer()
 
             # play reward tone for 1 second
-            for k in range(int(1 / self.duration)):
+            for k in range(int(self.n_sec_reward_tone / self.duration)):
                 self.play_reward_tone_high_freq()
 
             # NOTE: this is set to negative so that during calibration so there's no other sounds outside of
