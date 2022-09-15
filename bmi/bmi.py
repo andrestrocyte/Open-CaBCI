@@ -435,8 +435,7 @@ class BMI():
 
         # reward lockout time after a positive reward - in seconds
         self.received_reward_lockout = 10
-        print (">>>>>>>>>>>> POST-REWARD LOCKOUT: ", self.received_reward_lockout, "sec",
-               "DYNAMIC REWARD LOCKOUT: ", self.dynamic_reward_lockout)
+        print (">>>>>>>>>>>> POST-REWARD LOCKOUT: ", self.received_reward_lockout, "sec")
 
         # counter that track time after last reward
         self.initialize_reward_lockout_counter()
@@ -866,6 +865,7 @@ class BMI():
         # list to add to when reading values
         self.bscope_read_values = np.zeros(2,dtype=np.float32)
 
+	#
     def dynamic_f0_function(self,
                             roi_history,
                             percentile_val=8
@@ -878,6 +878,7 @@ class BMI():
 
         # OPTION #2: use 8 percentile [citation]
         return np.percentile(roi_history, percentile_val, axis=0)
+
 
     #
     def dynamic_f0(self):
@@ -906,7 +907,7 @@ class BMI():
 
                     #
                     self.roi_f0s_ensemble1[p] = self.dynamic_f0_function(roi_history)
-
+                    
                 # loop over ensembel 2
                 for p in range(len(self.rois_traces_raw_ensemble2)):
 
@@ -1171,20 +1172,12 @@ class BMI():
 
         ''' We check if reward condition was reached
 
-            If so, then we implement either a 10 second (or x second) or a dynamic lockout during which
-            the mouse cannot get any more rewards
-            - the dynamic lockout option waits until the overall state of the system (i.e. E1-E2) dropes
-              to some percentage of the reward thresohld; for example, 0.3 x reward threshold; this indicates
-              that the neural activity has largery returned to baseline;
-            - if we do not use dynamic lockout, then we usually set a creward counter
-
         '''
-
         # for dynamic lockout we have to track find the first time the self.ensemble-state drops
         #  below 0.3 x self.high-threshold, then we can turn back to
         if self.dynamic_reward_lockout:
 
-            # here we are in a dynamic lockout period; mouse not eligible for reward; we are waiting for baseline return
+            # if we are in a lockout period; mouse not eligible for reward
             if self.dynamic_reward_lockout_state==True:
 
                 # check to see if ensembles dropped below threshold:
@@ -1201,18 +1194,17 @@ class BMI():
                     self.reward_lockout_counter[0] = 1000
 
                     #
-            # we are open to receiving rewards if ensemble over threshold;
+            # mouse can get rewards if ensemble over threshold;
             else:
                 if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0] <= 0):
 
                     #
                     self.trigger_reward()
 
-                    # here we enter a dynamic post-rewaard lockout period
-                    # print ("RESET dynamic_reward_lockout_state")
+                    #
+                    print ("RESET dynamic_reward_lockout_state")
                     self.dynamic_reward_lockout_state=True
 
-        # non-dynamic reward option; just wait for at least 10sec to elapse after previous reward;
         else:
             if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
 
