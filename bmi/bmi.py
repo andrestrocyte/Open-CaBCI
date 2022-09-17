@@ -877,8 +877,22 @@ class BMI():
         #return np.median(roi_history, axis=0)
 
         # OPTION #2: use 8 percentile [citation]
-        return np.percentile(roi_history, percentile_val, axis=0)
+        # return np.percentile(roi_history, percentile_val, axis=0)
 
+        # OPTION #3: use mode of distribution
+        from scipy import stats
+
+        #
+        if True:
+            from scipy.signal import savgol_filter
+            width = 30
+            roi_history = savgol_filter(roi_history, width, 2)
+
+        #
+        m = stats.mode(roi_history)
+
+        #
+        return m[0]
 
     #
     def dynamic_f0(self):
