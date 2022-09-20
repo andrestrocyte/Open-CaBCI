@@ -59,9 +59,6 @@ class BMI():
         # flag which prevents return to rewards until the ensemble state drops substantially
         self.dynamic_reward_lockout = True
 
-        # flag which indicates whether we are in the period post-reward that we want to lockout
-        self.dynamic_reward_lockout_state = False
-
         # how far must the ensemble state drop before we reset the reward states
         self.dynamic_reward_lockout_threshold = 0.3
 
@@ -208,7 +205,37 @@ class BMI():
 
         #
         self.initialize_manual_motion_correction_array()
+        
+        #
+        self.initialize_dynamic_reward_lockout_state()
 
+    
+    #
+    def initialize_dynamic_reward_lockout_state(self):
+
+        '''
+            shared variable indicating whether we are in a reward-lockout state or not
+            - required by tone class (possibly others)
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((1), dtype=np.int32)
+        self.shmem_dynamic_reward_lockout_state = shared_memory.SharedMemory(create=True,
+                                                                 size=aa.nbytes)
+
+        #
+        self.dynamic_reward_lockout_state = np.ndarray(aa.shape,
+											 dtype=aa.dtype,
+											 buffer=self.shmem_dynamic_reward_lockout_state.buf)
+
+        #
+        self.dynamic_reward_lockout_state[0] = 0
+
+        #
+        # ## flag which indicates whether we are in the period post-reward that we want to lockout
+        # self.dynamic_reward_lockout_state = False
+        
+        
     #
     def initialize_manual_motion_correction_array(self):
 
@@ -889,11 +916,12 @@ class BMI():
             roi_history = savgol_filter(roi_history, width, 2)
 
         #
-        m = stats.mode(roi_history)
+        #m = stats.mode(roi_history)
 
         #
-        return m[0]
-
+        #return m[0]
+        return np.percentile(roi_history, percentile_val, axis=0)
+    
     #
     def dynamic_f0(self):
 
@@ -1158,17 +1186,19 @@ class BMI():
         # if mouse does not perform in e.g. 30 sec, do a lockout
         # TODO: May wish to play white noise to distinguish it from post-reward state
         if (self.n_ttl[0]-self.last_reward_ttl[0])>(self.max_reward_window*self.sampleRate_2P):
-            print ("  triggering missed reward lockout ")
+            pass
+            #
+            #print ("  triggering missed reward lockout- NOT IMPLEMENTED ")
 
-            # reset counter
-            self.reward_lockout_counter[0] = self.missed_reward_lockout * self.sampleRate_2P
+            ## reset counter
+            #self.reward_lockout_counter[0] = self.missed_reward_lockout * self.sampleRate_2P
 
             # turn tone off; but better might be to play white noise!?
             #print(".... may wish to play white noise to dsituish between post-reward state")
             #self.tone_off()
 
-            # reset the last rewarded time to
-            self.last_reward_ttl[0] = self.n_ttl[0]
+            # # reset the last rewarded time to
+            # self.last_reward_ttl[0] = self.n_ttl[0]
 
     #
     def check_baseline_condition(self):
@@ -1187,38 +1217,48 @@ class BMI():
         ''' We check if reward condition was reached
 
         '''
+        
         # for dynamic lockout we have to track find the first time the self.ensemble-state drops
         #  below 0.3 x self.high-threshold, then we can turn back to
+        # check flag to see if using dynamic lockout method
         if self.dynamic_reward_lockout:
 
             # if we are in a lockout period; mouse not eligible for reward
-            if self.dynamic_reward_lockout_state==True:
+            if self.dynamic_reward_lockout_state[0]==1:
 
                 # check to see if ensembles dropped below threshold:
                 if self.ensemble_state[0] <= (self.high_threshold*self.dynamic_reward_lockout_threshold):
 
                     # reset the state back so mouse can get rewards again
-                    self.dynamic_reward_lockout_state = False
+                    print ("RESETING dynamic_reward_lockout_state to LOCKOUT OFF")
+                    self.dynamic_reward_lockout_state[0] = 0
 
                     # reset the reward counter to negative values, which means the mouse can now get rewards
-                    self.reward_lockout_counter[0] = -1
-
+                    #: NO, this is not controlled from here any longer
+                    # self.reward_lockout_counter[0] = -1
+                
+                # if not below threshold, make sure the lockout counter is not < 1, 
+                # TODO: Not clear this is also required
                 else:
-                    # make sure the reward lockout counter is high so that no rewards/tones etc can be played
-                    self.reward_lockout_counter[0] = 1000
+                    # make sure during the reward lockout periods, the lockout counter is high enough
+                    if self.reward_lockout_counter[0] <1:
+                        self.reward_lockout_counter[0] = 10
 
                     #
-            # mouse can get rewards if ensemble over threshold;
-            else:
-                if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0] <= 0):
+            # mouse can get rewards if ensemble over threshold AND  the statick counter has counted down
+            elif (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0] <= 0):
+                    
+                #
+                self.trigger_reward()
 
-                    #
-                    self.trigger_reward()
+                #
+                self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
 
-                    #
-                    print ("RESET dynamic_reward_lockout_state")
-                    self.dynamic_reward_lockout_state=True
+                #
+                print ("RESETING dynamic_reward_lockout_state to LOCKOUT ON")
+                self.dynamic_reward_lockout_state[0]=1
 
+        # this is the static lockout of x seconds
         else:
             if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
 

@@ -32,11 +32,15 @@ class PlayTone():
                  shmem_termination_flag,
                  shmem_water_reward,
                  shmem_reward_lockout_counter,
+                 shmem_dynamic_reward_lockout_state,
                  simulation_flag,
                  calibration_flag):
 
         #
         self.shmem_reward_lockout_counter = shmem_reward_lockout_counter
+
+        #
+        self.shmem_dynamic_reward_lockout_state = shmem_dynamic_reward_lockout_state
 
         #
         self.calibration_flag = calibration_flag
@@ -113,6 +117,9 @@ class PlayTone():
 
         #
         self.initialize_reward_lockout_counter()
+        
+        #
+        self.initialize_dynamic_reward_lockout_state()
 
         #
         while True:
@@ -164,7 +171,24 @@ class PlayTone():
                                            dtype=aa.dtype,
                                            buffer=self.existing_shm_reward_lockout_counter.buf)
 
+    #
+    def initialize_dynamic_reward_lockout_state(self):
+
         #
+        
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((1), dtype=np.int32)
+        self.existing_dynamic_reward_lockout_state = shared_memory.SharedMemory(name=self.shmem_dynamic_reward_lockout_state)
+
+
+
+        #
+        self.dynamic_reward_lockout_state = np.ndarray(aa.shape,
+													   dtype=aa.dtype,
+													   buffer=self.existing_dynamic_reward_lockout_state.buf)
+		
+		#
+
     #
     def initialize_termination_flag(self):
 
@@ -255,6 +279,7 @@ class PlayTone():
         #                                                                 self.high_threshold
         #                                                                 )
         # compute the tone state in Hz
+        # TODO: NOTE: This is the only place that the tone_state variable is ocmputed from the ensemble state
         self.tone_state[0] = ensemble_to_tone_transfer_function_high_and_low(self.ensemble_state,
                                                                              self.low_freq,
                                                                              self.high_freq,
@@ -286,11 +311,14 @@ class PlayTone():
         '''
 
         #
-        print("Playing reward tone: SET TO high frequency")
+        #print("Playing reward tone: SET TO high frequency")
 
         #
         if self.simulation_flag:
             return
+
+		# TODO : this is not ideal; this fuctnion shoul donly play the tone, not do anything else,
+		#      including generating tone data etc.
 
         #
         self.tone_state[0] = 16000
@@ -309,12 +337,15 @@ class PlayTone():
         # TODO: 1) whether this is too slow and we end up buffering which not real time
         # TODO: 2) what is the shortest/correct duration to play a tone (probably >10hz) that we wont' notice)
 
-        # skip for simulation mode or while the reward lockout counter is off
-        if (self.calibration_flag == True) or (self.reward_lockout_counter[0]>0):
+        # play inaudible tone in calibration mode ; OR
+        #   - while the reward lockout counter is locking out playback
+        #   - while dynamic reward lockout is still to ON (i.e. 1)
+        if (self.calibration_flag == True) or (self.reward_lockout_counter[0]>0) or (self.dynamic_reward_lockout_state==1):
             self.tone_state[0] = 100
 
         # compute the transfer function
         else:
+            #print ("Updating tone state ..., dynamic lockout flag: ", self.dynamic_reward_lockout_state)
             self.compute_ensemble_to_tone_state()
 
         # make sure you send a copy of the tone, not the tone
@@ -322,7 +353,7 @@ class PlayTone():
                                    self.amplitude,
                                    self.duration)
 
-        #
+        # exit if in simulation mode
         if self.simulation_flag:
             return
 
@@ -444,6 +475,7 @@ class PlayTone():
                 return
 
             # close the audio writer
+            # TODO: update this entire function to handle water + tone in parallel/simultaneously
             print("closing audio writer")
             self.close_audio_writer()
 
@@ -462,21 +494,26 @@ class PlayTone():
                   " sec. (Closing water port)")
 
             # return water ttl state to 0volts
+            # TODO Not clear we have to take so long to reset the water writer; maybe 100 time points is enough
             for p in range(self.water_spout_ttl_duration):
                 self.water_Writer.write_one_sample(0)
 
             # close water writer
             self.close_water_writer()
 
-            #
+            # reopen the audio tone after water release
+            # TODO: this should technically be simultaneous with the water release!!
             self.initialize_audio_writer()
 
-            # play reward tone for 1 second
+            # play hightest tone to indicate reward  for specific amount of time
             for k in range(int(self.n_sec_reward_tone / self.duration)):
                 self.play_reward_tone_high_freq()
 
             # NOTE: this is set to negative so that during calibration so there's no other sounds outside of
             # otherwise during online bmi this is overwritten shortly after exiting this conditional
+            # TODO: currently not used; but could be implemented for varying types of calibration paradigms;
+            # - e.g. if water rewards are paired to tone during calbration (randomly or not), may wish to turn off
+            #      the tones after
             self.ensemble_state[0] = -30000
 
             # return tone to default state
