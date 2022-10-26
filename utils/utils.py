@@ -13,6 +13,42 @@ import cv2
 
 
 #
+def smooth_ca_time_series4(diff):
+	#
+	''' This returns the last value. i.e. no filter
+
+	'''
+
+	temp = (diff[-1]*0.4+
+			diff[-2] * 0.25 +
+			diff[-3] * 0.15 +
+			diff[-4] * 0.10 +
+			diff[-5] * 0.10)
+
+	return temp
+
+#
+def smooth_ca_time_series3(diff):
+	#
+	''' This returns the last value. i.e. no filter
+
+	'''
+
+
+	return np.mean(diff[-1])
+
+#
+def smooth_ca_time_series2(diff):
+	#
+	''' This returns the median of the last 5 time steps
+
+	'''
+
+
+	return np.mean(diff[-5:])
+
+
+#
 def smooth_ca_time_series(diff):
 	#
 	return np.mean(diff)

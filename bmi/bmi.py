@@ -11,7 +11,7 @@ import os
 import time
 import numpy as np
 from multiprocessing import shared_memory
-from utils.utils import smooth_ca_time_series, compute_dff0, compute_dff0_with_reference
+from utils.utils import smooth_ca_time_series, smooth_ca_time_series2, smooth_ca_time_series3, smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference
 from drift.drift import apply_shifts
 from simulation.simulation import Simulation
 
@@ -1026,7 +1026,7 @@ class BMI():
                 rois_dff = (roi_history - self.roi_f0s_ensemble1[p])/self.roi_f0s_ensemble1[p]
 
                 #
-                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = smooth_ca_time_series(rois_dff)
+                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = smooth_ca_time_series4(rois_dff)
 
             # Ensemble 2
             for p in range(len(self.rois_traces_raw_ensemble2)):
@@ -1037,7 +1037,7 @@ class BMI():
                 rois_dff = (roi_history - self.roi_f0s_ensemble2[p])/self.roi_f0s_ensemble2[p]
 
                 #
-                self.rois_traces_smooth_ensemble2[p,self.n_ttl[0]] = smooth_ca_time_series(rois_dff)
+                self.rois_traces_smooth_ensemble2[p,self.n_ttl[0]] = smooth_ca_time_series4(rois_dff)
         else:
             #
             for p in range(len(self.rois_traces_raw_ensemble1)):
