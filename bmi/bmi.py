@@ -11,7 +11,10 @@ import os
 import time
 import numpy as np
 from multiprocessing import shared_memory
-from utils.utils import smooth_ca_time_series, smooth_ca_time_series2, smooth_ca_time_series3, smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference
+from utils.utils import (smooth_ca_time_series, smooth_ca_time_series2, smooth_ca_time_series3, 
+						 smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference,
+						 get_mode)
+
 from drift.drift import apply_shifts
 from simulation.simulation import Simulation
 
@@ -904,23 +907,18 @@ class BMI():
         #return np.median(roi_history, axis=0)
 
         # OPTION #2: use 8 percentile [citation]
-        # return np.percentile(roi_history, percentile_val, axis=0)
+#        if True:
+#			from scipy import stats
+#            from scipy.signal import savgol_filter
+#            width = 30
+#            roi_history = savgol_filter(roi_history, width, 2)
+#
+#           return np.percentile(roi_history, percentile_val, axis=0)
 
-        # OPTION #3: use mode of distribution
-        from scipy import stats
-
-        #
+        # OPTION #3: use aggregate mode of distribution
         if True:
-            from scipy.signal import savgol_filter
-            width = 30
-            roi_history = savgol_filter(roi_history, width, 2)
-
-        #
-        #m = stats.mode(roi_history)
-
-        #
-        #return m[0]
-        return np.percentile(roi_history, percentile_val, axis=0)
+            mode = get_mode(roi_history)
+            return mode
     
     #
     def dynamic_f0(self):
