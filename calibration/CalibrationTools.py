@@ -938,6 +938,15 @@ class CalibrationTools(object):
             else:
                 self.ensemble2_traces_smooth.append(self.ensemble2_traces[p])
 
+        # remove F0 baseline
+        for p in range(len(self.ensemble1_traces_smooth)):
+            self.ensemble1_traces_smooth[p] -= np.median(self.ensemble1_traces_smooth[p])
+
+        #
+        for p in range(len(self.ensemble2_traces_smooth)):
+            self.ensemble2_traces_smooth[p] -= np.median(self.ensemble2_traces_smooth[p])
+
+
         #
         E1 = np.sum(self.ensemble1_traces_smooth, axis=0)
         E2 = np.sum(self.ensemble2_traces_smooth, axis=0)
