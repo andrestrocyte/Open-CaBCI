@@ -80,7 +80,7 @@ class PlayTone():
         self.n_sec_reward_tone = 2
         
         # TODO: unclear what these units are?
-        self.water_spout_ttl_duration = 18000  # duration of water pulse in microseconds
+        self.water_spout_ttl_duration = 20000  # duration of water pulse in microseconds
 
         #
         self.water_spout_ttl_voltage = 5  # water spout voltage in millivolts (?)
