@@ -11,7 +11,7 @@ import os
 import time
 import numpy as np
 from multiprocessing import shared_memory
-from utils.utils import smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference
+from utils.utils import smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference, get_mode
 from drift.drift import apply_shifts
 from simulation.simulation import Simulation
 
@@ -1282,11 +1282,11 @@ class BMI():
                     print ("RESETING TRIAL START TO # TTL: ", self.last_trial_start_ttl)
                     self.trial_starts.append(self.last_trial_start_ttl)
 
-                # if still > threshold, mouse cannot get reward
-                else:
-                    # make sure during the reward lockout periods, the lockout counter is high enough
-                    if self.reward_lockout_counter[0] <1:
-                        self.reward_lockout_counter[0] = 10
+                ## if still > threshold, mouse cannot get reward
+                #else:
+                #    # make sure during the reward lockout periods, the lockout counter is high enough
+                #    if self.reward_lockout_counter[0] <1:
+                #        self.reward_lockout_counter[0] = 10
 
                     #
             # mouse can get rewards if ensemble over threshold AND  the statick counter has counted down
