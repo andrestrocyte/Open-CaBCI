@@ -38,6 +38,26 @@ def smooth_ca_time_series4(diff):
 
 	return temp
 
+
+def get_mode(F_raw_clipped):
+    
+    modes = []
+    bin_widths = np.arange(0.1,5,0.1)
+    for bin_width in bin_widths:
+        
+        # binarize the fluorescence data to a selected resolution from 0.1 to 5 fluorecence values
+        F_c = np.round(bin_width*np.floor(np.round(F_raw_clipped / bin_width,2)),1)
+
+		# compute the mode of the distribution
+        modes.append(scipy.stats.mode(F_c, keepdims=True)[0][0])
+        
+    #
+    mode = np.mean(modes)
+    
+    return mode
+
+
+
 #
 def smooth_ca_time_series3(diff):
 	#
