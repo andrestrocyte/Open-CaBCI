@@ -655,7 +655,7 @@ class PlotROIs():
             n_cells = 0
             n_cells+= len(self.rois_traces_ensemble1)
             n_cells+= len(self.rois_traces_ensemble2)
-            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(n_cells*1.5)+2*self.bmi_high_threshold)
+            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(n_cells*1.5)+4*self.bmi_high_threshold)
             self.ax_traces.set_xlim(-self.plotting_window_width,0)
             self.ax_traces.set_xlabel("Time (sec)")
 

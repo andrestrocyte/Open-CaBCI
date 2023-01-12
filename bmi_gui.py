@@ -153,6 +153,7 @@ if __name__ ==  '__main__':
                                                   bmi.shmem_water_reward.name,
                                                   bmi.shmem_reward_lockout_counter.name,
                                                   bmi.shmem_dynamic_reward_lockout_state.name,
+                                                  bmi.shmem_white_noise_state.name,
                                                   simulation_flag_tone,
                                                   calibration_flag,))
     tone_player_.start()

@@ -802,7 +802,7 @@ class BMICalibration():
                                                           )
 
                 #
-                self.rois_traces_smooth[p, self.n_ttl[0]] = smooth_ca_time_series(temp)
+                self.rois_traces_smooth[p, self.n_ttl[0]] = smooth_ca_time_series5(temp)
 
         else:
             #

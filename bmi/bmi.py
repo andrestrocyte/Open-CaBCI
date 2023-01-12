@@ -11,7 +11,7 @@ import os
 import time
 import numpy as np
 from multiprocessing import shared_memory
-from utils.utils import smooth_ca_time_series, smooth_ca_time_series2, smooth_ca_time_series3, smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference
+from utils.utils import smooth_ca_time_series5, compute_dff0, compute_dff0_with_reference
 from drift.drift import apply_shifts
 from simulation.simulation import Simulation
 
@@ -139,7 +139,12 @@ class BMI():
         #   this is for the ROI reading step
         self.n_frames_search_forward = 5
 
-        # initizlie ROIs
+        # Keep track of each trial start time
+        self.last_trial_start_ttl = 0
+        self.trial_starts = []
+        self.trial_starts.append(self.last_trial_start_ttl)
+
+        # initialize ROIs
         self.initialize_ROIs()
 
         # initizlie the realtime value of the ensembel states (i.e. no history)
@@ -169,6 +174,9 @@ class BMI():
 
         # initialize tone state
         self.initialize_tone_state()
+
+        # initialize tone state
+        self.initialize_white_noise_state()
 
         # initialize the water reward memory variable
         self.initialize_water_reward()
@@ -405,6 +413,29 @@ class BMI():
         #        self.shmem_tone_state.name)
 
     #
+    def initialize_white_noise_state(self):
+
+        '''
+            This variable keeps track of the tone value computed by the TONE class
+            - technically it doesn't have to be initialized here, but we do it for simplicity to easier
+              share it with the plotter class (BMI class doesn't need it for now)
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1,dtype=np.float32)
+        self.shmem_white_noise_state = shared_memory.SharedMemory(create=True,
+                                                                  size=aa.nbytes)
+
+        #
+        self.white_noise_state = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.shmem_white_noise_state.buf)
+
+        #
+        self.white_noise_state [:] = aa[:]
+
+    #
     def initialize_drift_correction(self):
 
         ''' These 2 variables keep track of the x and y drift
@@ -461,8 +492,12 @@ class BMI():
         self.initialize_last_reward_ttl()
 
         # reward lockout time after a positive reward - in seconds
-        self.received_reward_lockout = 10
+        self.received_reward_lockout = 3
         print (">>>>>>>>>>>> POST-REWARD LOCKOUT: ", self.received_reward_lockout, "sec")
+
+        # similar to post-reward lockout
+        self.missed_reward_lockout = 10
+        print (">>>>>>>>>>>> MISSED-REWARD LOCKOUT: ", self.missed_reward_lockout, "sec")
 
         # counter that track time after last reward
         self.initialize_reward_lockout_counter()
@@ -470,9 +505,6 @@ class BMI():
         # the amount of time the mouse has to try and receive a reward - in seconds
         self.max_reward_window = 30
 
-        # similar to post-reward lockout
-        self.missed_reward_lockout = 0
-        print (">>>>>>>>>>>> MISSED-REWARD LOCKOUT: ", self.missed_reward_lockout, "sec")
 
         #
         #self.template = data['calibration_template']
@@ -696,8 +728,8 @@ class BMI():
 
         #
         self.rois_traces_smooth_ensemble1 = np.ndarray(a.shape,
-                                              dtype=a.dtype,
-                                              buffer=self.shmem_rois_traces_ensemble1.buf)
+                                                      dtype=a.dtype,
+                                                      buffer=self.shmem_rois_traces_ensemble1.buf)
 
         #
         self.rois_traces_smooth_ensemble1[:] = a[:]
@@ -937,7 +969,7 @@ class BMI():
             if self.n_ttl[0]>(self.n_ttl_to_start_applying_dynamic_f0):
 
                 #
-                print (">>>>>>>>>>>>>>>Updating f0 values<<<<<<<<<<<<<<<<<<")
+                #print (">>>>>>>>>>>>>>>Updating f0 values<<<<<<<<<<<<<<<<<<")
 
                 # loop over ensembel 1
                 for p in range(len(self.rois_traces_raw_ensemble1)):
@@ -991,8 +1023,23 @@ class BMI():
         # check if > 30 sec has passed since last reward
         self.check_missed_reward_state()
 
-        # decrease any potential reward lockout counter
+        # decrease reward lockout counter (in case it's on)
         self.reward_lockout_counter[0] -= 1
+
+        # if the counter gets to 0 or less, we turn off the white noise in case it was playing
+        if self.reward_lockout_counter[0]<1:
+
+            #
+            if self.reward_lockout_counter[0]==0:
+                print ("REWARD LOCKOUT OFF # ttl: ", self.n_ttl[0])
+
+            # if we were previously in white noise state
+            if self.white_noise_state[0]==1:
+
+                # need to check that not in the dynamic phase lockout period
+                if self.dynamic_reward_lockout_state[0] ==0:
+                    print ("WHITE NOISE OFF # ttl: ", self.n_ttl[0])
+                    self.white_noise_state[0] = 0
 
         # save meta data
         self.ttl_n_computed.append(self.ttl_computed)
@@ -1026,7 +1073,7 @@ class BMI():
                 rois_dff = (roi_history - self.roi_f0s_ensemble1[p])/self.roi_f0s_ensemble1[p]
 
                 #
-                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = smooth_ca_time_series4(rois_dff)
+                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = smooth_ca_time_series5(rois_dff)
 
             # Ensemble 2
             for p in range(len(self.rois_traces_raw_ensemble2)):
@@ -1037,7 +1084,7 @@ class BMI():
                 rois_dff = (roi_history - self.roi_f0s_ensemble2[p])/self.roi_f0s_ensemble2[p]
 
                 #
-                self.rois_traces_smooth_ensemble2[p,self.n_ttl[0]] = smooth_ca_time_series4(rois_dff)
+                self.rois_traces_smooth_ensemble2[p,self.n_ttl[0]] = smooth_ca_time_series5(rois_dff)
         else:
             #
             for p in range(len(self.rois_traces_raw_ensemble1)):
@@ -1150,7 +1197,8 @@ class BMI():
     def trigger_reward(self):
 
         #
-        print(" reached high reward condition: ")
+        print("\n ")
+        print(" >>>>> reached high reward condition: ")
         print(" ensemble state: ", self.ensemble_state)
         print(" high_threshold: ", self.high_threshold)
 
@@ -1168,37 +1216,38 @@ class BMI():
         self.last_reward_ttl[0] = self.n_ttl[0]
 
         # generate water reward only if we are not in a reward lockout state
-        print (" ****giving reward at time: ", self.n_ttl)
+        print (" giving reward at time: ", self.n_ttl)
 
         #
         self.water_reward[0] = 1
-
-    #
-    # #
-    # def post_reward_state(self):
-    #
-    #     # disable tone playback;
-    #     self.tone_off()
 
     #
     def check_missed_reward_state(self):
 
         # if mouse does not perform in e.g. 30 sec, do a lockout
         # TODO: May wish to play white noise to distinguish it from post-reward state
-        if (self.n_ttl[0]-self.last_reward_ttl[0])>(self.max_reward_window*self.sampleRate_2P):
-            pass
+        #if (self.n_ttl[0]-self.last_reward_ttl[0])>(self.max_reward_window*self.sampleRate_2P):
+
+        # here we want to check not against last reward, but against the last trial commencement
+        if (self.n_ttl[0]-self.last_trial_start_ttl)>(self.max_reward_window*self.sampleRate_2P):
+
+
+            ## start reward downward counter
+            self.reward_lockout_counter[0] = self.missed_reward_lockout * self.sampleRate_2P
+
+            # also set a dummy value to last trial start;
+            # TODO: check if this is correc
+            self.last_trial_start_ttl = self.n_ttl[0]
+
             #
-            #print ("  triggering missed reward lockout- NOT IMPLEMENTED ")
+            self.white_noise_state[0]=1
+            print ("\n")
+            print (">>>> reached end of trial without reward")
+            print ("WHITE NOISE ON # ttl: ", self.n_ttl[0])
 
-            ## reset counter
-            #self.reward_lockout_counter[0] = self.missed_reward_lockout * self.sampleRate_2P
-
-            # turn tone off; but better might be to play white noise!?
-            #print(".... may wish to play white noise to dsituish between post-reward state")
-            #self.tone_off()
-
-            # # reset the last rewarded time to
-            # self.last_reward_ttl[0] = self.n_ttl[0]
+            # also reset dynamic reward lockout to blcok rewawards
+            self.dynamic_reward_lockout_state[0] = 1
+            print ("DYNAMIC STATE LOCKOUT ON (post-trial timeout): ", self.n_ttl[0])
 
     #
     def check_baseline_condition(self):
@@ -1230,15 +1279,15 @@ class BMI():
                 if self.ensemble_state[0] <= (self.high_threshold*self.dynamic_reward_lockout_threshold):
 
                     # reset the state back so mouse can get rewards again
-                    print ("RESETING dynamic_reward_lockout_state to LOCKOUT OFF")
-                    self.dynamic_reward_lockout_state[0] = 0
+                    print ("DYNAMIC STATE LOCKOUT OFF # ttl: ", self.n_ttl[0])
+                    self.dynamic_reward_lockout_state[0] = 0  # we can now receive rewards
 
-                    # reset the reward counter to negative values, which means the mouse can now get rewards
-                    #: NO, this is not controlled from here any longer
-                    # self.reward_lockout_counter[0] = -1
-                
-                # if not below threshold, make sure the lockout counter is not < 1, 
-                # TODO: Not clear this is also required
+                    # we also set the last time a reward was had
+                    self.last_trial_start_ttl = self.n_ttl[0]
+                    print ("RESETING TRIAL START TO # TTL: ", self.last_trial_start_ttl)
+                    self.trial_starts.append(self.last_trial_start_ttl)
+
+                # if still > threshold, mouse cannot get reward
                 else:
                     # make sure during the reward lockout periods, the lockout counter is high enough
                     if self.reward_lockout_counter[0] <1:
@@ -1247,30 +1296,25 @@ class BMI():
                     #
             # mouse can get rewards if ensemble over threshold AND  the statick counter has counted down
             elif (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0] <= 0):
-                    
-                #
+
+                # cant' give reward during white noise lockout
+                if self.white_noise_state[0] == 1:
+                    return
+
+                # reward mouse
                 self.trigger_reward()
 
-                #
+                # reset the lockout counter for rewards
                 self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
 
                 #
-                print ("RESETING dynamic_reward_lockout_state to LOCKOUT ON")
                 self.dynamic_reward_lockout_state[0]=1
+                print ("DYNAMIC STATE LOCKOUT ON (post-reward) # ttl: ", self.n_ttl[0])
 
         # this is the static lockout of x seconds
+        # TODO: This is not really used anymroe
         else:
-            if (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0]<=0):
-
-                #
-                self.trigger_reward()
-
-                # reset the reward counter for ~10sec for the non-dynamic version of the code
-                self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
-
-                #
-                # # decouple tone etc. from feedback
-                # self.post_reward_state()
+            raise Exception("Sorry, only dynamic reward lockouts is coded")
 
     #
     def load_current_frame_and_apply_drift_correction(self):
@@ -1503,6 +1547,9 @@ class BMI():
                  received_reward_lockout = self.received_reward_lockout,
                  max_reward_window = self.max_reward_window,
                  missed_reward_lockout = self.missed_reward_lockout,
+                 trial_starts = self.trial_starts,
+
+
 
                  sampleRate_NI = self.sampleRate_NI,
                  ttl_pts = self.ttl_pts,

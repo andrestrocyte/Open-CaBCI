@@ -13,6 +13,17 @@ import cv2
 
 
 #
+def smooth_ca_time_series5(diff):
+	#
+	''' This is a more aggressive
+
+	'''
+
+	temp = (diff[-1] * 0.7+
+			diff[-2] * 0.3 )
+
+	return temp
+
 def smooth_ca_time_series4(diff):
 	#
 	''' This returns the last value. i.e. no filter
