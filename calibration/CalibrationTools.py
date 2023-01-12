@@ -12,11 +12,7 @@ import cv2
 from matplotlib.widgets import Slider, Button, RadioButtons
 
 from stardist.models import StarDist2D
-<<<<<<< HEAD
-from utils.utils import smooth_ca_time_series5, compute_dff0, compute_dff0_with_reference
-=======
 from utils.utils import smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference
->>>>>>> 90f064deabfbd7e26f08d076362eef5cdd62a5bc
 
 
 ##############################
@@ -915,11 +911,7 @@ class CalibrationTools(object):
 
                 # smooth each time point based on history/etc... this is how the online BMI does things
                 for k in trange(self.rois_smooth_window, self.ensemble1_traces[p].shape[0], 1):
-<<<<<<< HEAD
-                    smooth[k] = smooth_ca_time_series5(self.ensemble1_traces[p][k - self.rois_smooth_window:k])
-=======
                     smooth[k] = smooth_ca_time_series4(self.ensemble1_traces[p][k - self.rois_smooth_window:k])
->>>>>>> 90f064deabfbd7e26f08d076362eef5cdd62a5bc
 
                 #
                 self.ensemble1_traces_smooth.append(smooth)
@@ -938,11 +930,7 @@ class CalibrationTools(object):
 
                 # smooth each time point based on history/etc... this is how the online BMI does things
                 for k in trange(self.rois_smooth_window, self.ensemble2_traces[p].shape[0], 1):
-<<<<<<< HEAD
-                    smooth[k] = smooth_ca_time_series5(self.ensemble2_traces[p][k - self.rois_smooth_window:k])
-=======
                     smooth[k] = smooth_ca_time_series4(self.ensemble2_traces[p][k - self.rois_smooth_window:k])
->>>>>>> 90f064deabfbd7e26f08d076362eef5cdd62a5bc
 
                 #
                 self.ensemble2_traces_smooth.append(smooth)
