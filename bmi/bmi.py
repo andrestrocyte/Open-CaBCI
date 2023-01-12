@@ -11,14 +11,7 @@ import os
 import time
 import numpy as np
 from multiprocessing import shared_memory
-<<<<<<< HEAD
 from utils.utils import smooth_ca_time_series5, compute_dff0, compute_dff0_with_reference
-=======
-from utils.utils import (smooth_ca_time_series, smooth_ca_time_series2, smooth_ca_time_series3, 
-						 smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference,
-						 get_mode)
-
->>>>>>> 90f064deabfbd7e26f08d076362eef5cdd62a5bc
 from drift.drift import apply_shifts
 from simulation.simulation import Simulation
 
