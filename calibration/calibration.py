@@ -101,16 +101,21 @@ class BMICalibration():
         self.image_width = 512
         self.image_length = 512
 
+        # not currently used
+        self.n_rewards_per_minute = 0
+        if False:
+            self.random_reward_probability = (self.n_rewards_per_minute / (30 * 60))
+            print(" RANDOM REWARD PROBABILITY (rewards per minute): ", self.n_rewards_per_minute,
+                  "; reward prob per TTL frame: ", self.random_reward_probability)
+            #
+            if self.n_rewards_per_minute > 0.5:
+                for k in range(10):
+                    print(" >>>>>>>>>>>> RANDOM REWARD PROBABILITY IS HIGH!!! (rewards per minute): ",
+                          self.n_rewards_per_minute, "; reward prob per TTL frame: ", self.random_reward_probability)
+
         #
-        self.n_rewards_per_minute = 0.001
-        self.random_reward_probability = (self.n_rewards_per_minute / (30 * 60))
-        print(" RANDOM REWARD PROBABILITY (rewards per minute): ", self.n_rewards_per_minute,
-              "; reward prob per TTL frame: ", self.random_reward_probability)
-        #
-        if self.n_rewards_per_minute > 0.5:
-            for k in range(10):
-                print(" >>>>>>>>>>>> RANDOM REWARD PROBABILITY IS HIGH!!! (rewards per minute): ",
-                      self.n_rewards_per_minute, "; reward prob per TTL frame: ", self.random_reward_probability)
+
+
 
         #
         self.max_n_seconds_session = max_n_seconds_session
@@ -614,6 +619,9 @@ class BMICalibration():
 
         # abssolute start time
         self.start_time_acquisition = time.time()
+
+        # save trial start for first trial
+        self.trials.append(self.last_trial_start_ttl)
 
         # start recording and acquisition
         # count number of frames; but probably safer to just count time;

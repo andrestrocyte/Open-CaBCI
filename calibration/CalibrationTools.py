@@ -10,6 +10,7 @@ import scipy
 import scipy.ndimage
 import cv2
 from matplotlib.widgets import Slider, Button, RadioButtons
+import os, pickle
 
 from stardist.models import StarDist2D
 from utils.utils import smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference
@@ -1216,3 +1217,104 @@ def get_rois_stardist2d(img,
     #
 
     return roi_centres, footprints
+
+
+def save_calibration_data(bmi_c):
+
+    # save all data to disk
+    # also add the tone values here as well that will be used for the experiment
+    bmi_c.low_freq = 2000
+    bmi_c.high_freq = 16000
+
+    #
+    ensemble1_footprints = []
+    ensemble1_contours = []
+    for k in bmi_c.ensemble1:
+
+        # get footprints
+        temp = bmi_c.footprints[k]
+        temp1 = temp[0]
+        temp2 = temp[1]
+        temp = np.vstack((temp1,temp2))
+        ensemble1_footprints.append(temp.T)
+
+        # get contours
+        ensemble1_contours.append(bmi_c.compute_contour_map(bmi_c.std_map, [k]))
+
+    # get ensembel 2 footprints/contours
+    ensemble2_footprints = []
+    ensemble2_contours = []
+    for k in bmi_c.ensemble2:
+        # get footprints
+        temp = bmi_c.footprints[k]
+        temp1 = temp[0]
+        temp2 = temp[1]
+        temp = np.vstack((temp1,temp2))
+        ensemble2_footprints.append(temp.T)
+
+        # get contours
+        ensemble2_contours.append(bmi_c.compute_contour_map(bmi_c.std_map, [k]))
+
+    # get ensemble f0 baselines
+    ensemble1_f0s = []
+    for k in bmi_c.ensemble1:
+        # get footprints
+        ensemble1_f0s.append(bmi_c.roi_f0s[k])
+
+    # get ensemble f0 baselines
+    ensemble2_f0s = []
+    for k in bmi_c.ensemble2:
+        # get footprints
+        ensemble2_f0s.append(bmi_c.roi_f0s[k])
+
+    # also grab contours of cells; both contains all cell ids
+    contours_all_cells = bmi_c.compute_contour_map(bmi_c.std_map, np.arange(len(bmi_c.footprints)))
+    contours_all_cells = np.array(contours_all_cells, dtype=object)
+
+    # save individual pixels of each cell - currently implemented in BMI
+    fname_out = os.path.join(os.path.split(os.path.split(bmi_c.fname)[0])[0],
+                            'rois_pixels_and_thresholds.npz')
+    np.savez(fname_out,
+
+                #
+                ensemble1_footprints = ensemble1_footprints,
+                ensemble1_contours = ensemble1_contours,
+                ensemble1_f0s = ensemble1_f0s,
+
+                #
+                ensemble2_footprints = ensemble2_footprints,
+                ensemble2_contours = ensemble2_contours,
+                ensemble2_f0s = ensemble2_f0s,
+
+                #
+                reward_rate = bmi_c.reward_rate,
+                reward_rate_scaling_factor = bmi_c.reward_rate_scaling_factor,
+
+                #
+                contours_all_cells = contours_all_cells,
+                #cell_centres = np.int32(bmi_c.rois)[both],
+                cell_ids = bmi_c.both,
+                #all_rois = np.int32(bmi_c.rois),
+                low_threshold = bmi_c.low,
+                high_threshold = bmi_c.high,
+                low_freq = bmi_c.low_freq,
+                high_freq = bmi_c.high_freq,
+                all_roi_traces_submsampled = bmi_c.roi_traces,
+
+                #
+                sample_rate = bmi_c.sample_rate,
+                post_reward_lockout = bmi_c.post_reward_lockout,
+                balance_ensemble_rewards_flag = bmi_c.balance_ensemble_rewards_flag,
+                rois_smooth_window = bmi_c.rois_smooth_window,
+                smooth_diff_function_flag = bmi_c.smooth_diff_function_flag,
+                calibration_template = bmi_c.template,
+                footprints = bmi_c.footprints
+
+            )
+
+    # also save the entire object as a pickle
+    file_pi = open(os.path.join(os.path.split(fname_out)[0], "bmi_c.obj"), 'wb')
+    bmi_c.data=None
+    pickle.dump(bmi_c, file_pi)
+
+    print ("Done...")

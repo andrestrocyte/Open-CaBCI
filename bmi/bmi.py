@@ -141,8 +141,11 @@ class BMI():
 
         # Keep track of each trial start time
         self.last_trial_start_ttl = 0
-        self.trial_starts = []
-        self.trial_starts.append(self.last_trial_start_ttl)
+
+        # save trial bouts and times
+        #                   [start n_ttl, start abs time, end n_ttl, end abs time, reward (0/1)]
+        self.trials = np.zeros((1000, 5), 'float64')+np.nan
+        self.trial_number = 0
 
         # initialize ROIs
         self.initialize_ROIs()
@@ -780,6 +783,10 @@ class BMI():
         # abssolute start time
         self.start_time_acquisition = time.time()
 
+        # save initial trial start
+        self.trials[self.trial_number,0] = self.n_ttl[0]
+        self.trials[self.trial_number,1] = self.start_time_acquisition
+
         # start recording and acquisition
         # count number of frames; but probably safer to just count time;
         # TODO: merge ttl pulse counting and time tracking into a single while statement
@@ -1032,9 +1039,8 @@ class BMI():
             if self.white_noise_state[0]==1:
 
                 # need to check that not in the dynamic phase lockout period
-                if self.dynamic_reward_lockout_state[0] ==0:
-                    print ("WHITE NOISE OFF # ttl: ", self.n_ttl[0])
-                    self.white_noise_state[0] = 0
+                print ("WHITE NOISE OFF # ttl: ", self.n_ttl[0])
+                self.white_noise_state[0] = 0
 
         # save meta data
         self.ttl_n_computed.append(self.ttl_computed)
@@ -1231,7 +1237,7 @@ class BMI():
             self.reward_lockout_counter[0] = self.missed_reward_lockout * self.sampleRate_2P
 
             # also set a dummy value to last trial start;
-            # TODO: check if this is correc
+            # TODO: check if this is correct
             self.last_trial_start_ttl = self.n_ttl[0]
 
             #
@@ -1239,6 +1245,11 @@ class BMI():
             print ("\n")
             print (">>>> reached end of trial without reward")
             print ("WHITE NOISE ON # ttl: ", self.n_ttl[0])
+
+            # close missed trial
+            self.trials[self.trial_number,2] = self.n_ttl[0]
+            self.trials[self.trial_number,3] = time.time()
+            self.trials[self.trial_number,4] = 0
 
             # also reset dynamic reward lockout to blcok rewawards
             self.dynamic_reward_lockout_state[0] = 1
@@ -1261,7 +1272,12 @@ class BMI():
         ''' We check if reward condition was reached
 
         '''
-        
+
+        # cant' give reward during white noise lockout or any other lockouts
+        # TODO: check if it matters to do the dynamic reward lockout check always (so it can turn off anytime)
+        if self.white_noise_state[0] == 1 or self.reward_lockout_counter[0] >0 :
+            return
+
         # for dynamic lockout we have to track find the first time the self.ensemble-state drops
         #  below 0.3 x self.high-threshold, then we can turn back to
         # check flag to see if using dynamic lockout method
@@ -1279,32 +1295,30 @@ class BMI():
 
                     # we also set the last time a reward was had
                     self.last_trial_start_ttl = self.n_ttl[0]
-                    print ("RESETING TRIAL START TO # TTL: ", self.last_trial_start_ttl)
-                    self.trial_starts.append(self.last_trial_start_ttl)
-
-                ## if still > threshold, mouse cannot get reward
-                #else:
-                #    # make sure during the reward lockout periods, the lockout counter is high enough
-                #    if self.reward_lockout_counter[0] <1:
-                #        self.reward_lockout_counter[0] = 10
+                    print ("STARTING NEW TRIAL @ # TTL: ", self.last_trial_start_ttl)
 
                     #
-            # mouse can get rewards if ensemble over threshold AND  the statick counter has counted down
-            elif (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0] <= 0):
+                    self.trial_number+=1
+                    self.trials[self.trial_number,0] = self.n_ttl[0]
+                    self.trials[self.trial_number,1] = time.time()
 
-                # cant' give reward during white noise lockout
-                if self.white_noise_state[0] == 1:
-                    return
+            # mouse can get rewards if ensemble over threshold AND the static counter has counted down
+            elif (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0] <= 0):
 
                 # reward mouse
                 self.trigger_reward()
+
+                # close reward trial
+                self.trials[self.trial_number,2] = self.n_ttl[0]
+                self.trials[self.trial_number,3] = time.time()
+                self.trials[self.trial_number,4] = 1
 
                 # reset the lockout counter for rewards
                 self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
 
                 #
                 self.dynamic_reward_lockout_state[0]=1
-                print ("DYNAMIC STATE LOCKOUT ON (post-reward) # ttl: ", self.n_ttl[0])
+                print ("DYNAMIC LOCKOUT ON (post-reward) # ttl: ", self.n_ttl[0])
 
         # this is the static lockout of x seconds
         # TODO: This is not really used anymroe
@@ -1542,7 +1556,7 @@ class BMI():
                  received_reward_lockout = self.received_reward_lockout,
                  max_reward_window = self.max_reward_window,
                  missed_reward_lockout = self.missed_reward_lockout,
-                 trial_starts = self.trial_starts,
+                 trials = self.trials,
 
 
 

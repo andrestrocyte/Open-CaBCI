@@ -360,12 +360,19 @@ class PlayTone():
         # overwrite tone if we are in noise session; grab a random frequency; overwrite the low freq state
         while self.shmem_white_noise_state[0]==1:
 
+            # check if we should exit
+            if self.termination_flag:
+                print("...EXITING TONE CLASS...")
+                break
+
             self.tone_state[0] = np.random.choice(np.arange(self.low_freq, self.high_freq,1))
             tone_data = self.make_tone(self.tone_state[0].copy(),
                                        self.amplitude,
                                        0.0002)
 
-            self.audio_Writer.write_many_sample(tone_data.squeeze())
+            # play tone only in non-simulation mode
+            if self.simulation_flag==False:
+                self.audio_Writer.write_many_sample(tone_data.squeeze())
 
         # make sure you send a copy of the tone, not the tone
         tone_data = self.make_tone(self.tone_state[0].copy(),
