@@ -6,7 +6,7 @@ import numpy as np
 
 
 def run_BMI():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read, template_flag, template_read
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read, template_flag, template_read, align_flag
 
     #
     bmi_read = bmi_flag.get()
@@ -18,6 +18,7 @@ def run_BMI():
     template_read = template_flag.get()
     video_hardware_trigger_flag = video_hardware_trigger_flag.get()
     calibration_read = "False"
+    align_flag = 0
 
     #
     simulation_sleep = simulation_sleep_box_data.get()
@@ -52,7 +53,7 @@ def run_BMI():
 
 
 def run_Calibration():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read, template_flag, template_read
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read, template_flag, template_read, align_flag
 
     #
     bmi_read = bmi_flag.get()
@@ -64,6 +65,7 @@ def run_Calibration():
     template_read = template_flag.get()
     video_hardware_trigger_flag = video_hardware_trigger_flag.get()
     calibration_read = "True"
+    align_flag = 0
 
     #
     simulation_sleep = simulation_sleep_box_data.get()
@@ -93,6 +95,55 @@ def run_Calibration():
     print("RETURNING TO BMI...")
 
     window.destroy()
+
+
+
+
+def run_Alignment():
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read, template_flag, template_read, align_flag
+
+    #
+    bmi_read = bmi_flag.get()
+    lick_read = lick_flag.get()
+    tone_read = tone_flag.get()
+    water_read = water_flag.get()
+    video_read = video_flag.get()
+    motion_read = motion_flag.get()
+    template_read = template_flag.get()
+    video_hardware_trigger_flag = video_hardware_trigger_flag.get()
+    calibration_read = "False"
+    align_flag = 1
+
+
+    #
+    simulation_sleep = simulation_sleep_box_data.get()
+    n_frames = n_frames_box_data.get()
+    width = width_box_data.get()
+    length = length_box_data.get()
+    video_width = int(video_width_box_data.get())
+    video_length = int(video_length_box_data.get())
+
+    #
+    print("Loaded BMI params...")
+    print("fname_root_path: ", fname_root_path)
+    print("bmi_simulation: ", bmi_read)
+    print("lick_simulation: ", lick_read)
+    print("tone_simulation: ", tone_read)
+    print("water_simulation: ", water_read)
+    print("simulation_sleep: ", simulation_sleep, " sec")
+    print("n_frames: ", n_frames)
+    print("video_simulation: ", video_read)
+    print("video_hardware_trigger_flag: ", video_hardware_trigger_flag)
+    print("video width: ", video_width)
+    print("video length: ", video_length)
+    print("calibration flag: ", calibration_read)
+    # print (fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, video_read, video_hardware_trigger_flag )
+
+    #
+    print("RETURNING TO BMI...")
+
+    window.destroy()
+
 
 
 #
@@ -277,6 +328,15 @@ def gui():
     button2.grid(column=1, row=17)
 
     #
+    button3 = tk.Button(text='Run Alignment',
+                        command=run_Alignment
+                        )
+
+    button3.grid(column=3, row=17)
+
+    #
+
+    #
     simulation_sleep = simulation_sleep_box_data.get()
     n_frames = n_frames_box_data.get()
 
@@ -310,4 +370,4 @@ def gui():
              )
     #
     return (fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger_flag,
-            simulation_sleep, n_frames, video_width, video_length, calibration_read, motion_read)
+            simulation_sleep, n_frames, video_width, video_length, calibration_read, motion_read, align_flag)

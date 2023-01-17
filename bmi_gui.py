@@ -38,7 +38,8 @@ if __name__ ==  '__main__':
      video_width,
      video_height,
      calibration_read,
-     motion_read)= gui()
+     motion_read,
+     align_flag)= gui()
     
     #print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames)
     
@@ -114,21 +115,23 @@ if __name__ ==  '__main__':
                               video_width,
                               video_height,
                               motion_flag,
+                              align_flag
                               )
     else:
         bmi = BMI(simulation_flag_bmi,
-              simulation_flag_licking,
-              fname_root_path,
-              fname_fluorescence,
-              fname_ttl,
-              sampleRate_2P,
-              fname_rois_pixels_and_thresholds,
-              max_n_seconds_session,
-              n_frames_session,
-              video_width,
-              video_height,
-              motion_flag
-              )
+                  simulation_flag_licking,
+                  fname_root_path,
+                  fname_fluorescence,
+                  fname_ttl,
+                  sampleRate_2P,
+                  fname_rois_pixels_and_thresholds,
+                  max_n_seconds_session,
+                  n_frames_session,
+                  video_width,
+                  video_height,
+                  motion_flag,
+                  align_flag
+                  )
 
     # for simulation mode we sometimes want to slow down the processing;
     # ... not as necessary 
@@ -154,6 +157,7 @@ if __name__ ==  '__main__':
                                                   bmi.shmem_reward_lockout_counter.name,
                                                   bmi.shmem_dynamic_reward_lockout_state.name,
                                                   bmi.shmem_white_noise_state.name,
+                                                  bmi.shmem_alignment_flag.name,
                                                   simulation_flag_tone,
                                                   calibration_flag,))
     tone_player_.start()

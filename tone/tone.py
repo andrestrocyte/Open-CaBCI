@@ -34,8 +34,15 @@ class PlayTone():
                  shmem_reward_lockout_counter,
                  shmem_dynamic_reward_lockout_state,
                  shmem_white_noise_state,
+                 shmem_alignment_flag,
                  simulation_flag,
                  calibration_flag):
+
+        #
+        self.shmem_alignment_flag = shmem_alignment_flag
+
+        #
+        self.initialize_alignment_flag()
 
         #
         self.shmem_white_noise_state = shmem_white_noise_state
@@ -311,9 +318,6 @@ class PlayTone():
         #
         self.audio_Writer.write_many_sample(self.freq_sweep.squeeze())
 
-
-
-
     #
     def play_reward_tone_high_freq(self):
 
@@ -350,6 +354,9 @@ class PlayTone():
         # compute ensembel to tone by default
         self.compute_ensemble_to_tone_state()
 
+        #######################################################
+        ############# NO TONE FOR CERTAIN CONDITIONS ##########
+        #######################################################
         # overwrite tone if we are in lockout state
         # play inaudible tone in calibration mode ; OR
         #   - while the reward lockout counter is locking out playback
@@ -357,8 +364,12 @@ class PlayTone():
         if (self.calibration_flag == True) or (self.reward_lockout_counter[0]>0) or (self.dynamic_reward_lockout_state==1):
             self.tone_state[0] = 100
 
+        #######################################################
+        ################### WHITE NOISE LOOP ##################
+        #######################################################
         # overwrite tone if we are in noise session; grab a random frequency; overwrite the low freq state
-        while self.shmem_white_noise_state[0]==1:
+        #   Don't play tone during alignment sessions
+        while self.shmem_white_noise_state[0]==1 and (self.alignment_flag[0]==0):
 
             # check if we should exit
             if self.termination_flag:
@@ -373,6 +384,10 @@ class PlayTone():
             # play tone only in non-simulation mode
             if self.simulation_flag==False:
                 self.audio_Writer.write_many_sample(tone_data.squeeze())
+
+        #######################################################
+        ################ MAKE AND PLAY TONES ##################
+        #######################################################
 
         # make sure you send a copy of the tone, not the tone
         tone_data = self.make_tone(self.tone_state[0].copy(),
@@ -408,6 +423,42 @@ class PlayTone():
         #
         self.audio_Writer = nidaqmx.stream_writers.AnalogSingleChannelWriter(self.audio_Task.out_stream,
                                                                              auto_start=True)
+
+    #
+    def initialize_alignment_flag(self):
+        #
+        # print("  ensemble state memory name : ", self.shmem_tone_state)
+
+        aa = np.zeros((1,), dtype=np.float32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_align_flag = shared_memory.SharedMemory(name=self.shmem_tone_state)
+        # print("existing shm: ", self.existing_shm_tone_state)
+
+        #
+        self.tone_state = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.existing_shm_tone_state.buf)
+
+        #
+        # print("  TONE state: ", self.tone_state)
+
+
+    #
+    def initialize_alignment_flag(self):
+        #
+        # print("  ensemble state memory name : ", self.shmem_tone_state)
+
+        aa = np.zeros((1,), dtype=np.float32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_alignment_flag = shared_memory.SharedMemory(name=self.shmem_alignment_flag)
+        # print("existing shm: ", self.existing_shm_tone_state)
+
+        #
+        self.alignment_flag = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.existing_shm_alignment_flag.buf)
 
     #
     def initialize_tone_state(self):
@@ -505,8 +556,13 @@ class PlayTone():
             print(' will release water for ', self.water_spout_ttl_duration,
                   "microsec, at ", self.water_spout_ttl_voltage, " mV")
 
+            # skip water release for simulation mode also
             if self.simulation_flag:
                 self.water_reward[0] = 0
+                return
+
+            # skip water release for alignmetn mode
+            if self.alignment_flag[0]==0:
                 return
 
             # close the audio writer

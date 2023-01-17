@@ -50,11 +50,18 @@ class BMI():
                  video_width,
                  video_length,
                  motion_flag,
+                 align_flag
                  ):
 
         #
         print ("... initializing BMI parameters...")
         print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
+
+        #
+        self.align_flag=align_flag
+
+        #
+        self.initialize_alignment_flag()
 
         # flag which prevents return to rewards until the ensemble state drops substantially
         self.dynamic_reward_lockout = True
@@ -301,6 +308,28 @@ class BMI():
         # this keeps track of the rotary encoder wheel rotations
         self.rotary_encoder1_abstime = []
         self.rotary_encoder2_abstime = []
+
+
+    def initialize_alignment_flag(self):
+
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int64)
+        self.shmem_alignment_flag = shared_memory.SharedMemory(create=True,
+                                                                 size=aa.nbytes)
+
+        #
+        self.alignment_flag = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.shmem_alignment_flag.buf)
+
+        #
+        self.alignment_flag[0] = self.align_flag
 
     #
     def initialize_termination_flag(self):
@@ -1540,8 +1569,14 @@ class BMI():
              - treadmill/ball walking distance
 
         '''
+
         print("...Saving BMI meta/data...")
-        
+
+        if self.align_flag==True:
+            print ("  alignment session... skipping data save")
+            return
+
+
         for k in range(self.reward_times.shape[1]):
             if self.reward_times[1,k]==-1:
                 break
