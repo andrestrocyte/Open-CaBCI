@@ -86,6 +86,10 @@ if __name__ ==  '__main__':
                                       'data',                   # this is the root directory of the .raw file saved by bscope
                                       'Image_001_001.raw')
 
+    if align_flag:
+        fname_fluorescence = os.path.join(fname_root_path,
+                                      'alignment',                   # this is the root directory of the .raw file saved by bscope
+                                      'Image_001_001.raw')
 
     # required for bmi simulation mode as there are no ttl -pulses being read
     fname_ttl = os.path.join('data_samples',
