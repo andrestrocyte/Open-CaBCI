@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import trange, tqdm
-import multiprocessing
-multiprocessing.set_start_method('spawn')
+#import multiprocessing
+#multiprocessing.set_start_method('spawn')
 
 from scipy import ndimage as ndi
 from skimage.segmentation import watershed
@@ -287,6 +287,69 @@ class CalibrationTools(object):
 
         return contour_array
 
+
+    #
+    def show_contour_map2(self, std_map, footprints, cell_ids, fig=False):
+
+        #
+        if fig is True:
+            plt.figure()
+
+        #
+        plt.imshow(std_map,
+                   vmin=self.vmin * 0.7,
+                   vmax=self.vmax * 1.3)
+
+
+
+        # add cell contours
+        clrs=['white']
+        for p in range(len(footprints)):
+            temp = np.zeros(std_map.shape)
+            temp[footprints[p]] = 1
+            temp = temp.astype('uint8')
+            contour, _ = cv2.findContours(temp,
+                                          cv2.RETR_TREE,
+                                          cv2.CHAIN_APPROX_SIMPLE)
+            contour = contour[0].squeeze()
+            contour = np.vstack((contour, contour[0]))
+
+            #
+            for k in range(len(contour) - 1):
+                plt.plot([contour[k][0], contour[k + 1][0]],
+                         [contour[k][1], contour[k + 1][1]],
+                         c='white')
+            #
+            z = np.vstack(footprints[p]).T
+            plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
+
+
+        # add cell contours
+        clrs=['blue','red','green','pink']
+        print ("cell ids: ", cell_ids)
+        for ctr,p in enumerate(cell_ids):
+            color = clrs[ctr//2]
+            temp = np.zeros(std_map.shape)
+            temp[footprints[p]] = 1
+            temp = temp.astype('uint8')
+            contour, _ = cv2.findContours(temp,
+                                          cv2.RETR_TREE,
+                                          cv2.CHAIN_APPROX_SIMPLE)
+            contour = contour[0].squeeze()
+            contour = np.vstack((contour, contour[0]))
+
+            #
+            for k in range(len(contour) - 1):
+                plt.plot([contour[k][0], contour[k + 1][0]],
+                         [contour[k][1], contour[k + 1][1]],
+                         c=color)
+            #
+            z = np.vstack(footprints[p]).T
+            plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
+
+        plt.show()
+    #
+
     #
     def show_contour_map(self, std_map, footprints, cell_ids, fig=False):
 
@@ -322,30 +385,29 @@ class CalibrationTools(object):
             z = np.vstack(footprints[p]).T
             plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
 
-        plt.show()
-
-
-        # add cell contours
-        clrs=['blue','red']
-        for p in cell_ids:
-            color = clrs[p//2]
-            temp = np.zeros(std_map.shape)
-            temp[footprints[p]] = 1
-            temp = temp.astype('uint8')
-            contour, _ = cv2.findContours(temp,
-                                          cv2.RETR_TREE,
-                                          cv2.CHAIN_APPROX_SIMPLE)
-            contour = contour[0].squeeze()
-            contour = np.vstack((contour, contour[0]))
-
-            #
-            for k in range(len(contour) - 1):
-                plt.plot([contour[k][0], contour[k + 1][0]],
-                         [contour[k][1], contour[k + 1][1]],
-                         c=color)
-            #
-            z = np.vstack(footprints[p]).T
-            plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
+        #
+        # # add cell contours
+        # clrs=['blue','red','green','pink']
+        # print ("cell ids: ", cell_ids)
+        # for p in cell_ids:
+        #     color = clrs[p//2]
+        #     temp = np.zeros(std_map.shape)
+        #     temp[footprints[p]] = 1
+        #     temp = temp.astype('uint8')
+        #     contour, _ = cv2.findContours(temp,
+        #                                   cv2.RETR_TREE,
+        #                                   cv2.CHAIN_APPROX_SIMPLE)
+        #     contour = contour[0].squeeze()
+        #     contour = np.vstack((contour, contour[0]))
+        #
+        #     #
+        #     for k in range(len(contour) - 1):
+        #         plt.plot([contour[k][0], contour[k + 1][0]],
+        #                  [contour[k][1], contour[k + 1][1]],
+        #                  c=color)
+        #     #
+        #     z = np.vstack(footprints[p]).T
+        #     plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
 
         plt.show()
     #
@@ -497,7 +559,7 @@ class CalibrationTools(object):
         #    TODO: we may wish to implement a more complex version of this
         self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
         self.roi_snrs = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
-        for k in range(self.roi_traces.shape[0]):
+        for k in cell_ids:
 
             #
             f0 = np.median(self.roi_traces[k])
@@ -564,7 +626,6 @@ class CalibrationTools(object):
             ctr = 0
             for k in self.ensemble1:
                 # grab roi
-                #print (self.footprints[k])
                 temp = frame[self.footprints[k]]
 
                 # normalize by surface area so that cells don't look way different because of footprint size
@@ -602,46 +663,46 @@ class CalibrationTools(object):
         plt.ylabel("Neuron ID ", fontsize=20)
 
         # plot ensemble 1 cells
-        ctr=0
-        for k in range(len(self.ensemble1_traces)):
-            temp = self.ensemble1_traces[k]
+        ctr2=0
+        for ctr,k in enumerate(self.ensemble1):
+            temp = self.ensemble1_traces[ctr]
 
             # normalize by the correct cell id, not the one computed above
-            temp = (temp - self.roi_f0s[self.ensemble1[k]])/self.roi_f0s[self.ensemble1[k]]
+            temp = (temp - self.roi_f0s[self.ensemble1[ctr]])/self.roi_f0s[self.ensemble1[ctr]]
 
             # we update the selected traces time dynamics
-            self.ensemble1_traces[k] = temp
+            self.ensemble1_traces[ctr] = temp
 
             #
             t = np.linspace(0, data.shape[0], temp.shape[0]) / 30.
-            plt.plot(t, self.ensemble1_traces[k] + ctr * self.scale,
+            plt.plot(t, self.ensemble1_traces[ctr] + ctr2 * self.scale,
                      c='blue')
 
-            ctr += 1
+            ctr2 += 1
 
         # plot ensemble 2 cells
-        for k in range(len(self.ensemble2_traces)):
-            temp = self.ensemble2_traces[k]
+        for ctr,k in enumerate(self.ensemble2):
+            temp = self.ensemble2_traces[ctr]
 
             # normalize by the correct cell id, not the one computed above
-            temp = (temp - self.roi_f0s[self.ensemble2[k]]) / self.roi_f0s[self.ensemble2[k]]
+            temp = (temp - self.roi_f0s[self.ensemble2[ctr]]) / self.roi_f0s[self.ensemble2[ctr]]
 
             # we update the selected traces time dynamics
-            self.ensemble2_traces[k] = temp
+            self.ensemble2_traces[ctr] = temp
 
             #
             t = np.linspace(0, data.shape[0], temp.shape[0]) / 30.
-            plt.plot(t, self.ensemble2_traces[k] + ctr * self.scale,
+            plt.plot(t, self.ensemble2_traces[ctr] + ctr2 * self.scale,
                      c='red')
 
-            ctr += 1
+            ctr2 += 1
 
         #
         cell_ids = np.hstack((self.ensemble1, self.ensemble2))
 
         #
         labels = cell_ids
-        labels_old = np.arange(0, ctr * self.scale, self.scale)
+        labels_old = np.arange(0, ctr2 * self.scale, self.scale)
 
         #
         plt.yticks(labels_old, labels, fontsize=10)
@@ -652,11 +713,137 @@ class CalibrationTools(object):
         new_plot = False
         self.show_contour_map(std_map,
                               self.footprints,
-                              cell_ids, new_plot)
+                              cell_ids,
+                              new_plot)
 
         plt.show()
 
+    def compute_traces_ensembles2(self, std_map):
+        """ Same as below but visualize every single frame
+        """
 
+        self.trace_subsample = 1  # Subsample the time series to go faster;
+        self.scale = 3
+
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = data.reshape(-1, 512, 512)
+
+        ########################################################
+        ########################################################
+        ########################################################
+        # loop over each frame
+        self.ensemble1_traces = []
+        for k in range(len(self.ensemble1)):
+            self.ensemble1_traces.append([])
+
+        #
+        self.ensemble2_traces = []
+        for k in range(len(self.ensemble2)):
+            self.ensemble2_traces.append([])
+
+        #
+        for p in trange(0, data.shape[0], self.trace_subsample):
+
+            # grab frame
+            frame = data[p]
+
+            # loop over ensemble1 traces
+            ctr = 0
+            for k in self.ensemble1:
+                # grab roi
+                temp = frame[self.footprints[k]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.footprints[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                self.ensemble1_traces[ctr].append(temp)
+                ctr += 1
+
+            # loop over ensemble2 traces
+            ctr = 0
+            for k in self.ensemble2:
+                # grab roi
+                temp = frame[self.footprints[k]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.footprints[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                self.ensemble2_traces[ctr].append(temp)
+                ctr += 1
+
+        ###############################################
+        plt.figure()
+        ax = plt.subplot(121)
+        ax.tick_params(axis='both', which='both', labelsize=20)
+        plt.ylabel("Neuron ID ", fontsize=20)
+
+        # plot ensemble 1 cells
+        ctr2 = 0
+        for ctr, k in enumerate(self.ensemble1):
+            temp = self.ensemble1_traces[ctr]
+
+            # normalize by the correct cell id, not the one computed above
+            temp = (temp - self.roi_f0s[self.ensemble1[ctr]]) / self.roi_f0s[self.ensemble1[ctr]]
+
+            # we update the selected traces time dynamics
+            self.ensemble1_traces[ctr] = temp
+
+            #
+            t = np.linspace(0, data.shape[0], temp.shape[0]) / 30.
+            plt.plot(t, self.ensemble1_traces[ctr] + ctr2 * self.scale,
+                     c='blue')
+
+            ctr2 += 1
+
+        # plot ensemble 2 cells
+        for ctr, k in enumerate(self.ensemble2):
+            temp = self.ensemble2_traces[ctr]
+
+            # normalize by the correct cell id, not the one computed above
+            temp = (temp - self.roi_f0s[self.ensemble2[ctr]]) / self.roi_f0s[self.ensemble2[ctr]]
+
+            # we update the selected traces time dynamics
+            self.ensemble2_traces[ctr] = temp
+
+            #
+            t = np.linspace(0, data.shape[0], temp.shape[0]) / 30.
+            plt.plot(t, self.ensemble2_traces[ctr] + ctr2 * self.scale,
+                     c='red')
+
+            ctr2 += 1
+
+        #
+        cell_ids = np.hstack((self.ensemble1, self.ensemble2))
+
+        #
+        labels = cell_ids
+        labels_old = np.arange(0, ctr2 * self.scale, self.scale)
+
+        #
+        # print (labels_old)
+        # print (labels)
+        plt.yticks(labels_old, labels, fontsize=10)
+        plt.xlabel("Time (sec)", fontsize=20)
+
+        #
+        plt.subplot(122)
+        new_plot = False
+        self.show_contour_map2(std_map,
+                              self.footprints,
+                              cell_ids,
+                              new_plot)
+
+        plt.show()
 
         #
     def compute_traces2(self, std_map, cell_ids=None, fig=None):
@@ -1109,7 +1296,7 @@ class CalibrationTools(object):
         plt.plot([t[0], t[-1]], [0, 0], '--', c='black', linewidth=1, alpha=.5)
 
         ymaxes = np.max(np.abs(self.diff))
-
+        print (" PROCESSING...")
         #
         for k in range(len(self.reward_times)):
             temp = self.reward_times[k]
@@ -1311,6 +1498,9 @@ def save_calibration_data(bmi_c):
     np.savez(fname_out,
 
                 #
+                f0_allcells = bmi_c.roi_f0s,
+
+                #
                 ensemble1_footprints = ensemble1_footprints,
                 ensemble1_contours = ensemble1_contours,
                 ensemble1_f0s = ensemble1_f0s,
@@ -1347,16 +1537,17 @@ def save_calibration_data(bmi_c):
             )
 
     # also save the entire object as a pickle
-    file_pi = open(os.path.join(os.path.split(fname_out)[0], "bmi_c.json"), 'wb')
-    bmi_c.data=None
-    file_pi.write(bmi_c)
-    file_pi.close()
+    # file_pi = open(os.path.join(os.path.split(fname_out)[0], "bmi_c.json"), 'wb')
+    # bmi_c.data=None
+    # file_pi.write(bmi_c)
+    # file_pi.close()
 
-
-    file_pi = open(os.path.join(os.path.split(fname_out)[0], "bmi_c.obj"), 'wb')
-    bmi_c.data=None
-    pickle.dump(bmi_c, file_pi)
-
+    try:
+        file_pi = open(os.path.join(os.path.split(fname_out)[0], "bmi_c.obj"), 'wb')
+        bmi_c.data=None
+        pickle.dump(bmi_c, file_pi)
+    except:
+        print (" couldn't save bmi_c.object .... TO FIX!")
     print ("Done...")
 
 
@@ -1378,6 +1569,8 @@ def compute_roi_traces_f0_alignment(fname,
     ################ COMPUTE ROI TRACES #################
     #####################################################
     #
+
+    print (" Computing traces; for cells:L ", cell_ids)
     roi_traces = np.zeros((len(footprints), data.shape[0]//subsample))
 
     # loop over each frame
@@ -1393,7 +1586,6 @@ def compute_roi_traces_f0_alignment(fname,
             # grab roi
             temp = frame[footprints[k]]
 
-
             # normalize by surface area so that cells don't look way different because of footprint size
             if True:
                 #print (footprints[k].shape[0])
@@ -1403,10 +1595,8 @@ def compute_roi_traces_f0_alignment(fname,
             temp = np.nansum(temp)
 
             # save
-            roi_traces[ctr,p//subsample] = temp
+            roi_traces[k,p//subsample] = temp
             ctr += 1
-    #
-    roi_traces = np.array(roi_traces)
 
     ###########################################################
     ################### COMPUTE F0 AND SNR ####################
@@ -1415,10 +1605,11 @@ def compute_roi_traces_f0_alignment(fname,
     # TODO: this is important; it functions as a rough DFF method
     #    TODO: we may wish to implement a more complex version of this
     roi_f0s = np.zeros(roi_traces.shape[0], dtype=np.float32)
-    for k in range(roi_traces.shape[0]):
+    for k in cell_ids:
 
         #
         roi_f0s[k] = np.nanmedian(roi_traces[k])
+        print (k, "F0: ", roi_f0s[k])
 
     #
     return roi_f0s, roi_traces
@@ -1503,7 +1694,6 @@ def align_to_prev_day(bmi_c):
 
     # save ensemble rois
     bmi_c.both = np.hstack((bmi_c.ensemble1, bmi_c.ensemble2))
-    both = np.hstack((bmi_c.ensemble1, bmi_c.ensemble2))
     print("all cells:", bmi_c.both)
 
 
