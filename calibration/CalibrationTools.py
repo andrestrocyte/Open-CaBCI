@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import trange, tqdm
+import multiprocessing
+multiprocessing.set_start_method('spawn')
 
 from scipy import ndimage as ndi
 from skimage.segmentation import watershed
@@ -297,8 +299,11 @@ class CalibrationTools(object):
                    vmin=self.vmin * 0.7,
                    vmax=self.vmax * 1.3)
 
+
+
         # add cell contours
-        for p in cell_ids:
+        clrs=['white']
+        for p in range(len(footprints)):
             temp = np.zeros(std_map.shape)
             temp[footprints[p]] = 1
             temp = temp.astype('uint8')
@@ -313,6 +318,31 @@ class CalibrationTools(object):
                 plt.plot([contour[k][0], contour[k + 1][0]],
                          [contour[k][1], contour[k + 1][1]],
                          c='white')
+            #
+            z = np.vstack(footprints[p]).T
+            plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
+
+        plt.show()
+
+
+        # add cell contours
+        clrs=['blue','red']
+        for p in cell_ids:
+            color = clrs[p//2]
+            temp = np.zeros(std_map.shape)
+            temp[footprints[p]] = 1
+            temp = temp.astype('uint8')
+            contour, _ = cv2.findContours(temp,
+                                          cv2.RETR_TREE,
+                                          cv2.CHAIN_APPROX_SIMPLE)
+            contour = contour[0].squeeze()
+            contour = np.vstack((contour, contour[0]))
+
+            #
+            for k in range(len(contour) - 1):
+                plt.plot([contour[k][0], contour[k + 1][0]],
+                         [contour[k][1], contour[k + 1][1]],
+                         c=color)
             #
             z = np.vstack(footprints[p]).T
             plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
@@ -505,6 +535,9 @@ class CalibrationTools(object):
         """ Same as below but visualize every single frame
         """
 
+        self.trace_subsample = 1  # Subsample the time series to go faster;
+        self.scale = 3
+
         data = np.memmap(self.fname, dtype='uint16', mode='r')
         data = data.reshape(-1, 512, 512)
 
@@ -531,6 +564,7 @@ class CalibrationTools(object):
             ctr = 0
             for k in self.ensemble1:
                 # grab roi
+                #print (self.footprints[k])
                 temp = frame[self.footprints[k]]
 
                 # normalize by surface area so that cells don't look way different because of footprint size
@@ -561,7 +595,7 @@ class CalibrationTools(object):
                 self.ensemble2_traces[ctr].append(temp)
                 ctr += 1
 
-        #
+        ###############################################
         plt.figure()
         ax = plt.subplot(121)
         ax.tick_params(axis='both', which='both', labelsize=20)
@@ -1313,8 +1347,164 @@ def save_calibration_data(bmi_c):
             )
 
     # also save the entire object as a pickle
+    file_pi = open(os.path.join(os.path.split(fname_out)[0], "bmi_c.json"), 'wb')
+    bmi_c.data=None
+    file_pi.write(bmi_c)
+    file_pi.close()
+
+
     file_pi = open(os.path.join(os.path.split(fname_out)[0], "bmi_c.obj"), 'wb')
     bmi_c.data=None
     pickle.dump(bmi_c, file_pi)
 
     print ("Done...")
+
+
+
+def compute_roi_traces_f0_alignment(fname,
+                                    footprints,
+                                    cell_ids,
+                                    subsample,
+                                    ):
+
+    #
+    #cell_ids = np.arange(len(footprints))
+
+    #
+    data = np.memmap(fname, dtype='uint16', mode='r')
+    data = data.reshape(-1, 512, 512) #.transpose(0,2,1)
+
+    #####################################################
+    ################ COMPUTE ROI TRACES #################
+    #####################################################
+    #
+    roi_traces = np.zeros((len(footprints), data.shape[0]//subsample))
+
+    # loop over each frame
+    for p in trange(0, data.shape[0], subsample,
+                    desc='computing roi traces for SNR indexing'):
+
+        # grab frame
+        frame = data[p]
+
+        # loop over ROIS
+        ctr = 0
+        for k in cell_ids:
+            # grab roi
+            temp = frame[footprints[k]]
+
+
+            # normalize by surface area so that cells don't look way different because of footprint size
+            if True:
+                #print (footprints[k].shape[0])
+                temp = temp / footprints[k][0].shape[0]
+
+            # add pixel values inside roi
+            temp = np.nansum(temp)
+
+            # save
+            roi_traces[ctr,p//subsample] = temp
+            ctr += 1
+    #
+    roi_traces = np.array(roi_traces)
+
+    ###########################################################
+    ################### COMPUTE F0 AND SNR ####################
+    ###########################################################
+    # compute the baseline f0 of the cells in order to be able to offset it in the BMI
+    # TODO: this is important; it functions as a rough DFF method
+    #    TODO: we may wish to implement a more complex version of this
+    roi_f0s = np.zeros(roi_traces.shape[0], dtype=np.float32)
+    for k in range(roi_traces.shape[0]):
+
+        #
+        roi_f0s[k] = np.nanmedian(roi_traces[k])
+
+    #
+    return roi_f0s, roi_traces
+
+
+    #
+
+def align_to_prev_day(bmi_c):
+    # load contours
+    contours = bmi_c.align_data['contours_all_cells']
+    print("# cells from previous day: ", contours.shape)
+
+    # load footprints
+    raw_footprints = bmi_c.align_data['footprints']
+    bmi_c.footprints = []
+    for k in range(len(raw_footprints)):
+        #
+        temp = raw_footprints[k]
+        temp1 = temp[0]
+        temp2 = temp[1]
+        temp = np.vstack((temp1, temp2)).T
+        temp = temp[:, 0], temp[:, 1]
+
+        #
+        bmi_c.footprints.append(temp)
+
+    # load ensemble cell ids:
+    cell_ids = np.int32(bmi_c.align_data['cell_ids'])
+    print("original cell ids: ", cell_ids)
+
+    bmi_c.ensemble1 = [cell_ids[0], cell_ids[1]]
+    bmi_c.ensemble2 = [cell_ids[2], cell_ids[3]]
+
+    # load original footprint f0s
+    if False:
+        bmi_c.roi_f0s = []
+        for k in range(len(temp)):
+            bmi_c.roi_f0s.append(0)
+
+        ensemble1_f0s = data['ensemble1_f0s']
+        bmi_c.rois_f0s[cell_ids[0]] = ensemble1_f0s[0]
+        bmi_c.rois_f0s[cell_ids[1]] = ensemble1_f0s[1]
+
+        ensemble2_f0s = data['ensemble2_f0s']
+        bmi_c.rois_f0s[cell_ids[2]] = ensemble2_f0s[0]
+        bmi_c.rois_f0s[cell_ids[3]] = ensemble2_f0s[1]
+
+    # recompute f0s for current session
+    else:
+        subsample = 10
+        print("recomputing rois for ensmbel cells...")
+        bmi_c.roi_f0s, bmi_c.roi_traces = compute_roi_traces_f0_alignment(bmi_c.fname,
+                                                                          bmi_c.footprints,
+                                                                          cell_ids,
+                                                                          subsample)
+
+    ###################################
+    ###################################
+    ###################################
+    if False:
+        plt.figure()
+        for k in range(2):
+            plt.plot(bmi_c.roi_traces[bmi_c.ensemble1[k]] + k * 500,
+                     c='blue')
+
+        for k in range(2):
+            plt.plot(bmi_c.roi_traces[bmi_c.ensemble2[k]] + 1000 + k * 500,
+                     c='red',
+                     )
+
+        plt.show()
+
+        plt.figure()
+        plt.imshow(bmi_c.template)
+        for k in range(len(contours)):
+            for p in range(len(contours[k]) - 1):
+                plt.plot([contours[k][p][0], contours[k][p + 1][0]],
+                         [contours[k][p][1], contours[k][p + 1][1]],
+                         c='white')
+
+        plt.show()
+
+    # save ensemble rois
+    bmi_c.both = np.hstack((bmi_c.ensemble1, bmi_c.ensemble2))
+    both = np.hstack((bmi_c.ensemble1, bmi_c.ensemble2))
+    print("all cells:", bmi_c.both)
+
+
+    return bmi_c
