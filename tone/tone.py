@@ -351,6 +351,12 @@ class PlayTone():
         # TODO: 1) whether this is too slow and we end up buffering which not real time
         # TODO: 2) what is the shortest/correct duration to play a tone (probably >10hz) that we wont' notice)
 
+        #
+        if self.alignment_flag[0]==1:
+
+            return
+
+
         # compute ensembel to tone by default
         self.compute_ensemble_to_tone_state()
 
@@ -369,7 +375,7 @@ class PlayTone():
         #######################################################
         # overwrite tone if we are in noise session; grab a random frequency; overwrite the low freq state
         #   Don't play tone during alignment sessions
-        while self.shmem_white_noise_state[0]==1 and (self.alignment_flag[0]==0):
+        while self.shmem_white_noise_state[0]==1:
 
             # check if we should exit
             if self.termination_flag:
@@ -562,7 +568,7 @@ class PlayTone():
                 return
 
             # skip water release for alignmetn mode
-            if self.alignment_flag[0]==0:
+            if self.alignment_flag[0]==1:
                 return
 
             # close the audio writer
