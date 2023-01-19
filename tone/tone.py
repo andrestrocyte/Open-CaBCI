@@ -389,6 +389,11 @@ class PlayTone():
         ################ MAKE AND PLAY TONES ##################
         #######################################################
 
+
+        # do not play an udible tone
+        if self.alignment_flag[0]==1:
+            self.tone_state[0] = 100
+
         # make sure you send a copy of the tone, not the tone
         tone_data = self.make_tone(self.tone_state[0].copy(),
                                    self.amplitude,
