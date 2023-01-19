@@ -352,13 +352,6 @@ class PlayTone():
         # TODO: 2) what is the shortest/correct duration to play a tone (probably >10hz) that we wont' notice)
 
         #
-        if self.alignment_flag[0]==1:
-
-            return
-
-
-        # compute ensembel to tone by default
-        self.compute_ensemble_to_tone_state()
 
         #######################################################
         ############# NO TONE FOR CERTAIN CONDITIONS ##########
@@ -370,12 +363,20 @@ class PlayTone():
         if (self.calibration_flag == True) or (self.reward_lockout_counter[0]>0) or (self.dynamic_reward_lockout_state==1):
             self.tone_state[0] = 100
 
+        # do not play an udible tone
+        elif self.alignment_flag[0]==1:
+            self.tone_state[0] = 100
+
+        # compute ensembel to tone by default
+        else:
+            self.compute_ensemble_to_tone_state()
+
         #######################################################
         ################### WHITE NOISE LOOP ##################
         #######################################################
         # overwrite tone if we are in noise session; grab a random frequency; overwrite the low freq state
         #   Don't play tone during alignment sessions
-        while self.shmem_white_noise_state[0]==1:
+        while self.shmem_white_noise_state[0]==1 and self.alignment_flag[0]==0:
 
             # check if we should exit
             if self.termination_flag:

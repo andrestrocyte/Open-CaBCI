@@ -43,6 +43,7 @@ def run_BMI():
     print("video length: ", video_length)
     print("calibration flag: ", calibration_read)
     print("template update flag: ", template_read)
+    print("align flag: ", align_flag)
 
     # print (fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, video_read, video_hardware_trigger_flag )
 
@@ -89,7 +90,7 @@ def run_Calibration():
     print("video width: ", video_width)
     print("video length: ", video_length)
     print("calibration flag: ", calibration_read)
-    # print (fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, video_read, video_hardware_trigger_flag )
+    print("align flag: ", align_flag)
 
     #
     print("RETURNING TO BMI...")
@@ -137,7 +138,7 @@ def run_Alignment():
     print("video width: ", video_width)
     print("video length: ", video_length)
     print("calibration flag: ", calibration_read)
-    # print (fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, video_read, video_hardware_trigger_flag )
+    print("align flag: ", align_flag)
 
     #
     print("RETURNING TO BMI...")
