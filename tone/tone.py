@@ -363,7 +363,7 @@ class PlayTone():
         # compute ensembel to tone by default
         else:
             self.compute_ensemble_to_tone_state()
-            time.sleep(5)
+            #time.sleep(5)
         #######################################################
         ################### WHITE NOISE LOOP ##################
         #######################################################
