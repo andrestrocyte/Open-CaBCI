@@ -319,7 +319,7 @@ class BMI():
         '''
 
         # make a numpy array to hold the rois_traces
-        aa = np.zeros(1, dtype=np.int64)
+        aa = np.zeros(1, dtype=np.int32)
         self.shmem_alignment_flag = shared_memory.SharedMemory(create=True,
                                                                  size=aa.nbytes)
 
@@ -443,11 +443,6 @@ class BMI():
 
         #
         self.tone_state [:] = aa[:]
-
-        # #
-        # print (" ensemble states initialized: ",
-        #        self.tone_state,
-        #        self.shmem_tone_state.name)
 
     #
     def initialize_white_noise_state(self):

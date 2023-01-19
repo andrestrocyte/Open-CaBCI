@@ -286,13 +286,6 @@ class PlayTone():
         # - it is contained in shared memory variable self.ensemble_state
 
         # compute the tone state in Hz
-        # self.tone_state[0] = ensemble_to_tone_transfer_function_absolute(self.ensemble_state,
-        #                                                                 self.low_freq,
-        #                                                                 self.high_freq,
-        #                                                                 self.low_threshold,
-        #                                                                 self.high_threshold
-        #                                                                 )
-        # compute the tone state in Hz
         # TODO: NOTE: This is the only place that the tone_state variable is ocmputed from the ensemble state
         self.tone_state[0] = ensemble_to_tone_transfer_function_high_and_low(self.ensemble_state,
                                                                              self.low_freq,
@@ -370,13 +363,13 @@ class PlayTone():
         # compute ensembel to tone by default
         else:
             self.compute_ensemble_to_tone_state()
-
+            time.sleep(5)
         #######################################################
         ################### WHITE NOISE LOOP ##################
         #######################################################
         # overwrite tone if we are in noise session; grab a random frequency; overwrite the low freq state
         #   Don't play tone during alignment sessions
-        while self.shmem_white_noise_state[0]==1 and self.alignment_flag[0]==0:
+        while self.shmem_white_noise_state[0]==1:
 
             # check if we should exit
             if self.termination_flag:
@@ -389,7 +382,7 @@ class PlayTone():
                                        0.0002)
 
             # play tone only in non-simulation mode
-            if self.simulation_flag==False:
+            if self.simulation_flag==False and self.alignment_flag[0]==0:
                 self.audio_Writer.write_many_sample(tone_data.squeeze())
 
         #######################################################
@@ -400,6 +393,8 @@ class PlayTone():
         tone_data = self.make_tone(self.tone_state[0].copy(),
                                    self.amplitude,
                                    self.duration)
+
+
 
         # exit if in simulation mode
         if self.simulation_flag:
@@ -432,31 +427,12 @@ class PlayTone():
                                                                              auto_start=True)
 
     #
+      #
     def initialize_alignment_flag(self):
         #
         # print("  ensemble state memory name : ", self.shmem_tone_state)
 
-        aa = np.zeros((1,), dtype=np.float32)
-
-        # get the rois_traces from the shared memory name
-        self.existing_align_flag = shared_memory.SharedMemory(name=self.shmem_tone_state)
-        # print("existing shm: ", self.existing_shm_tone_state)
-
-        #
-        self.tone_state = np.ndarray(aa.shape,
-                                     dtype=aa.dtype,
-                                     buffer=self.existing_shm_tone_state.buf)
-
-        #
-        # print("  TONE state: ", self.tone_state)
-
-
-    #
-    def initialize_alignment_flag(self):
-        #
-        # print("  ensemble state memory name : ", self.shmem_tone_state)
-
-        aa = np.zeros((1,), dtype=np.float32)
+        aa = np.zeros((1,), dtype=np.int32)
 
         # get the rois_traces from the shared memory name
         self.existing_shm_alignment_flag = shared_memory.SharedMemory(name=self.shmem_alignment_flag)
@@ -469,22 +445,17 @@ class PlayTone():
 
     #
     def initialize_tone_state(self):
-        #
-        # print("  ensemble state memory name : ", self.shmem_tone_state)
 
+        #
         aa = np.zeros((1,), dtype=np.float32)
 
         # get the rois_traces from the shared memory name
         self.existing_shm_tone_state = shared_memory.SharedMemory(name=self.shmem_tone_state)
-        # print("existing shm: ", self.existing_shm_tone_state)
 
         #
         self.tone_state = np.ndarray(aa.shape,
                                      dtype=aa.dtype,
                                      buffer=self.existing_shm_tone_state.buf)
-
-        #
-        # print("  TONE state: ", self.tone_state)
 
     #
     def initialize_white_tone_state(self):
@@ -563,13 +534,15 @@ class PlayTone():
             print(' will release water for ', self.water_spout_ttl_duration,
                   "microsec, at ", self.water_spout_ttl_voltage, " mV")
 
-            # skip water release for simulation mode also
-            if self.simulation_flag:
+            # skip water release for alignmetn mode
+            if self.alignment_flag[0]==1:
+                print ("exiting water reward - alignment mode")
                 self.water_reward[0] = 0
                 return
 
-            # skip water release for alignmetn mode
-            if self.alignment_flag[0]==1:
+            # skip water release for simulation mode also
+            if self.simulation_flag:
+                self.water_reward[0] = 0
                 return
 
             # close the audio writer
