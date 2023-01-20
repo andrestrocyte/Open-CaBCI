@@ -80,6 +80,85 @@ class CalibrationTools(object):
 
         return img
 
+    def process2(self, order_type):
+
+        #
+        cell_ids = np.arange(len(self.footprints))
+
+        #
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = data.reshape(-1, 512, 512)
+
+        #####################################################
+        ################ COMPUTE ROI TRACES #################
+        #####################################################
+        #
+        roi_traces = []
+        for k in range(len(cell_ids)):
+            roi_traces.append([])
+
+        # loop over each frame
+        for p in trange(0, data.shape[0], self.subsample,
+                        desc='computing roi traces for SNR indexing'):
+
+            # grab frame
+            frame = data[p]
+
+            # loop over ROIS
+            ctr = 0
+            for k in cell_ids:
+                # grab roi
+                temp = frame[self.footprints[k]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.footprints[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                roi_traces[ctr].append(temp)
+                ctr += 1
+        #
+        self.roi_traces = np.array(roi_traces)
+        plt.figure()
+        for k in range(len(roi_traces)):
+            plt.plot(self.roi_traces[k]+k*5000)
+        plt.show()
+        ###########################################################
+        ################### COMPUTE F0 AND SNR ####################
+        ###########################################################
+        # compute the baseline f0 of the cells in order to be able to offset it in the BMI
+        # TODO: this is important; it functions as a rough DFF method
+        #    TODO: we may wish to implement a more complex version of this
+        self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+        self.roi_snrs = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+        for k in cell_ids:
+            #
+            f0 = np.median(self.roi_traces[k])
+
+            #
+            self.roi_f0s[k] = f0
+
+            #
+            self.roi_snrs[k] = np.max(self.roi_traces[k] / f0)
+
+        ###########################################################
+        ################# REORDER CELLS BY SNR  ###################
+        ###########################################################
+        if order_type == 'f0':
+            idx = np.argsort(self.roi_f0s)[::-1]
+
+        elif order_type == 'snr':
+            idx = np.argsort(self.roi_snrs)[::-1]
+        else:
+            print(" ERROR - type not known")
+
+        #
+        self.roi_traces = self.roi_traces[idx]
+
+
     #
     def make_max_proj_map(self):
 
@@ -112,12 +191,12 @@ class CalibrationTools(object):
 
         # filter once to remove much of the white noise
         if True:
-            sigma = 1
-            order = 0
-            print(" gaussian filter width: ", sigma, ", order: ", order)
-            data_sparse = scipy.ndimage.gaussian_filter(data_sparse,
-                                                        sigma,
-                                                        order)
+            #sigma = 1
+            #order = 0
+            print(" gaussian filter width: ", self.sigma, ", order: ", self.order)
+            self.data_filtered = scipy.ndimage.gaussian_filter(data_sparse,
+                                                        self.sigma,
+                                                        self.order)
 
             print("done filtering... (TO CHECK which axis are we filtering!!)")
 
@@ -170,7 +249,9 @@ class CalibrationTools(object):
 
             print("done window smoothing...")
 
-        std = np.std(data_sparse, axis=0)
+        std = np.std(self.data_filtered, axis=0)
+
+        print ("self.data_filtered: ", self.data_filtered.shape)
 
         return std
 
@@ -368,13 +449,18 @@ class CalibrationTools(object):
         clrs=['white']
         for p in range(len(footprints)):
             temp = np.zeros(std_map.shape)
+            #print ("footrpints: ", footprints[p])
             temp[footprints[p]] = 1
             temp = temp.astype('uint8')
             contour, _ = cv2.findContours(temp,
                                           cv2.RETR_TREE,
                                           cv2.CHAIN_APPROX_SIMPLE)
             contour = contour[0].squeeze()
-            contour = np.vstack((contour, contour[0]))
+            #print ("contour: ", contour.shape)
+            try:
+                contour = np.vstack((contour, contour[0]))
+            except:
+                continue
 
             #
             for k in range(len(contour) - 1):
@@ -383,7 +469,7 @@ class CalibrationTools(object):
                          c='white')
             #
             z = np.vstack(footprints[p]).T
-            plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
+            plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='white', fontsize=15)
 
         #
         # # add cell contours
@@ -411,102 +497,6 @@ class CalibrationTools(object):
 
         plt.show()
     #
-    # #
-    # def compute_and_plot_traces2_datafile(self, data, std_map, cell_ids=None, fig=None):
-    #     """ Same as below but visualize every single frame
-	# 	"""
-    #
-    #     #
-    #     clrs = ['blue', 'green', 'red', 'orange']
-    #
-    #     #
-    #     if cell_ids is None:
-    #         cell_ids = np.arange(len(self.footprints))
-    #     print("plotting cells: ", cell_ids)
-    #
-    #     #####################################################
-    #     plt.figure()
-    #     ax = plt.subplot(111)
-    #     ax.tick_params(axis='both', which='both', labelsize=20)
-    #     plt.ylabel("Neuron ID ", fontsize=20)
-    #
-    #     #
-    #     new_plot = False
-    #     print(cell_ids)
-    #     self.show_contour_map(std_map,
-    #                           self.footprints,
-    #                           cell_ids, new_plot)
-    #
-    #     plt.show()
-    #
-    #     return
-    #     #####################################################
-    #     plt.figure()
-    #     ax = plt.subplot(111)
-    #
-    #     #
-    #     roi_traces = []
-    #     for k in range(len(cell_ids)):
-    #         roi_traces.append([])
-    #
-    #     # loop over each frame
-    #     for p in trange(0, data.shape[0], self.trace_subsample):
-    #
-    #         # grab frame
-    #         frame = data[p]
-    #
-    #         # loop over ROIS
-    #         ctr = 0
-    #         for k in cell_ids:
-    #             # grab roi
-    #             temp = frame[self.footprints[k]]
-    #
-    #             # normalize by surface area so that cells don't look way different because of footprint size
-    #             if True:
-    #                 temp = temp / self.footprints[k][0].shape[0]
-    #
-    #             # add pixel values inside roi
-    #             temp = np.nansum(temp)
-    #
-    #             # save
-    #             roi_traces[ctr].append(temp)
-    #             ctr += 1
-    #     #
-    #     roi_traces = np.array(roi_traces)
-    #     self.roi_traces = roi_traces
-    #
-    #     #
-    #     t = np.arange(0, data.shape[0], self.trace_subsample) / 30.
-    #     ctr = 0
-    #
-    #     # save the baselin of the cells in order to be able to offset it in the BMI
-    #     # TODO: this is important; it functions as a rough DFF method
-    #     #    TODO: we may wish to implement a more complex version of this
-    #     self.roi_f0s = np.zeros(len(roi_traces), dtype=np.float32)
-    #     for k in range(len(roi_traces)):
-    #         temp = roi_traces[k]
-    #         self.roi_f0s[k] = np.median(temp)
-    #         temp = temp - self.roi_f0s[k]
-    #         plt.plot(t, temp + ctr * self.scale,
-    #                  linewidth=2,
-    #                  c=clrs[k])
-    #
-    #         # also plot baseline
-    #         baseline = np.median(temp[:5000] + ctr * self.scale)
-    #         plt.plot([t[0], t[-1]], [baseline, baseline], '--',
-    #                  linewidth=4,
-    #                  c='black')
-    #         ctr += 1
-    #     #
-    #     labels = cell_ids
-    #     labels_old = np.arange(0, ctr * self.scale, self.scale)
-    #
-    #     #
-    #     plt.yticks(labels_old, labels, fontsize=10)
-    #     plt.xlabel("Time (sec)", fontsize=20)
-    #
-    #     plt.show()
-
     def compute_roi_traces_f0_and_reorder_cells(self,
                                    order_type):
 
@@ -536,6 +526,7 @@ class CalibrationTools(object):
             ctr = 0
             for k in cell_ids:
                 # grab roi
+                #print (self.footprints[k])
                 temp = frame[self.footprints[k]]
 
                 # normalize by surface area so that cells don't look way different because of footprint size
@@ -591,7 +582,97 @@ class CalibrationTools(object):
 
         self.footprints = self.footprints_temp
 
+
     #
+    #
+    #
+    #
+    # def compute_roi_traces_f0_and_reorder_cells(self,
+    #                                order_type):
+    #
+    #     #
+    #     cell_ids = np.arange(len(self.footprints))
+    #
+    #     #
+    #     data = np.memmap(self.fname, dtype='uint16', mode='r')
+    #     data = data.reshape(-1, 512, 512)
+    #
+    #     #####################################################
+    #     ################ COMPUTE ROI TRACES #################
+    #     #####################################################
+    #     #
+    #     roi_traces = []
+    #     for k in range(len(cell_ids)):
+    #         roi_traces.append([])
+    #
+    #     # loop over each frame
+    #     for p in trange(0, data.shape[0], self.subsample,
+    #                     desc='computing roi traces for SNR indexing'):
+    #
+    #         # grab frame
+    #         frame = data[p]
+    #
+    #         # loop over ROIS
+    #         ctr = 0
+    #         for k in cell_ids:
+    #             # grab roi
+    #             temp = frame[self.footprints[k]]
+    #
+    #             # normalize by surface area so that cells don't look way different because of footprint size
+    #             if True:
+    #                 temp = temp / self.footprints[k][0].shape[0]
+    #
+    #             # add pixel values inside roi
+    #             temp = np.nansum(temp)
+    #
+    #             # save
+    #             roi_traces[ctr].append(temp)
+    #             ctr += 1
+    #     #
+    #     self.roi_traces = np.array(roi_traces)
+    #     plt.figure()
+    #     plt.plot(self.roi_traces[20])
+    #     plt.show()
+    #     ###########################################################
+    #     ################### COMPUTE F0 AND SNR ####################
+    #     ###########################################################
+    #     # compute the baseline f0 of the cells in order to be able to offset it in the BMI
+    #     # TODO: this is important; it functions as a rough DFF method
+    #     #    TODO: we may wish to implement a more complex version of this
+    #     self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+    #     self.roi_snrs = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+    #     for k in cell_ids:
+    #
+    #         #
+    #         f0 = np.median(self.roi_traces[k])
+    #
+    #         #
+    #         self.roi_f0s[k] = f0
+    #
+    #         #
+    #         self.roi_snrs[k] = np.max(self.roi_traces[k]/f0)
+    #
+    #     ###########################################################
+    #     ################# REORDER CELLS BY SNR  ###################
+    #     ###########################################################
+    #     if order_type=='f0':
+    #         idx = np.argsort(self.roi_f0s)[::-1]
+    #
+    #     elif order_type=='snr':
+    #         idx = np.argsort(self.roi_snrs)[::-1]
+    #     else:
+    #         print (" ERROR - type not known")
+    #
+    #     #
+    #     self.roi_traces = self.roi_traces[idx]
+    #
+    #     #
+    #     self.footprints_temp = []
+    #     for k in range(idx.shape[0]):
+    #         self.footprints_temp.append(self.footprints[idx[k]])
+    #
+    #     self.footprints = self.footprints_temp
+
 
     def compute_traces_ensembles(self, std_map):
         """ Same as below but visualize every single frame
@@ -942,14 +1023,19 @@ class CalibrationTools(object):
         ################## PLOT CELLS IN TYPE ORDER ################
         ###########################################################
         plt.figure()
-        ax = plt.subplot(121)
-        ax.tick_params(axis='both', which='both', labelsize=20)
-        plt.ylabel("Neuron ID ", fontsize=20)
 
         #
         #self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+
+        j = 0
         ctr = 0
+        cell_ids = []
         for k in range(self.roi_traces.shape[0]):
+
+            ax=plt.subplot(1,3,j+1)
+            ax.tick_params(axis='both', which='both', labelsize=20)
+            plt.ylabel("Neuron ID ", fontsize=20)
+
             temp = self.roi_traces[k]
             #if self.roi_f0s[k]==0:
             #    print ("FOUND F0 = 0", k, self.roi_f0s[k])
@@ -958,13 +1044,32 @@ class CalibrationTools(object):
             # each cell might have different time signatures in case some have higher temporal resolution
             t = np.linspace(0, data.shape[0], temp.shape[0]) / 30.
 
-            plt.plot(t, temp + ctr * self.scale)
+            plt.plot(t, temp-np.median(temp) + ctr * self.scale)
+
+            cell_ids.append(k)
 
             ctr += 1
 
-        ###########################################################
-        ################### FINISH UP LABELS ETC ##################
-        ###########################################################
+            if ctr>self.roi_traces.shape[0]//2 or ctr>50:
+                j+=1
+
+                labels = cell_ids
+                labels_old = np.arange(0, ctr * self.scale, self.scale)
+
+                #
+                plt.yticks(labels_old, labels, fontsize=10)
+                plt.xlabel("Time (sec)", fontsize=20)
+
+
+                cell_ids = []
+                ctr = 0
+
+
+            if ctr>100:
+                print ("Reached top 100 cells stopping display")
+                break
+
+
         labels = cell_ids
         labels_old = np.arange(0, ctr * self.scale, self.scale)
 
@@ -975,7 +1080,7 @@ class CalibrationTools(object):
         ###########################################################
         ################### PLOT IMAGE OF [CA] ####################
         ###########################################################
-        plt.subplot(122)
+        plt.subplot(1,3,3)
         new_plot = False
         self.show_contour_map(std_map,
                               self.footprints,
@@ -1696,5 +1801,51 @@ def align_to_prev_day(bmi_c):
     bmi_c.both = np.hstack((bmi_c.ensemble1, bmi_c.ensemble2))
     print("all cells:", bmi_c.both)
 
+
+    return bmi_c
+
+
+def get_footprints_from_suite2p(bmi_c):
+    data_dir = os.path.split(bmi_c.fname)[0]
+
+    # initialize calcium object and load suite2p data
+    c = bmi_c.calcium.Calcium()
+    c.verbose = True  # outputs additional information during processing
+    c.recompute_binarization = False  # recomputes binarization and other processing steps; False: loads from previous saved locations if avialable
+    c.data_dir = data_dir
+    c.load_suite2p()
+
+    # this loads the suite2p footprints
+    c.load_footprints()
+    print("# of footprints; ", len(c.footprints))
+
+    bmi_c.footprints = []
+
+    #
+    plt.figure()
+    plt.imshow(bmi_c.std_map)
+    for k in range(len(c.footprints)):
+        plt.plot(c.contours[k][:, 0], c.contours[k][:, 1])
+
+        #
+        footprint = c.footprints[k].T
+        idx = np.where(footprint >0)
+        bmi_c.footprints.append(idx)
+
+        # print (temp)
+        idx = np.where(footprint <= 0)
+        idx2 = np.where(footprint > 0)
+        footprint[idx] = np.nan
+        footprint[idx2] = 1
+
+        # print (np.nanmax(temp), np.nanmin(temp))
+        plt.imshow(footprint,
+                   vmin=0,
+                   vmax=1)
+
+    plt.xlim(0, 512)
+    plt.ylim(0, 512)
+    plt.colorbar()
+    plt.show()
 
     return bmi_c
