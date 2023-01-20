@@ -49,7 +49,7 @@ def get_mode(F_raw_clipped):
         F_c = np.round(bin_width*np.floor(np.round(F_raw_clipped / bin_width,2)),1)
 
 		# compute the mode of the distribution
-        modes.append(scipy.stats.mode(F_c, keepdims=True)[0][0])
+        modes.append(scipy.stats.mode(F_c, keepdims=True, nan_policy='omit')[0][0])
         
     #
     mode = np.mean(modes)

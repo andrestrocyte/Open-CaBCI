@@ -99,7 +99,7 @@ class PlotROIs():
 
         #
         self.live_image_vmin = 1
-        self.live_image_vmax = 2500
+        self.live_image_vmax = 8000
 
         #
         self.show_contours_on_image = False
@@ -306,9 +306,6 @@ class PlotROIs():
             self.rois_contours_ensemble2.append(contours_local2[k][0])
         #
         self.contours_all_cells = data['contours_all_cells']
-        #print ("LOADED ALL CELL CONTOURS: ", len(self.contours_all_cells),
-        #       "example cell contour shape: ", self.contours_all_cells[0].shape)
-
 
     #
     def initialize_live_image_array(self):
@@ -526,7 +523,7 @@ class PlotROIs():
                                        [self.rois_contours_ensemble1[c][k][1],
                                         self.rois_contours_ensemble1[c][k+1][1]],
                                         c='blue',
-                                        linewidth=5)
+                                        linewidth=4)
 
             # ROI contours ensemble 2
             for c in range(len(self.rois_contours_ensemble2)):
@@ -536,29 +533,37 @@ class PlotROIs():
                                        [self.rois_contours_ensemble2[c][k][1],
                                         self.rois_contours_ensemble2[c][k+1][1]],
                                         c='red',
-                                       linewidth=5)
+                                       linewidth=4)
 
             # add other cell contours to the data
-            ids = np.arange(0,min(80,len(self.contours_all_cells)),1)
+            ids = np.arange(0,min(100,len(self.contours_all_cells)),1)
             for c in ids:
                 # plot each cell contour
-                for k in range(len(self.contours_all_cells[c])-1):
-                    self.ax_image.plot([self.contours_all_cells[c][k][0], self.contours_all_cells[c][k+1][0]],
-                                       [self.contours_all_cells[c][k][1], self.contours_all_cells[c][k + 1][1]],
-                                        c='white',
-                                       linewidth=1)
+                # for k in range(len(self.contours_all_cells[c])-1):
+                #     self.ax_image.plot([self.contours_all_cells[c][k][0], self.contours_all_cells[c][k+1][0]],
+                #                        [self.contours_all_cells[c][k][1], self.contours_all_cells[c][k + 1][1]],
+                #                         c='white',
+                #                         linewidth=1)
+                temp = self.contours_all_cells[c][0]
+                for k in range(len(temp) - 1):
+                    plt.plot([temp[k][0], temp[k + 1][0]],
+                             [temp[k][1], temp[k + 1][1]],
+                             c='white',
+                             linewidth=1)
+
+
 
             #################################################
             ############ ADD IMAGINING VIS BUTTONS ##########
             #################################################
             # add all the buttons/for visualization
-            axmin = self.fig.add_axes([0.55, 0.94, 0.1, 0.03])
-            axmax  = self.fig.add_axes([0.55, 0.96, 0.1, 0.03])
-            n_frame_ave  = self.fig.add_axes([0.55, 0.92, 0.10, 0.03])
+            axmin = self.fig.add_axes([0.55, 0.93, 0.37, 0.03])
+            axmax  = self.fig.add_axes([0.55, 0.96, 0.37, 0.03])
+            n_frame_ave  = self.fig.add_axes([0.55, 0.90, 0.10, 0.03])
 
             # settings for image processing
-            motion_correction_slider = self.fig.add_axes([0.83, 0.94, 0.10, 0.03])
-            dynamic_f0_correction_slider = self.fig.add_axes([0.83, 0.96, 0.10, 0.03])
+            motion_correction_slider = self.fig.add_axes([0.83, 0.88, 0.10, 0.03])
+            dynamic_f0_correction_slider = self.fig.add_axes([0.83, 0.90, 0.10, 0.03])
 
             #
             self.smin = Slider(axmin, 'Min', 0, self.live_image_vmax, valinit=self.live_image_vmin)

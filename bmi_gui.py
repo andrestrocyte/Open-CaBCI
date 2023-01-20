@@ -219,6 +219,9 @@ if __name__ ==  '__main__':
     if calibration_flag:
         fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
                                    'calibration',"video.avi")
+    elif align_flag:
+        fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
+                                   'alignment',"video.avi")
     else:
         fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
                                    'data',"video.avi")
