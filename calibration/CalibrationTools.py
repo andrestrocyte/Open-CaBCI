@@ -2327,8 +2327,8 @@ def get_footprints_from_day0(bmi_c):
     ########################################################
     ########################################################
     ########################################################
-    idx = bmi_c.fname_day0.index('/calibration')
-    fname = bmi_c.fname_day0[:idx]+'/rois_pixels_and_thresholds_day0.npz'
+    idx = bmi_c.fname_day0.index('calibration')
+    fname = os.path.join(bmi_c.fname_day0[:idx-1],'rois_pixels_and_thresholds_day0.npz')
 
     print ("to load fname: ", fname)
 
