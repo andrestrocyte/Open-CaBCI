@@ -558,6 +558,100 @@ class CalibrationTools(object):
         #     plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
 
         plt.show()
+    
+    def compute_roi_traces_f0_and_reorder_cells_Day1(self,
+													order_type):
+
+        #
+        cell_ids = np.arange(len(self.footprints))
+
+        #
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = data.reshape(-1, 512, 512)
+
+        #####################################################
+        ################ COMPUTE ROI TRACES #################
+        #####################################################
+        #
+        roi_traces = []
+        for k in range(len(cell_ids)):
+            roi_traces.append([])
+
+        # loop over each frame
+        for p in trange(0, data.shape[0], self.subsample,
+                        desc='computing roi traces for SNR indexing'):
+
+            # grab frame
+            frame = data[p]
+
+            # loop over ROIS
+            ctr = 0
+            for k in cell_ids:
+                # grab roi
+                #print (self.footprints[k])
+                #temp = frame[self.footprints[k]].copy()
+                temp = frame[self.footprints[k][0],
+                             self.footprints[k][1]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.footprints[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                roi_traces[ctr].append(temp)
+                ctr += 1
+        #
+        self.roi_traces = np.array(roi_traces)
+
+        ###########################################################
+        ################### COMPUTE F0 AND SNR ####################
+        ###########################################################
+        # compute the baseline f0 of the cells in order to be able to offset it in the BMI
+        # TODO: this is important; it functions as a rough DFF method
+        #    TODO: we may wish to implement a more complex version of this
+        self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+        self.roi_snrs = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+        for k in cell_ids:
+
+            #
+            #f0 = np.median(self.roi_traces[k])
+            f0 = get_mode(self.roi_traces[k])
+
+            #
+            self.roi_f0s[k] = f0
+
+            #
+            self.roi_snrs[k] = np.max((self.roi_traces[k]-f0)/f0)
+
+        ###########################################################
+        ################# REORDER CELLS BY SNR  ###################
+        ###########################################################
+        if order_type=='f0':
+            idx = np.argsort(self.roi_f0s)[::-1]
+
+        elif order_type=='snr':
+            idx = np.argsort(self.roi_snrs)[::-1]
+        else:
+            print (" ERROR - type not known")
+
+        #
+        self.roi_traces = self.roi_traces[idx]
+
+        #
+        self.footprints_temp = []
+        self.rois_f0s_temp = []
+        for k in range(idx.shape[0]):
+            self.footprints_temp.append(self.footprints[idx[k]])
+            self.rois_f0s_temp.append(self.roi_f0s[idx[k]])
+
+        self.footprints = self.footprints_temp
+        self.roi_f0s = self.rois_f0s_temp
+
+
+
     #
     def compute_roi_traces_f0_and_reorder_cells(self,
                                    order_type):
@@ -648,96 +742,6 @@ class CalibrationTools(object):
         self.footprints = self.footprints_temp
         self.roi_f0s = self.rois_f0s_temp
 
-
-    #
-    #
-    #
-    #
-    # def compute_roi_traces_f0_and_reorder_cells(self,
-    #                                order_type):
-    #
-    #     #
-    #     cell_ids = np.arange(len(self.footprints))
-    #
-    #     #
-    #     data = np.memmap(self.fname, dtype='uint16', mode='r')
-    #     data = data.reshape(-1, 512, 512)
-    #
-    #     #####################################################
-    #     ################ COMPUTE ROI TRACES #################
-    #     #####################################################
-    #     #
-    #     roi_traces = []
-    #     for k in range(len(cell_ids)):
-    #         roi_traces.append([])
-    #
-    #     # loop over each frame
-    #     for p in trange(0, data.shape[0], self.subsample,
-    #                     desc='computing roi traces for SNR indexing'):
-    #
-    #         # grab frame
-    #         frame = data[p]
-    #
-    #         # loop over ROIS
-    #         ctr = 0
-    #         for k in cell_ids:
-    #             # grab roi
-    #             temp = frame[self.footprints[k]]
-    #
-    #             # normalize by surface area so that cells don't look way different because of footprint size
-    #             if True:
-    #                 temp = temp / self.footprints[k][0].shape[0]
-    #
-    #             # add pixel values inside roi
-    #             temp = np.nansum(temp)
-    #
-    #             # save
-    #             roi_traces[ctr].append(temp)
-    #             ctr += 1
-    #     #
-    #     self.roi_traces = np.array(roi_traces)
-    #     plt.figure()
-    #     plt.plot(self.roi_traces[20])
-    #     plt.show()
-    #     ###########################################################
-    #     ################### COMPUTE F0 AND SNR ####################
-    #     ###########################################################
-    #     # compute the baseline f0 of the cells in order to be able to offset it in the BMI
-    #     # TODO: this is important; it functions as a rough DFF method
-    #     #    TODO: we may wish to implement a more complex version of this
-    #     self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
-    #     self.roi_snrs = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
-    #     for k in cell_ids:
-    #
-    #         #
-    #         f0 = np.median(self.roi_traces[k])
-    #
-    #         #
-    #         self.roi_f0s[k] = f0
-    #
-    #         #
-    #         self.roi_snrs[k] = np.max(self.roi_traces[k]/f0)
-    #
-    #     ###########################################################
-    #     ################# REORDER CELLS BY SNR  ###################
-    #     ###########################################################
-    #     if order_type=='f0':
-    #         idx = np.argsort(self.roi_f0s)[::-1]
-    #
-    #     elif order_type=='snr':
-    #         idx = np.argsort(self.roi_snrs)[::-1]
-    #     else:
-    #         print (" ERROR - type not known")
-    #
-    #     #
-    #     self.roi_traces = self.roi_traces[idx]
-    #
-    #     #
-    #     self.footprints_temp = []
-    #     for k in range(idx.shape[0]):
-    #         self.footprints_temp.append(self.footprints[idx[k]])
-    #
-    #     self.footprints = self.footprints_temp
 
 
     def compute_traces_ensembles(self, std_map):
@@ -1287,7 +1291,7 @@ class CalibrationTools(object):
         print("memmap : ", data.shape)
 
         ###########################################################
-        ################## PLOT CELLS IN TYPE ORDER ################
+        ################# PLOT CELLS IN TYPE ORDER ################
         ###########################################################
         plt.figure()
 
@@ -1479,7 +1483,7 @@ class CalibrationTools(object):
     #     self.diff = diff
 
 
-    def find_reward_thresholds_high_realtime(self):
+    def find_reward_thresholds_high_realtime(self, high=None):
 
         # initialize the max and min values
         #
@@ -1488,16 +1492,16 @@ class CalibrationTools(object):
         print("nsec recording: ", n_sec_recording,
               "max # of random rewards (i.e. every 30sec) ", n_rewards_random)
         n_rewards_random = int(n_rewards_random * self.reward_rate)
-        print(" @30% reward: ", n_rewards_random)
+        print(" @" +str(self.reward_rate)+ "% reward rate: ", n_rewards_random)
         self.n_rewards_default = n_rewards_random
 
 
 
         # take a stab at high value:
-        high = np.max(self.ensemble1_traces[0])
+        if high is None:
+            high = np.max(self.ensemble1_traces[0])
         print (" high guess: ", high)
-        #high = 12
-        #
+
         # loop over time series decreasing the rewards until we hit the random #
         stepper = 0.95
         self.fps = 30
@@ -2344,8 +2348,8 @@ def get_footprints_from_day0(bmi_c):
 
 
     #
-    bmi_c.roi_traces = data['roi_traces']
-    bmi_c.roi_f0s = data['roi_f0s']
+    bmi_c.roi_traces = None #data['roi_traces']
+    bmi_c.roi_f0s = None #data['roi_f0s']
     bmi_c.ensemble_ids = data['cell_ids']
     bmi_c.ensemble1 = bmi_c.ensemble_ids[:2]
     bmi_c.ensemble2 = bmi_c.ensemble_ids[2:]
