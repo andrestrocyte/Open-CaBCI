@@ -1972,8 +1972,9 @@ def save_calibration_data_new_day(bmi_c, text=''):
 
     # save individual pixels of each cell - currently implemented in BMI
 
-    idx = bmi_c.fname.index('/calibration')
-    fname_out = bmi_c.fname[:idx]+'/rois_pixels_and_thresholds.npz'
+    idx = bmi_c.fname.index('calibration')
+    fname_out = os.path.join(bmi_c.fname[:idx-1],'rois_pixels_and_thresholds.npz')
+    #fname_out = bmi_c.fname[:idx]+'/rois_pixels_and_thresholds.npz'
     #
     # if text == '':
     #     fname_out = os.path.join(os.path.split(os.path.split(bmi_c.fname)[0])[0],
