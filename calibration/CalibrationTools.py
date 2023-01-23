@@ -454,9 +454,11 @@ class CalibrationTools(object):
 
         # add cell contours
         clrs=['white']
-        #for p in range(len(footprints)):
-        for ctr,contour in enumerate(self.contours_all_cells):
+        ctr=0
+        for contour in self.contours_all_cells[:self.max_n_cells]:
             #
+            #print (contour)
+            contour = contour.squeeze().item()
             for k in range(len(contour) - 1):
                 plt.plot([contour[k][0], contour[k + 1][0]],
                          [contour[k][1], contour[k + 1][1]],
@@ -464,14 +466,13 @@ class CalibrationTools(object):
 
             #
 
-            contour = contour.squeeze().item()
 
             z = np.mean(contour,axis=0)
             try:
                 plt.text(z[0]-5, z[1]+5, str(ctr), c='white',fontsize=12)
             except:
                 pass
-
+            ctr+=1
 
         # add cell contours
         clrs=['blue','red','green','pink']
@@ -480,7 +481,7 @@ class CalibrationTools(object):
         for ctr,contour in enumerate(contours):
             color = clrs[ctr//2]
 
-
+            #
             for k in range(len(contour) - 1):
                 plt.plot([contour[k][0], contour[k + 1][0]],
                          [contour[k][1], contour[k + 1][1]],
@@ -1231,7 +1232,7 @@ class CalibrationTools(object):
         cell_ids = []
         for k in range(self.roi_traces.shape[0]):
 
-            ax=plt.subplot(1,3,j+1)
+            ax=plt.subplot(1,2,j+1)
             ax.tick_params(axis='both', which='both', labelsize=20)
             plt.ylabel("Neuron ID ", fontsize=20)
 
@@ -1251,25 +1252,10 @@ class CalibrationTools(object):
             cell_ids.append(k)
 
             ctr += 1
-
-            if ctr>self.roi_traces.shape[0]//2 or ctr>50:
-                j+=1
-
-                labels = cell_ids
-                labels_old = np.arange(0, ctr * self.scale, self.scale)
-
-                #
-                plt.yticks(labels_old, labels, fontsize=10)
-                plt.xlabel("Time (sec)", fontsize=20)
-
-
-                cell_ids = []
-                ctr = 0
-
-
-            if ctr>100:
-                print ("Reached top 100 cells stopping display")
+            if ctr > self.max_n_cells:
                 break
+
+
 
 
         labels = cell_ids
@@ -1282,10 +1268,10 @@ class CalibrationTools(object):
         ###########################################################
         ################### PLOT IMAGE OF [CA] ####################
         ###########################################################
-        plt.subplot(1,3,3)
+        plt.subplot(1,2,2)
         new_plot = False
         self.show_contour_map(std_map,
-                              self.footprints,
+                              self.footprints[:self.max_n_cells],
                               cell_ids,
                               new_plot)
 
@@ -1313,7 +1299,7 @@ class CalibrationTools(object):
         cell_ids = []
         for k in range(self.roi_traces.shape[0]):
 
-            ax = plt.subplot(1, 3, j + 1)
+            ax = plt.subplot(1, 2, 1)
             ax.tick_params(axis='both', which='both', labelsize=20)
             plt.ylabel("Neuron ID ", fontsize=20)
 
@@ -1334,21 +1320,7 @@ class CalibrationTools(object):
 
             ctr += 1
 
-            if ctr > self.roi_traces.shape[0] // 2 or ctr > 50:
-                j += 1
-
-                labels = cell_ids
-                labels_old = np.arange(0, ctr * self.scale, self.scale)
-
-                #
-                plt.yticks(labels_old, labels, fontsize=10)
-                plt.xlabel("Time (sec)", fontsize=20)
-
-                cell_ids = []
-                ctr = 0
-
-            if ctr > 100:
-                print("Reached top 100 cells stopping display")
+            if ctr>self.max_n_cells:
                 break
 
         labels = cell_ids
@@ -1361,11 +1333,11 @@ class CalibrationTools(object):
         ###########################################################
         ################### PLOT IMAGE OF [CA] ####################
         ###########################################################
-        plt.subplot(1, 3, 3)
+        plt.subplot(1, 2, 2)
         new_plot = False
 
         self.show_contour_map3(std_map,
-                              self.footprints,
+                              self.footprints[:self.max_n_cells],
                               self.ensemble_ids,
                               new_plot)
 
