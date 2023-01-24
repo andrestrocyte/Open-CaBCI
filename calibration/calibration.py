@@ -650,9 +650,14 @@ class BMICalibration():
             self.prev_max = self.max_
 
             # exit OPTION 2 check if estimated recording time + 2mins have been completed
+            # TODO: not sure if this needed; i don't think it's every been used; supposed to catch TTL misses / failures
             if (time.time() - self.start_time_acquisition) > self.max_n_seconds_session:
                 print("Duration of BMI loop: ", time.time() - self.start_time_acquisition, 'sec',
                       "  , total requested: ", self.max_n_seconds_session)
+                self.termination_flag[0]=1
+
+            #
+            if self.termination_flag[0]==1:
                 break
 
         # save all data acquried during recording

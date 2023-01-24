@@ -537,7 +537,6 @@ class BMI():
         # the amount of time the mouse has to try and receive a reward - in seconds
         self.max_reward_window = 30
 
-
         #
         #self.template = data['calibration_template']
 
@@ -844,6 +843,11 @@ class BMI():
             if (time.time() - self.start_time_acquisition)>self.max_n_seconds_session:
                 print ("Duration of BMI loop: ", time.time() - self.start_time_acquisition, 'sec',
                        "  , total requested: ", self.max_n_seconds_session)
+
+                self.termination_flag[0]=1
+
+            #
+            if self.termination_flag[0]:
                 break
 
         # save all data acquried during recording
@@ -1567,15 +1571,18 @@ class BMI():
 
         print("...Saving BMI meta/data...")
 
+        #
         if self.align_flag==True:
             print ("  alignment session... skipping data save")
             return
 
-
+        # find # of rewards
         for k in range(self.reward_times.shape[1]):
             if self.reward_times[1,k]==-1:
                 break
-        print (" .. # of rewards: ", k, ", water volume dispensed (@ 20uL per reward): ",(k)*0.020, "mL")
+
+        #
+        print (" ----> # OF REWARDS: ", k, ", water volume dispensed (@ 20uL per reward): ",k*0.020, "mL")
 
         #
         np.savez(self.fname_save_data,
@@ -1591,7 +1598,7 @@ class BMI():
                  rois_traces_smooth1 = np.array(self.rois_traces_smooth_ensemble1,dtype='object'),
                  rois_traces_smooth2 = np.array(self.rois_traces_smooth_ensemble2,dtype='object'),
                  reward_times = self.reward_times,
-                 rewarded_times_abs = self.rewarded_times_abs,
+                 rewarded_times_abs = np.array(self.rewarded_times_abs,dtype='object'),
                  ensemble_activity = self.ensemble_activity,
                  ensemble_diff_array = self.ensemble_diff_array,
                  received_reward_lockout = self.received_reward_lockout,
@@ -1599,6 +1606,7 @@ class BMI():
                  missed_reward_lockout = self.missed_reward_lockout,
                  trials = self.trials,
 
+                #
                  high_threshold = self.high_threshold,
 
                  #
@@ -1609,6 +1617,7 @@ class BMI():
                  image_length = self.image_length ,
                  max_n_seconds_session = self.max_n_seconds_session,
 
+                #
                  n_frames = self.n_frames,
                  n_frames_to_be_acquired = self.n_frames_to_be_acquired,                #
                  rois_smooth_window = self.rois_smooth_window,

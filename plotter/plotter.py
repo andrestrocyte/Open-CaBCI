@@ -187,7 +187,7 @@ class PlotROIs():
         while True:
             self.update_plots()
 
-            if self.termination_flag:
+            if self.termination_flag[0]:
                 print ("... EXITING PLOTTING CLASS ...")
                 break
 
@@ -324,8 +324,9 @@ class PlotROIs():
 
         #
         self.termination_flag = np.ndarray(aa.shape,
-                                           dtype=aa.dtype,
-                                           buffer=self.existing_shm_termination_flag.buf)
+                                              dtype=aa.dtype,
+                                              buffer=self.existing_shm_termination_flag.buf)
+
 
     #
     def initalize_reward_times(self):
@@ -608,7 +609,21 @@ class PlotROIs():
             self.motion_slider.on_changed(update_motion_flag)
             self.dynamic_f0_slider.on_changed(update_dynamic_flag)
 
-       
+        #########################################################
+        ########## INITIALIZE STOP BUTTON #######################
+        #########################################################
+        #
+        if self.calibration_flag == False:
+
+            axstop = plt.axes([0.925, 0.55, 0.04, 0.04])
+
+            def stop_bmi(event):
+                print ("MANUAL STOP DETECTED")
+                self.termination_flag[0]=1
+
+            bstop = Button(axstop, 'STOP')
+            bstop.on_clicked(stop_bmi)
+
         #########################################################
         ########## INITIALIZE DRIFT BUTTONS ######################
         #########################################################
