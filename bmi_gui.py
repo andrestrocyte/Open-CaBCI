@@ -144,6 +144,7 @@ if __name__ ==  '__main__':
                   )
     #
     bmi.water_vol_ttl = water_vol_ttl
+    print (" Water volume ttl: ", bmi.water_vol_ttl)
 
     # for simulation mode we sometimes want to slow down the processing;
     # ... not as necessary 

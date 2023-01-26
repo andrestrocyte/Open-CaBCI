@@ -6,7 +6,7 @@ import numpy as np
 
 
 def run_BMI():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read, template_flag, template_read, align_flag
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_read, motion_flag, motion_read, template_flag, template_read, align_flag, water_vol_ttl, water_vol_box_data
 
     #
     bmi_read = bmi_flag.get()
@@ -27,6 +27,7 @@ def run_BMI():
     length = length_box_data.get()
     video_width = int(video_width_box_data.get())
     video_length = int(video_length_box_data.get())
+    water_vol_ttl = int(water_vol_box_data.get())
 
     #
     print("Loaded BMI params...")
@@ -44,6 +45,7 @@ def run_BMI():
     print("calibration flag: ", calibration_read)
     print("template update flag: ", template_read)
     print("align flag: ", align_flag)
+    print ("GUI ttl water: ", water_vol_ttl)
 
     # print (fname_root_path, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, video_read, video_hardware_trigger_flag )
 
@@ -149,7 +151,7 @@ def run_Alignment():
 
 #
 def gui():
-    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_flag, motion_flag, motion_read, template_flag, template_read
+    global window, bmi_flag, lick_flag, tone_flag, water_flag, video_flag, fname_root_path, simulation_sleep_box_data, n_frames_box_data, width_box_data, length_box_data, bmi_read, lick_read, tone_read, water_read, simulation_sleep, n_frames, width, length, video_read, video_hardware_trigger_flag, video_width_box_data, video_length_box_data, video_width, video_length, calibration_flag, motion_flag, motion_read, template_flag, template_read, water_vol_ttl, water_vol_box_data
 
     #
     OPTIONS = [
@@ -349,7 +351,6 @@ def gui():
 
     #
     simulation_sleep = simulation_sleep_box_data.get()
-    water_vol_ttl = water_vol_box_data.get()
     n_frames = n_frames_box_data.get()
 
     #################################################################
