@@ -689,6 +689,57 @@ class Calcium():
         #print ("cell: ", cell_id, "  hullpoints: ", hull_points)
         return hull_points
 
+    def run_binarization_bmi(self):
+
+        self.verbose = True  # outputs additional information during processing
+        #self.recompute_binarization = True  # recomputes binarization and other processing steps; False: loads from previous saved locations
+        self.load_suite2p()
+
+        # set flags to save matlab and python data
+        self.save_python = True  # save output as .npz file
+        self.save_matlab = False  # save output as .mat file
+
+        ###############################################
+        ##### PARAMETERS FOR RUNNING BINARIZATION #####
+        ###############################################
+
+        ############# PARAMTERS TO TWEAK ##############
+        #     1. Cutoff for calling somthing a spike:
+        #        This is stored in: std_Fluorescence_onphase/uppohase: defaults: 1.5
+        #                                        higher -> less events; lower -> more events
+        #                                        start at default and increase if data is very noisy and getting too many noise-events
+
+        #     2. Filter of [Ca] data which smooths the data significantly more and decreases number of binarzied events within a multi-second [Ca] event
+        #        This is stored in high_cutoff: default 0.5 to 1.0
+        #        The lower we set it the smoother our [Ca] traces and less "choppy" the binarized traces (but we loose some temporal precision)
+        self.high_cutoff = 0.5
+
+        #     3. Removing bleaching and drift artifacts using polynomial fits
+        #        This is stored in detrend_model_order
+        #self.detrend_model_order = 2  # 1-5 polynomial fit
+
+        ################################################
+        ########### RUN BINARIZATION STEP ##############
+        ################################################
+        #
+        self.binarize_fluorescence()
+
+    def compute_n_bursts_per_cell(self):
+
+        print (self.F_onphase_bin.shape)
+        self.n_bursts = []
+        for k in range(self.F_onphase_bin.shape[0]):
+
+            if self.compute_bursts_using_upphase:
+                temp = self.F_upphase_bin[k]
+            else:
+                temp = self.F_onphase_bin[k]
+
+            diffs = temp[1:]-temp[:-1]
+            idx = np.where(diffs==1)[0]
+            self.n_bursts.append(idx.shape[0])
+
+
 
 
     def load_footprints(self):
@@ -928,20 +979,22 @@ class Calcium():
             #
             if self.save_python:
                 np.savez(fname_out,
+
                      # binarization data
                      F_filtered = self.F_filtered_saved,
                      F_processed = self.F_filtered,
-                     F_onphase=self.F_onphase_bin,
-                     F_upphase=self.F_upphase_bin,
+                     F_onphase = self.F_onphase_bin,
+                     F_upphase = self.F_upphase_bin,
                      stds = self.stds,
                      derivative = self.der,
                      der_min_slope = self.der_min_slope,
-                     spks=self.spks,
-                     spks_smooth_upphase=self.spks_smooth_bin,
+                     spks = self.spks,
+                     spks_smooth_upphase = self.spks_smooth_bin,
                      high_cutoff = self.high_cutoff,
                      low_cutoff = self.low_cutoff,
                      detrend_model_order= self.detrend_model_order,
 
+                     #
                      oasis_x_F = self.spks_x_F,
 
                      # parameters saved to file as dictionary

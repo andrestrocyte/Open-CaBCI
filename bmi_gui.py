@@ -39,7 +39,8 @@ if __name__ ==  '__main__':
      video_height,
      calibration_read,
      motion_read,
-     align_flag)= gui()
+     align_flag,
+     water_vol_ttl)= gui()
     
     #print ("LOADED GUI Params: ", fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger, simulation_sleep, n_frames)
     
@@ -141,6 +142,8 @@ if __name__ ==  '__main__':
                   motion_flag,
                   align_flag
                   )
+    #
+    bmi.water_vol_ttl = water_vol_ttl
 
     # for simulation mode we sometimes want to slow down the processing;
     # ... not as necessary 
@@ -167,8 +170,10 @@ if __name__ ==  '__main__':
                                                   bmi.shmem_dynamic_reward_lockout_state.name,
                                                   bmi.shmem_white_noise_state.name,
                                                   bmi.shmem_alignment_flag.name,
+                                                  bmi.water_vol_ttl,
                                                   simulation_flag_tone,
-                                                  calibration_flag,))
+                                                  calibration_flag,
+                                                  ))
     tone_player_.start()
 
     ###############################################################

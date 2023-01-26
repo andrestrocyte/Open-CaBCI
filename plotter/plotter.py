@@ -510,7 +510,7 @@ class PlotROIs():
                                                   interpolation="none")
             #
             self.ax_image.set_xlim(0,512)
-            self.ax_image.set_ylim(512,0)
+            self.ax_image.set_ylim(0,512)
 
             ################################################
             ############## PLOT ROI CONTOURS ###############

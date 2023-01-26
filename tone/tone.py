@@ -35,8 +35,12 @@ class PlayTone():
                  shmem_dynamic_reward_lockout_state,
                  shmem_white_noise_state,
                  shmem_alignment_flag,
+                 water_vol_ttl,
                  simulation_flag,
                  calibration_flag):
+
+        #
+        self.water_vol_ttl = water_vol_ttl
 
         #
         self.shmem_alignment_flag = shmem_alignment_flag
@@ -91,7 +95,7 @@ class PlayTone():
         self.n_sec_reward_tone = 2
         
         # TODO: unclear what these units are?
-        self.water_spout_ttl_duration = 20000  # duration of water pulse in microseconds
+        self.water_spout_ttl_duration = self.water_vol_ttl   # duration of water pulse in microseconds
 
         #
         self.water_spout_ttl_voltage = 5  # water spout voltage in millivolts (?)

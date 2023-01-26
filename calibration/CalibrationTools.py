@@ -388,7 +388,7 @@ class CalibrationTools(object):
 
 
         # add cell contours
-        clrs=['white']
+        #clrs=['white']
         for p in range(len(footprints)):
             temp = np.zeros(std_map.shape)
             temp[footprints[p]] = 1
@@ -396,10 +396,11 @@ class CalibrationTools(object):
             contour, _ = cv2.findContours(temp,
                                           cv2.RETR_TREE,
                                           cv2.CHAIN_APPROX_SIMPLE)
-            contour = contour[0].squeeze()
             try:
+                contour = contour[0].squeeze()
                 contour = np.vstack((contour, contour[0]))
             except:
+                print ("Contour: ", contour)
                 continue
 
             #
@@ -409,8 +410,12 @@ class CalibrationTools(object):
                          c='white')
             #
             z = np.vstack(footprints[p]).T
+            #if p==40:
+            #    print (p, z)
             plt.text(np.median(z[:, 1])-5, np.median(z[:, 0])+5, str(p), c='white',fontsize=12)
 
+            if p>80:
+                break
 
         # add cell contours
         clrs=['blue','red','green','pink']
@@ -423,8 +428,12 @@ class CalibrationTools(object):
             contour, _ = cv2.findContours(temp,
                                           cv2.RETR_TREE,
                                           cv2.CHAIN_APPROX_SIMPLE)
-            contour = contour[0].squeeze()
-            contour = np.vstack((contour, contour[0]))
+            try:
+                contour = contour[0].squeeze()
+                contour = np.vstack((contour, contour[0]))
+            except:
+                print ("Error plotting Contour ensembel cells (single pixel!?)", p)
+                continue
 
             #
             for k in range(len(contour) - 1):
@@ -439,7 +448,7 @@ class CalibrationTools(object):
         plt.show()
     #
 
-    def show_contour_map3(self, std_map, footprints, cell_ids, fig=False):
+    def show_contour_map3(self, std_map, cell_ids, fig=False):
 
         #
         if fig is True:
@@ -490,7 +499,8 @@ class CalibrationTools(object):
             #
             #z = np.vstack(footprints[p]).T
             #plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c=color, fontsize=15)
-
+        plt.xlim(0,512)
+        plt.ylim(0,512)
         plt.show()
     #
     #
@@ -558,7 +568,156 @@ class CalibrationTools(object):
         #     plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
 
         plt.show()
-    
+
+    def select_cell(self,
+                    cell_ids_available,
+                    ideal_n_bursts,
+                    low_bound,
+                    upper_bound,
+                    other_cell=1E10):
+
+        #
+        while len(cell_ids_available)>0:
+            cell_id = np.random.choice(cell_ids_available, 1)[0]
+            if cell_id == other_cell:
+                continue
+
+            #
+            if self.roi_snrs[cell_id] >= self.min_snr:
+                if (self.c.n_bursts[cell_id] >= int(ideal_n_bursts * low_bound)) and (
+                        self.c.n_bursts[cell_id] <= int(ideal_n_bursts * upper_bound)):
+
+                    contour = self.c.get_footprint_contour(cell_id)
+                    cell_id_centre = np.mean(contour, axis=0)
+                    idx = np.where(cell_ids_available == cell_id)[0]
+                    cell_ids_available = np.delete(cell_ids_available, idx)
+
+                    break
+
+            #
+            idx = np.where(cell_ids_available == cell_id)[0]
+            cell_ids_available = np.delete(cell_ids_available, idx)
+
+        #
+        if len(cell_ids_available)==0:
+            print ("Ran out of cells...lower thresholds")
+            return None, None, None
+
+
+        return cell_id, cell_ids_available, cell_id_centre
+
+    def auto_generate_ensembles(self):
+
+
+        self.c.n_bursts = np.array(self.c.n_bursts)#[self.snr_idx_order]
+        #print ("burst rates: ", self.c.n_bursts)
+
+        # ideal burst rate
+        t = self.c.F_processed.shape[1]/self.c.sample_rate/60.
+        print ("ideal burst rate: ", self.ensemble_burst_rate, " per min.")
+        ideal_n_bursts = int(t*self.ensemble_burst_rate)
+        print (" total # bursts: ", ideal_n_bursts)
+
+        #################################################
+        #################################################
+        #################################################
+
+        low_bound = self.low_bound
+        upper_bound = self.upper_bound
+        # select first cell ensemble 1
+        found_cells = False
+        for q in range(self.n_iter):
+
+            # start with all cells
+            cell_ids_available = np.arange(self.top_cells)
+
+            E1_1, _, E1_1_centre = self.select_cell(cell_ids_available,
+                                                    ideal_n_bursts,
+                                                    low_bound,
+                                                    upper_bound)
+
+            # find match for cell:
+            E1_2, _, E1_2_centre = self.select_cell(cell_ids_available,
+                                                    ideal_n_bursts,
+                                                    low_bound,
+                                                    upper_bound,
+                                                    E1_1)
+
+            dist =np.linalg.norm(E1_1_centre - E1_2_centre)
+            #print ("inter cell dist: ", dist)
+            if dist<self.max_distance_ensemble_cells:
+                found_cells = True
+                print ("ensembel1 distance: ", dist)
+                break
+
+        #
+        if found_cells==False:
+            print ("Couldn't find E1 cells: ... exiting")
+            return
+        #
+        else:
+            self.E1_1 = E1_1
+            self.E1_2 = E1_2
+            print ("E1 cells: ", self.E1_1, self.E1_2)
+            idx = np.where(cell_ids_available == E1_1)[0]
+            cell_ids_available = np.delete(cell_ids_available, idx)
+            idx = np.where(cell_ids_available == E1_2)[0]
+            cell_ids_available = np.delete(cell_ids_available, idx)
+        #
+        #####################################################
+        #####################################################
+        #####################################################
+        # select first cell ensemble 2
+        found_cells = False
+        for q in range(self.n_iter):
+            E2_1, _, E2_1_centre = self.select_cell(cell_ids_available,
+                                                     ideal_n_bursts,
+                                                     low_bound,
+                                                     upper_bound)
+
+            # find match for cell:
+            E2_2, _, E2_2_centre = self.select_cell(cell_ids_available,
+                                                     ideal_n_bursts,
+                                                     low_bound,
+                                                     upper_bound,
+                                                    E2_1)
+            dist = np.linalg.norm(E2_1_centre - E2_2_centre)
+            #print (E2_1, E2_2, dist)
+
+            if dist < self.max_distance_ensemble_cells:
+                print ("ensembel2 distance: ", dist)
+                found_cells = True
+                break
+
+        if found_cells == False:
+            print ("Couldn't find E2 cells - run again")
+        else:
+
+            self.E2_1 = E2_1
+            self.E2_2 = E2_2
+            print ("E2 cells: ", self.E2_1, self.E2_2)
+
+
+
+        # #
+        # plt.figure()
+        # img = np.zeros((512,512))
+        # ct1 = self.c.get_footprint_contour(self.E1_1)
+        # print (ct1)
+        # for k in range(len(ct1)):
+        #     img[ct1[k][0], ct1[k][1]] =1
+        # ct1 = self.c.get_footprint_contour(self.E1_2)
+        # print (ct1)
+        # for k in range(len(ct1)):
+        #     img[ct1[k][0], ct1[k][1]] =1
+        #
+        # plt.imshow(img)
+        # plt.xlim(0,512)
+        # plt.ylim(0,512)
+        #
+        # plt.show()
+        #
+
     def compute_roi_traces_f0_and_reorder_cells_Day1(self,
 													order_type):
 
@@ -641,6 +800,8 @@ class CalibrationTools(object):
         self.roi_traces = self.roi_traces[idx]
 
         #
+
+        #
         self.footprints_temp = []
         self.rois_f0s_temp = []
         for k in range(idx.shape[0]):
@@ -649,6 +810,72 @@ class CalibrationTools(object):
 
         self.footprints = self.footprints_temp
         self.roi_f0s = self.rois_f0s_temp
+
+    def compute_roi_traces_f0_and_NO_reorder_cells_Day1(self):
+
+        #
+        cell_ids = np.arange(len(self.footprints))
+
+        #
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = data.reshape(-1, 512, 512)
+
+        #####################################################
+        ################ COMPUTE ROI TRACES #################
+        #####################################################
+        #
+        roi_traces = []
+        for k in range(len(cell_ids)):
+            roi_traces.append([])
+
+        # loop over each frame
+        for p in trange(0, data.shape[0], self.subsample,
+                        desc='computing roi traces for SNR indexing'):
+
+            # grab frame
+            frame = data[p]
+
+            # loop over ROIS
+            ctr = 0
+            for k in cell_ids:
+                # grab roi
+                # print (self.footprints[k])
+                # temp = frame[self.footprints[k]].copy()
+                temp = frame[self.footprints[k][0],
+                self.footprints[k][1]]
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.footprints[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                roi_traces[ctr].append(temp)
+                ctr += 1
+        #
+        self.roi_traces = np.array(roi_traces)
+
+        ###########################################################
+        ################### COMPUTE F0 AND SNR ####################
+        ###########################################################
+        # compute the baseline f0 of the cells in order to be able to offset it in the BMI
+        # TODO: this is important; it functions as a rough DFF method
+        #    TODO: we may wish to implement a more complex version of this
+        self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+        self.roi_snrs = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+        for k in cell_ids:
+            #
+            # f0 = np.median(self.roi_traces[k])
+            f0 = get_mode(self.roi_traces[k])
+
+            #
+            self.roi_f0s[k] = f0
+
+            #
+            self.roi_snrs[k] = np.max((self.roi_traces[k] - f0) / f0)
+
 
 
 
@@ -730,6 +957,9 @@ class CalibrationTools(object):
             print (" ERROR - type not known")
 
         #
+        self.snr_idx_order = idx.copy()
+
+        #
         self.roi_traces = self.roi_traces[idx]
 
         #
@@ -743,6 +973,71 @@ class CalibrationTools(object):
         self.roi_f0s = self.rois_f0s_temp
 
 
+
+    #
+    def compute_roi_traces_f0_no_reorder(self):
+
+        #
+        cell_ids = np.arange(len(self.footprints))
+
+        #
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        data = data.reshape(-1, 512, 512)
+
+        #####################################################
+        ################ COMPUTE ROI TRACES #################
+        #####################################################
+        #
+        roi_traces = []
+        for k in range(len(cell_ids)):
+            roi_traces.append([])
+
+        # loop over each frame
+        for p in trange(0, data.shape[0], self.subsample,
+                        desc='computing roi traces for SNR indexing'):
+
+            # grab frame
+            frame = data[p]
+
+            # loop over ROIS
+            ctr = 0
+            for k in cell_ids:
+                # grab roi
+                #print (self.footprints[k])
+                temp = frame[self.footprints[k]].copy()
+
+                # normalize by surface area so that cells don't look way different because of footprint size
+                if True:
+                    temp = temp / self.footprints[k][0].shape[0]
+
+                # add pixel values inside roi
+                temp = np.nansum(temp)
+
+                # save
+                roi_traces[ctr].append(temp)
+                ctr += 1
+        #
+        self.roi_traces = np.array(roi_traces)
+
+        ###########################################################
+        ################### COMPUTE F0 AND SNR ####################
+        ###########################################################
+        # compute the baseline f0 of the cells in order to be able to offset it in the BMI
+        # TODO: this is important; it functions as a rough DFF method
+        #    TODO: we may wish to implement a more complex version of this
+        self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+        self.roi_snrs = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
+        for k in cell_ids:
+
+            #
+            #f0 = np.median(self.roi_traces[k])
+            f0 = get_mode(self.roi_traces[k])
+
+            #
+            self.roi_f0s[k] = f0
+
+            #
+            self.roi_snrs[k] = np.max((self.roi_traces[k]-f0)/f0)
 
     def compute_traces_ensembles(self, std_map):
         """ Same as below but visualize every single frame
@@ -995,7 +1290,6 @@ class CalibrationTools(object):
         plt.subplot(122)
         new_plot = False
         self.show_contour_map3(std_map,
-                              self.footprints,
                               cell_ids,
                               new_plot)
 
@@ -1064,6 +1358,8 @@ class CalibrationTools(object):
                 self.ensemble2_traces[ctr].append(temp)
                 ctr += 1
 
+        ###############################################
+        ############## RECOMPUTE ###################
         ###############################################
         plt.figure()
         ax = plt.subplot(121)
@@ -1341,7 +1637,7 @@ class CalibrationTools(object):
         new_plot = False
 
         self.show_contour_map3(std_map,
-                              self.footprints[:self.max_n_cells],
+                              #self.footprints[:self.max_n_cells],
                               self.ensemble_ids,
                               new_plot)
 
@@ -1526,6 +1822,7 @@ class CalibrationTools(object):
             counter=-1
 
             #for k in tqdm(np.arange(5,self.ensemble1_traces[0].shape[0],1), desc='loop'):
+            post_reward_lockout=False
             for k in range(5, self.ensemble1_traces[0].shape[0], 1):
 
                 #
@@ -1535,26 +1832,26 @@ class CalibrationTools(object):
                     self.E2_1 = smooth_ca_time_series4(self.ensemble2_traces[0][k - self.rois_smooth_window:k])
                     self.E2_2 = smooth_ca_time_series4(self.ensemble2_traces[1][k - self.rois_smooth_window:k])
 
-                else:
-                    self.E1_1 = self.ensemble1_traces[0][k]
-                    self.E1_2 = self.ensemble1_traces[1][k]
-                    self.E2_1 = self.ensemble2_traces[0][k]
-                    self.E2_2 = self.ensemble2_traces[1][k]
+                # else:
+                #     self.E1_1 = self.ensemble1_traces[0][k]
+                #     self.E1_2 = self.ensemble1_traces[1][k]
+                #     self.E2_1 = self.ensemble2_traces[0][k]
+                #     self.E2_2 = self.ensemble2_traces[1][k]
 
-                # remove F0 baseline
-                # TODO: this is not quite right as we skip over values all the time here
-                if False:
-                    if k % (self.fps*120)==0:
-                        for p in range(2):
-                            E1_f0s[p] = get_mode(self.ensemble1_traces[p][k-self.fps*120:k])
-                            E2_f0s[p] = get_mode(self.ensemble2_traces[p][k-self.fps*120:k])
-
+                # # remove F0 baseline
+                # # TODO: this is not quite right as we skip over values all the time here
+                # if False:
+                #     if k % (self.fps*120)==0:
+                #         for p in range(2):
+                #             E1_f0s[p] = get_mode(self.ensemble1_traces[p][k-self.fps*120:k])
+                #             E2_f0s[p] = get_mode(self.ensemble2_traces[p][k-self.fps*120:k])
                 #
-                if False:
-                    self.E1_1 = (self.E1_1) / E1_f0s[0]
-                    self.E1_2 = (self.E1_2) / E1_f0s[1]
-                    self.E2_1 = (self.E2_1) / E2_f0s[0]
-                    self.E2_2 = (self.E2_2) / E2_f0s[1]
+                # #
+                # if False:
+                #     self.E1_1 = (self.E1_1) / E1_f0s[0]
+                #     self.E1_2 = (self.E1_2) / E1_f0s[1]
+                #     self.E2_1 = (self.E2_1) / E2_f0s[0]
+                #     self.E2_2 = (self.E2_2) / E2_f0s[1]
 
                 #print (self.E1_1,self.E1_2,self.E2_1,self.E2_2)
 
@@ -1576,6 +1873,14 @@ class CalibrationTools(object):
                 if counter>0:
                     continue
 
+                if post_reward_lockout:
+                    if temp_diff > (high*self.post_reward_lockout_baseline_min):
+                        continue
+                    else:
+                        post_reward_lockout=False
+
+
+
                 if temp_diff >= high:
                     # high reward state reached
                     n_rewards += 1
@@ -1586,13 +1891,17 @@ class CalibrationTools(object):
                     #k += int(self.post_reward_lockout * self.sample_rate)
                     counter = int(self.post_reward_lockout * self.sample_rate)
 
+                    #
+                    post_reward_lockout = True
+
                 elif (k-last_reward)>= int(self.trial_time * self.sample_rate):
 
-                    # lock out rewards for some time;
-                    #print (" missed reward... at k: ", k, " adding frames: ", int(self.post_missed_reward_lockout * self.fps))
-                    #k += int(self.post_missed_reward_lockout * self.fps)
-                    counter = int(self.post_missed_reward_lockout * self.sample_rate)
                     last_reward = k
+                    # lock out rewards for some time;
+                    counter = int(self.post_missed_reward_lockout * self.sample_rate)
+
+                    #
+                    post_reward_lockout = True
 
 
                 #if k % 10000==0:

@@ -159,7 +159,7 @@ def gui():
 
     #
     window = Tk()
-    window.geometry('800x800')
+    window.geometry('1000x800')
 
     fontsize = 10
     default_option = 0
@@ -312,6 +312,16 @@ def gui():
     length_box_data.insert(END, 512)
     length_box_data.grid(column=1, row=13)
 
+    # # image size width/length input box
+    water_vol_box = Label(window, text="water volume (TTL duration)")
+    water_vol_box.config(font=("Courier", fontsize))
+    water_vol_box.grid(column=0, row=14)
+
+    water_vol_box_data = tk.Entry(window)
+    water_vol_box_data.insert(END, 20000)
+    water_vol_box_data.grid(column=1, row=14)
+
+
     #
     button1 = tk.Button(text='Run BMI',
                         command=run_BMI
@@ -339,9 +349,10 @@ def gui():
 
     #
     simulation_sleep = simulation_sleep_box_data.get()
+    water_vol_ttl = water_vol_box_data.get()
     n_frames = n_frames_box_data.get()
 
-    #
+    #################################################################
     tk.mainloop()
 
     # return values to main script:
@@ -368,7 +379,9 @@ def gui():
              length=length,
              video_width=video_width,
              video_length=video_length,
+             water_vol_ttl = water_vol_ttl
              )
     #
     return (fname_root_path, bmi_read, lick_read, tone_read, water_read, video_read, video_hardware_trigger_flag,
-            simulation_sleep, n_frames, video_width, video_length, calibration_read, motion_read, align_flag)
+            simulation_sleep, n_frames, video_width, video_length, calibration_read, motion_read, align_flag,
+            water_vol_ttl)
