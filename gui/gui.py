@@ -322,7 +322,7 @@ def gui():
     water_vol_box.grid(column=0, row=14)
 
     water_vol_box_data = tk.Entry(window)
-    water_vol_box_data.insert(END, 20000)
+    water_vol_box_data.insert(END, 15000)
     water_vol_box_data.grid(column=1, row=14)
 
 
