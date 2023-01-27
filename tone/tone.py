@@ -541,7 +541,7 @@ class PlayTone():
         elif self.water_reward[0] == 1:
 
             print(' will release water for ', self.water_spout_ttl_duration,
-                  "microsec, at ", self.water_spout_ttl_voltage, " mV")
+                  "ttl pulses, about ",str(round(self.water_spout_ttl_duration/100000,3)), "sec, at: ", self.water_spout_ttl_voltage, " mV")
 
             # skip water release for alignmetn mode
             if self.alignment_flag[0]==1:
