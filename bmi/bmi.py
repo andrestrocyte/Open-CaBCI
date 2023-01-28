@@ -181,6 +181,9 @@ class BMI():
         # initalize reward contidions based on ~15mins of pre BMI recorded data
         self.initialize_reward_conditions_and_parameters()
 
+        #
+        self.initialize_threshold_shared_memory()
+
         # initialize rewards counter
         self.initialize_reward_times()
 
@@ -509,7 +512,7 @@ class BMI():
 
         #
         self.low_threshold = data['low_threshold']
-        self.high_threshold = data['high_threshold']
+        self.high_threshold_loaded = data['high_threshold']
 
         #
         self.post_reward_lockout = data['post_reward_lockout']
@@ -539,6 +542,29 @@ class BMI():
 
         #
         #self.template = data['calibration_template']
+
+    #
+    def initialize_threshold_shared_memory(self):
+
+        '''
+            This variable keeps track of the locally computed E1-E2
+            - it is shared with a different process which plays tones
+            - TODO: perhaps want a better name like neural_state - to disambugate from ensembel states
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1,dtype=np.float32)
+        self.shmem_high_threshold = shared_memory.SharedMemory(create=True,
+                                                              size=aa.nbytes)
+
+        #
+        self.high_threshold = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.shmem_ensemble_state.buf)
+
+        #
+        self.high_threshold[0] = self.high_threshold_loaded
+
 
     #
     def initialize_ensemble_state(self):
@@ -1318,14 +1344,11 @@ class BMI():
         if self.white_noise_state[0] == 1 or self.post_reward_state[0] ==1:
             return
 
-        #print ("frame: ", self.n_ttl, ", ensemble state: ", self.ensemble_state, ", trheosld: ", self.high_threshold,
-        #       ", trial_number: ", self.trial_number)
-
         # if we are in a lockout period; mouse not eligible for reward
         if self.dynamic_reward_lockout_state[0]==1:
 
             # check to see if ensembles dropped below threshold:
-            if self.ensemble_state[0] <= (self.high_threshold*self.dynamic_reward_lockout_threshold):
+            if self.ensemble_state[0] <= (self.high_threshold[0]*self.dynamic_reward_lockout_threshold):
 
                 # reset the state back so mouse can get rewards again
                 print ("DYNAMIC STATE LOCKOUT OFF # ttl: ", self.n_ttl[0])
@@ -1341,9 +1364,8 @@ class BMI():
                 self.trials[self.trial_number,1] = time.time()
 
         # mouse can get rewards if ensemble over threshold AND the static counter has counted down
-        #elif (self.ensemble_state[0] >= self.high_threshold) and (self.reward_lockout_counter[0] <= 0):
         # TODO: no need to check reward lockout counter any more....
-        elif (self.ensemble_state[0] >= self.high_threshold):
+        elif (self.ensemble_state[0] >= self.high_threshold[0]):
 
             # reward mouse
             self.trigger_reward()
@@ -1607,7 +1629,7 @@ class BMI():
                  trials = self.trials,
 
                 #
-                 high_threshold = self.high_threshold,
+                 high_threshold = self.high_threshold[0],
 
                  #
                  sampleRate_NI = self.sampleRate_NI,
