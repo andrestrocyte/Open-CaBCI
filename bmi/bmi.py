@@ -554,13 +554,13 @@ class BMI():
 
         # make a numpy array to hold the rois_traces
         aa = np.zeros(1,dtype=np.float32)
-        self.shmem_high_threshold = shared_memory.SharedMemory(create=True,
+        self.shmem_high_threshold_state = shared_memory.SharedMemory(create=True,
                                                               size=aa.nbytes)
 
         #
         self.high_threshold = np.ndarray(aa.shape,
                                          dtype=aa.dtype,
-                                         buffer=self.shmem_ensemble_state.buf)
+                                         buffer=self.shmem_high_threshold_state.buf)
 
         #
         self.high_threshold[0] = self.high_threshold_loaded

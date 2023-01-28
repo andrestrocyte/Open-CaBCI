@@ -198,6 +198,7 @@ if __name__ ==  '__main__':
                                             bmi.high_threshold,
                                             bmi.shmem_termination_flag.name,
                                             bmi.shmem_live_video_frame.name,
+                                            bmi.shmem_high_threshold_state.name,
                                             video_width,
                                             video_height,
                                             bmi.shmem_motion_correction_flag.name,

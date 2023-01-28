@@ -39,6 +39,7 @@ class PlotROIs():
                  bmi_high_threshold,
                  shmem_termination_flag,
                  shmem_live_video_frame,
+                 shmem_high_threshold_state,
                  video_width,
                  video_length,
                  shmem_motion_correction_flag,
@@ -79,7 +80,10 @@ class PlotROIs():
 
         #
         self.shmem_live_video_frame = shmem_live_video_frame
-        
+
+        #
+        self.shmem_high_threshold_state = shmem_high_threshold_state
+
         #
         self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
 
@@ -177,6 +181,9 @@ class PlotROIs():
         self.initialize_manual_motion_correction_array()
 
         #
+        self.initialize_high_threshold()
+
+        #
         self.initialize_plots()
 
         #
@@ -229,6 +236,27 @@ class PlotROIs():
                                      dtype=aa.dtype,
                                      buffer=self.existing_shmem_manual_motion_correction_array.buf)
 
+
+
+    #
+    def initialize_high_threshold(self):
+
+        #
+        aa = np.zeros(1, dtype=np.float32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shmem_high_threshold_state = shared_memory.SharedMemory(name=self.shmem_high_threshold_state)
+
+        #
+        self.high_threshold = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shmem_high_threshold_state.buf)
+
+        #
+        self.high_threshold_initial = self.high_threshold.copy()
+
+        #
+        #self.ensemble_state_counter = 0
 
 
     #
@@ -610,12 +638,37 @@ class PlotROIs():
             self.dynamic_f0_slider.on_changed(update_dynamic_flag)
 
         #########################################################
+        ########## INITIALIZE THRESHOLD SLIDER ##################
+        #########################################################
+        #
+        if self.calibration_flag == False:
+
+            #vals_n_frames = np.arange(1,31,1)
+            #self.n_frame_ave = Slider(n_frame_ave, '# Frames', 1, 30, valinit=self.live_image_average_n_frames,
+            #                          valstep = vals_n_frames)
+
+
+            ax_threshold = plt.axes([0.925, 0.3, 0.04, 0.4])
+
+            vals_threshold = np.arange(1, 100, 1)
+            self.vals_threshold = Slider(ax_threshold, 'Threshold', 1, 100,
+                                         orientation = 'vertical',
+                                         valinit=100,
+                                         valstep=vals_threshold)
+
+
+            def threshold_slider(event):
+                self.high_threshold[0] = (self.vals_threshold.val*self.high_threshold_initial/100.)
+
+            self.vals_threshold.on_changed(threshold_slider)
+
+        #########################################################
         ########## INITIALIZE STOP BUTTON #######################
         #########################################################
         #
         if self.calibration_flag == False:
 
-            axstop = plt.axes([0.925, 0.55, 0.04, 0.04])
+            axstop = plt.axes([0.925, 0.15, 0.04, 0.04])
 
             def stop_bmi(event):
                 print ("MANUAL STOP DETECTED")
@@ -675,7 +728,7 @@ class PlotROIs():
             n_cells = 0
             n_cells+= len(self.rois_traces_ensemble1)
             n_cells+= len(self.rois_traces_ensemble2)
-            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(n_cells*1.5)+4*self.bmi_high_threshold)
+            self.ax_traces.set_ylim(-0.25*self.plot_y_scale, self.plot_y_scale*(n_cells*1.5)+4*self.high_threshold)
             self.ax_traces.set_xlim(-self.plotting_window_width,0)
             self.ax_traces.set_xlabel("Time (sec)")
 
@@ -771,8 +824,8 @@ class PlotROIs():
 
             # ADD Reward level for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                       [self.plot_y_scale*(ctr)+self.ensemble_state_y_offset+self.bmi_high_threshold*self.plot_y_scale,
-                                        self.plot_y_scale*(ctr)+self.ensemble_state_y_offset+self.bmi_high_threshold*self.plot_y_scale],  # plot last X values depending on length of plttimes
+                                       [self.plot_y_scale*(ctr)+self.ensemble_state_y_offset+self.high_threshold *self.plot_y_scale,
+                                        self.plot_y_scale*(ctr)+self.ensemble_state_y_offset+self.high_threshold *self.plot_y_scale],  # plot last X values depending on length of plttimes
                                        '--',
                                         c='green',
                                        linewidth=2,
@@ -957,8 +1010,8 @@ class PlotROIs():
                                          )
 
             # update ensemble state threshold
-            y_values1 = np.array([self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.bmi_high_threshold,
-                                  self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.bmi_high_threshold])
+            y_values1 = np.array([self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.high_threshold ,
+                                  self.plot_y_scale*(ctr+self.ensemble_state_y_offset)+self.high_threshold ])
             self.f0_objects[ctr+1].set_data(x_values1,
                                         y_values1
                                        )
