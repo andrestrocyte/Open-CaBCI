@@ -6,7 +6,8 @@
 import nidaqmx
 from nidaqmx.constants import (AcquisitionType)  
 from nidaqmx.constants import TerminalConfiguration
-import tqdm 
+import tqdm
+import pandas as pd
 import os
 import time
 import numpy as np
@@ -98,6 +99,9 @@ class BMI():
 
         #
         self.shared_memory_variables_names_list = []
+
+        #
+        self.bmi_dictionary = []
 
         # NOT SURE IF REQUIRED... TO DELETE
         # TODO flag was probably used during development toskip the reading step;
@@ -821,6 +825,21 @@ class BMI():
         #
         self.rois_traces_smooth_ensemble2[:] = a[:]
 
+
+    def update_bmi_dictionary(self):
+
+        state = {"n_ttl": self.n_ttl[0],
+                 #"ensemble1": self.rois_pixels_ensemble1[self.n_ttl[0]],
+                 #"ensemble2": self.rois_pixels_ensemble2[self.n_ttl[0]],
+                 "current_high_threshold": self.high_threshold[0],
+                 "white_noise_state": self.white_noise_state[0],
+                 "post_reward_state": self.post_reward_state[0],
+                 "reward_lockout_counter": self.reward_lockout_counter[0],
+                 }
+        #
+        self.bmi_dictionary.append(state)
+
+
     #
     def run_BMI(self):
 
@@ -857,6 +876,9 @@ class BMI():
 
                 # update trigger time
                 self.previous_trigger = self.now
+
+                # update bmi state dictionary
+                self.update_bmi_dictionary()
 
                 #
                 self.pbar.update(n=1)
@@ -1098,7 +1120,7 @@ class BMI():
                 self.white_noise_state[0] = 0
                 self.last_trial_start_ttl = self.n_ttl[0]  # This is a dummy reset so that dynamics lockout doesn't break so badly
 
-            # if we were in a post-rewards state
+            # if we were in a post-rewards state turn it off
             if self.post_reward_state[0]==1:
 
                 #
@@ -1604,7 +1626,13 @@ class BMI():
                 break
 
         #
-        print (" ----> # OF REWARDS: ", k, ", water volume dispensed (@ 20uL per reward): ",k*0.020, "mL")
+        print (" ----> # OF REWARDS: ", k, ", water volume dispensed (@ 10uL per reward): ",k*0.010, "mL")
+
+        #
+        #df = pd.DataFrame(data=self.bmi_dictionary, index=[0])
+        df = pd.DataFrame.from_dict(self.bmi_dictionary)
+
+        df.to_excel(self.fname_save_data[:-4]+'.xlsx')
 
         #
         np.savez(self.fname_save_data,
