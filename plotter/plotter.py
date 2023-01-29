@@ -648,7 +648,7 @@ class PlotROIs():
             #                          valstep = vals_n_frames)
 
 
-            ax_threshold = plt.axes([0.925, 0.3, 0.04, 0.4])
+            ax_threshold = plt.axes([0.925, 0.45, 0.04, 0.35])
 
             vals_threshold = np.arange(1, 100, 1)
             self.vals_threshold = Slider(ax_threshold, 'Threshold', 1, 100,
@@ -685,10 +685,10 @@ class PlotROIs():
             #self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
 
             #
-            axleft = plt.axes([0.9, 0.2, 0.04, 0.04])
-            axright = plt.axes([.95, 0.2, 0.04, 0.04])
-            axup = plt.axes([0.925, 0.25, 0.04, 0.04])
-            axdown = plt.axes([0.925, 0.15, 0.04, 0.04])
+            axleft = plt.axes([0.9, 0.3, 0.04, 0.04])
+            axright = plt.axes([.95, 0.3, 0.04, 0.04])
+            axup = plt.axes([0.925, 0.35, 0.04, 0.04])
+            axdown = plt.axes([0.925, 0.25, 0.04, 0.04])
 
 			#
             def shift_fov_right(event):
