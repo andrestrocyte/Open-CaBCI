@@ -46,7 +46,29 @@ class PlotROIs():
                  motion_flag,
                  shmem_dynamic_f0_flag,
                  shmem_manual_motion_correction_array,
-                 ):
+                 n_frames_to_be_acquired,
+                 white_noise_state,
+                 post_reward_state,
+                 dynamic_reward_lockout_state,
+                 last_reward_ttl,
+                ):
+
+        #
+        self.last_reward_ttl = last_reward_ttl
+
+
+        #
+        self.post_reward_state = post_reward_state
+
+        #
+        self.dynamic_reward_lockout_state = dynamic_reward_lockout_state
+
+
+        #
+        self.white_noise_state = white_noise_state
+
+        #
+        self.n_frames_to_be_acquired = n_frames_to_be_acquired
 
         #
         self.shmem_rois_traces_ensemble1 = shmem_rois_traces_ensemble1
@@ -492,23 +514,23 @@ class PlotROIs():
 
         #
         #if self.calibration_flag==True:
-        self.fig = plt.figure(figsize=(8,5))
+        self.fig = plt.figure(figsize=(8,8))
         #else:
         #    self.fig = plt.figure(figsize=(8,5))
 
         #
-        self.grid = GridSpec(8, 12)#, left=0.55, right=0.98, hspace=0.05)
+        self.grid = GridSpec(12, 12)#, left=0.55, right=0.98, hspace=0.05)
 		
-		#########################################################
+        #########################################################
         ################# PLOT VIDEO IMAGE ######################
         #########################################################
         # TODO: refactor this plot to another function
         if self.calibration_flag==False:
-            self.ax_camera = self.fig.add_subplot(self.grid[5:, :4])
+            self.ax_camera = self.fig.add_subplot(self.grid[5:8, :4])
         else:
-            self.ax_camera = self.fig.add_subplot(self.grid[:, :])
+            self.ax_camera = self.fig.add_subplot(self.grid[:8, :])
 		
-		#
+        #
         self.ax_camera.set_xticks([])
         self.ax_camera.set_yticks([])
         
@@ -529,7 +551,7 @@ class PlotROIs():
         #########################################################
         if self.calibration_flag==False:
             # TODO: refactor this plot to another function
-            self.ax_image = self.fig.add_subplot(self.grid[:, 4:])
+            self.ax_image = self.fig.add_subplot(self.grid[:8, 4:])
 
             #
             self.image_obj = self.ax_image.imshow(self.live_frame[0],
@@ -833,6 +855,31 @@ class PlotROIs():
 
             self.f0_objects.append(f0object)
 
+            #########################################################
+            ############## PLOT WHOLE SESSION TIME COURSES ##########
+            #########################################################
+            if self.calibration_flag == False:
+                # TODO: refactor this plot to another function
+                self.ax_session = self.fig.add_subplot(self.grid[8:12, :])
+
+
+                #self.ax_session.set_ylim(-0.25 * self.plot_y_scale,
+                #                        self.plot_y_scale * (n_cells * 1.5) + 4 * self.high_threshold)
+                self.ax_session.set_xlim(0, self.n_frames_to_be_acquired)
+                self.ax_session.set_xlabel("Frames (#)")
+
+                #
+                self.ax_session.set_ylim(-self.high_threshold*.5, self.high_threshold*1.5)
+                self.ax_session.set_ylabel("Ensemble state")
+
+                # save an initil value
+                self.y_ensemble_old = 0
+                self.x_ensemble_old = 0
+
+                #
+                self.last_reward_plotted = -1
+
+
         #
         self.fig.canvas.flush_events()
 
@@ -841,9 +888,6 @@ class PlotROIs():
 
         #
         self.fig.canvas.flush_events()
-
-        #
-        #self.fig.clf()
 
         # cache the background
         self.axbackground = []
@@ -1015,7 +1059,8 @@ class PlotROIs():
             self.f0_objects[ctr+1].set_data(x_values1,
                                         y_values1
                                        )
-        
+
+
         ################################################
         ################# UPDATE TITLE #################
         ################################################
@@ -1025,6 +1070,62 @@ class PlotROIs():
             self.ax_traces.set_title(" # rewards : "+str(idx1.shape[0])+" "+str(idx2.shape[0]) +
                                      ": Freq: " +str(int(self.tone_state[0]))+"hz"+
                                      "\n Ensemble state: "+str(round(self.ensemble_state[0],2)), fontsize=12)
+
+        ################################################
+        ######### UPDATE WHOLE SESSION PLOT ############
+        ################################################
+        if self.calibration_flag == False:
+            # update ensemble state
+            memory = 5
+            x_value = self.n_ttl2[0]
+            y_value = np.mean(self.ensemble_state_array[self.x_ensemble_old:x_value])
+            if x_value>=memory:
+
+                x_ = [self.x_ensemble_old+1, x_value]
+                y_ = [self.y_ensemble_old, y_value]
+
+                #print ("y value, xvalue: ", y_values, x_values)
+                #
+
+                self.ax_session.plot(x_, y_,
+                                        #s=1,
+                                        c='black')
+
+                # plot alos current threshold
+                self.ax_session.scatter(x_value, self.high_threshold[0],
+                                        s=1,
+                                        c='green')
+
+                # plot white noise state
+                # if self.white_noise_state[0]:
+                #     self.ax_session.axvspan(self.x_ensemble_old,
+                #                             x_value,
+                #                              alpha=0.5, color='grey')
+                if self.post_reward_state[0]:
+                    self.ax_session.axvspan(self.x_ensemble_old,
+                                            x_value,
+                                            alpha=0.5, color='red')
+
+                #
+                if self.dynamic_reward_lockout_state[0]:
+                    self.ax_session.axvspan(self.x_ensemble_old,
+                                            x_value,
+                                            alpha=0.2, color='grey')
+
+                #
+                if self.last_reward_ttl[0] != self.last_reward_plotted:
+                    self.ax_session.scatter(self.last_reward_ttl[0],
+                                            self.high_threshold[0],
+                                            s=25,
+                                            c='blue',)
+
+
+
+
+                #
+                self.y_ensemble_old = y_value
+                self.x_ensemble_old = x_value
+
 
         #####################################################
         ################# REFRESH PLOTS #####################
