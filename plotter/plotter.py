@@ -51,7 +51,12 @@ class PlotROIs():
                  post_reward_state,
                  dynamic_reward_lockout_state,
                  last_reward_ttl,
+                 align_flag,
                 ):
+
+        #
+        self.align_flag = align_flag
+
 
         #
         self.last_reward_ttl = last_reward_ttl
@@ -858,7 +863,7 @@ class PlotROIs():
             #########################################################
             ############## PLOT WHOLE SESSION TIME COURSES ##########
             #########################################################
-            if self.calibration_flag == False:
+            if self.calibration_flag == False and self.align_flag==False:
                 # TODO: refactor this plot to another function
                 self.ax_session = self.fig.add_subplot(self.grid[8:12, :])
 
@@ -1074,7 +1079,7 @@ class PlotROIs():
         ################################################
         ######### UPDATE WHOLE SESSION PLOT ############
         ################################################
-        if self.calibration_flag == False:
+        if self.calibration_flag == False and self.align_flag==False:
             # update ensemble state
             memory = 5
             x_value = self.n_ttl2[0]

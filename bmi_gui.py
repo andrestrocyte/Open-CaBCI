@@ -210,6 +210,7 @@ if __name__ ==  '__main__':
                                             bmi.post_reward_state,
                                             bmi.dynamic_reward_lockout_state,
                                             bmi.last_reward_ttl,
+                                            align_flag
                                               ))
     plotter_.start()
 
