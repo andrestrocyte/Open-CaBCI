@@ -610,9 +610,12 @@ class BMI():
         self.ttl_values = []            # array to hold ttl data being read
         self.ttl_n_computed = []        # number of ttl pulses computed based on time elapsed
         self.ttl_computed = 0
+        self.ttl_detected = 0
+
         self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
         self.inter_ttl_time = []        # computed time between each detected TTL pluse
         self.abs_times = []             # Keep of every time TTL is read... important!
+        self.ttl_used = []
                                         # loop;   might be useful for debugging later on kernel interuptions etc.
         self.ttl_times = []             # ttl times to be saved
         self.previous_trigger=0         # time of the previous TTL trigger to be used to determine if next trigger etc
@@ -974,8 +977,11 @@ class BMI():
         
         #
         print (" ... closing BMI, # of ttl pulses processed: ", self.n_ttl)
+        print (" ... first ttl pulse (sec): ", self.ttl_times[0]-self.ttl_times[0], " , last ttl pulse: ", self.ttl_times[-1]-self.ttl_times[0])
+        print (" ... first ttl pulse (#): ", self.ttl_used[0], " , last ttl pulse: ", self.ttl_used[-1])
+
         #
-        print (" ... SENDING TERMIANTION FLAG SIGNAL TO ALL PROCESSES ...")
+        #print (" ... SENDING TERMIANTION FLAG SIGNAL TO ALL PROCESSES ...")
         self.termination_flag[0] = 1
 
         #
@@ -1133,7 +1139,7 @@ class BMI():
         # save meta data
         self.ttl_n_computed.append(self.ttl_computed)
         self.ttl_n_detected.append(self.ttl_detected)
-        self.ttl_used.append(self.n_ttl)
+        self.ttl_used.append(self.n_ttl[0])
         self.ttl_times.append(self.now)
 
         #
@@ -1270,6 +1276,9 @@ class BMI():
             #
             self.ttl_computed = self.n_ttl+1
 
+            #
+
+
         # after arrays initialized
         else:
 
@@ -1278,7 +1287,14 @@ class BMI():
             if self.simulation_mode_bmi==True:
                 self.ttl_computed = self.n_ttl+1  # move to next ttl.
                 time.sleep(self.sleep_time_sec)
-                
+
+                #
+                self.ttl_detected+=1
+                self.ttl_computed+=1
+
+                # This runs super fast so need to rely on ttls otherwise
+                self.n_ttl[0] = self.ttl_detected
+
             else:
                 # this computes based on absolute run time
                 time_passed = self.now-self.start
@@ -1291,9 +1307,9 @@ class BMI():
                 if self.verbose:
                     print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
 
-        # TODO: this sets the global clock for the bmi;
-        # for now we use ttl_computed as it seems the BMI falls behind about 1.5-2sec per hour missing about 45-60 frames
-        self.n_ttl[0] = self.ttl_computed
+                # TODO: this sets the global clock for the bmi;
+                # for now we use ttl_computed as it seems the BMI falls behind about 1.5-2sec per hour missing about 45-60 frames
+                self.n_ttl[0] = self.ttl_computed
 
     #
     def trigger_reward(self):
