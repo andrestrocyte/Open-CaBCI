@@ -609,6 +609,7 @@ class BMI():
         #
         self.ttl_values = []            # array to hold ttl data being read
         self.ttl_n_computed = []        # number of ttl pulses computed based on time elapsed
+        self.ttl_computed = 0
         self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
         self.inter_ttl_time = []        # computed time between each detected TTL pluse
         self.abs_times = []             # Keep of every time TTL is read... important!
@@ -835,6 +836,7 @@ class BMI():
                  "white_noise_state": self.white_noise_state[0],
                  "post_reward_state": self.post_reward_state[0],
                  "reward_lockout_counter": self.reward_lockout_counter[0],
+                 "abs_time":self.now
                  }
         #
         self.bmi_dictionary.append(state)
@@ -865,7 +867,7 @@ class BMI():
         # TODO: merge ttl pulse counting and time tracking into a single while statement
         while self.ttl_computed < self.n_frames_to_be_acquired - 1:
 
-            # read next bscope ttl pulse
+            # read next bscope ttl pulse; sets self.now variable and also all other peripheral device values
             self.read_bscope_ttl()
 
             # check of ttl pulse when from high ~5 to low ~0
@@ -940,6 +942,15 @@ class BMI():
         while ttl_flag == False:
             ttl_flag, read_values = self.read_ttl()
 
+        # get time of ttl pulse
+        self.now = time.perf_counter()  # perf_counter_ns()/1E9
+
+        # must also save real time forthe peripheral devices
+        # this helps us figure out how fast this loop runs
+        # TODO: we may want to introduce a delay of 5ms or so so we don't constanly read TTL pulses
+        #     but this is probably not necessary as the NIDAQMX package was made to be pinged a lot
+        self.abs_times.append(self.now)
+
         # ttl bscope value
         ttl_value = read_values[0]#.copy()
 
@@ -957,15 +968,6 @@ class BMI():
         self.min_ = np.min(ttl_value)
         self.max_ = np.max(ttl_value)
         self.ttl_voltages.append(ttl_value)
-        #
-
-        # get time of ttl pulse
-        self.now = time.perf_counter() #perf_counter_ns()/1E9
-
-        # this helps us figure out how fast this loop runs
-        # TODO: we may want to introduce a delay of 5ms or so so we don't constanly read TTL pulses
-        #     but this is probably not necessary as the NIDAQMX package was made to be pinged a lot
-        self.abs_times.append(self.now)
 
     #
     def close(self):
@@ -1130,7 +1132,8 @@ class BMI():
 
         # save meta data
         self.ttl_n_computed.append(self.ttl_computed)
-        self.ttl_n_detected.append(self.n_ttl)
+        self.ttl_n_detected.append(self.ttl_detected)
+        self.ttl_used.append(self.n_ttl)
         self.ttl_times.append(self.now)
 
         #
@@ -1277,13 +1280,19 @@ class BMI():
                 time.sleep(self.sleep_time_sec)
                 
             else:
+                # this computes based on absolute run time
                 time_passed = self.now-self.start
                 self.ttl_computed = round((self.now-self.start)*self.sampleRate_2P)
+
+                # this increments by 1 the number of ttls to keep track for alter
+                self.ttl_detected+=1
 
                 # 
                 if self.verbose:
                     print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
 
+        # TODO: this sets the global clock for the bmi;
+        # for now we use ttl_computed as it seems the BMI falls behind about 1.5-2sec per hour missing about 45-60 frames
         self.n_ttl[0] = self.ttl_computed
 
     #
