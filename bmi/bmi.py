@@ -868,7 +868,7 @@ class BMI():
         # start recording and acquisition
         # count number of frames; but probably safer to just count time;
         # TODO: merge ttl pulse counting and time tracking into a single while statement
-        while self.ttl_computed < self.n_frames_to_be_acquired - 1:
+        while self.ttl_computed < self.n_frames_to_be_acquired:
 
             # read next bscope ttl pulse; sets self.now variable and also all other peripheral device values
             self.read_bscope_ttl()
@@ -976,7 +976,7 @@ class BMI():
     def close(self):
         
         #
-        print (" ... closing BMI, # of ttl pulses processed: ", self.n_ttl)
+        print (" ... closing BMI, last ttl pulse processed: ", self.n_ttl[0])
         print (" ... first ttl pulse (sec): ", self.ttl_times[0]-self.ttl_times[0], " , last ttl pulse: ", self.ttl_times[-1]-self.ttl_times[0])
         print (" ... first ttl pulse (#): ", self.ttl_used[0], " , last ttl pulse: ", self.ttl_used[-1])
 
@@ -1142,9 +1142,6 @@ class BMI():
         self.ttl_used.append(self.n_ttl[0])
         self.ttl_times.append(self.now)
 
-        #
-        #self.n_ttl+=1
-        #self.n_ttl[0] = self.ttl_computed
     #
 
     def compute_dff_and_smooth_rois(self):
@@ -1643,6 +1640,15 @@ class BMI():
              - treadmill/ball walking distance
 
         '''
+
+        # add the last times if there was a premature termination
+        if self.termination_flag[0]==1:
+
+            self.ttl_n_computed.append(self.ttl_computed)
+            self.ttl_n_detected.append(self.ttl_detected)
+            self.ttl_used.append(self.n_ttl[0])
+            self.ttl_times.append(self.now)
+
 
         print("...Saving BMI meta/data...")
 
