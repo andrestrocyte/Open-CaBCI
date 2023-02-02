@@ -1134,7 +1134,8 @@ class BMI():
         self.ttl_times.append(self.now)
 
         #
-        self.n_ttl+=1
+        #self.n_ttl+=1
+        #self.n_ttl[0] = self.ttl_computed
     #
 
     def compute_dff_and_smooth_rois(self):
@@ -1263,6 +1264,9 @@ class BMI():
             # reset start time: requird becaues we start the BMI a few seconds before the BScope
             self.start=self.now
 
+            #
+            self.ttl_computed = self.n_ttl+1
+
         # after arrays initialized
         else:
 
@@ -1279,6 +1283,8 @@ class BMI():
                 # 
                 if self.verbose:
                     print (" time passed: ", time_passed, "   bmi_update self.ttl_computed: ", self.ttl_computed)
+
+        self.n_ttl[0] = self.ttl_computed
 
     #
     def trigger_reward(self):

@@ -519,12 +519,12 @@ class PlotROIs():
 
         #
         #if self.calibration_flag==True:
-        self.fig = plt.figure(figsize=(8,5))
+        self.fig = plt.figure(figsize=(8,8))
         #else:
         #    self.fig = plt.figure(figsize=(8,5))
 
-
-        self.grid = GridSpec(8, 12)#, left=0.55, right=0.98, hspace=0.05)
+        #
+        self.grid = GridSpec(12, 12)#, left=0.55, right=0.98, hspace=0.05)
 		
         #########################################################
         ################# PLOT VIDEO IMAGE ######################
@@ -863,27 +863,26 @@ class PlotROIs():
             #########################################################
             ############## PLOT WHOLE SESSION TIME COURSES ##########
             #########################################################
-            if False:
-                if self.calibration_flag == False and self.align_flag==False:
-                    # TODO: refactor this plot to another function
-                    self.ax_session = self.fig.add_subplot(self.grid[8:12, :])
+            if self.calibration_flag == False and self.align_flag==False:
+                # TODO: refactor this plot to another function
+                self.ax_session = self.fig.add_subplot(self.grid[8:12, :])
 
 
-                    #self.ax_session.set_ylim(-0.25 * self.plot_y_scale,
-                    #                        self.plot_y_scale * (n_cells * 1.5) + 4 * self.high_threshold)
-                    self.ax_session.set_xlim(0, self.n_frames_to_be_acquired)
-                    self.ax_session.set_xlabel("Frames (#)")
+                #self.ax_session.set_ylim(-0.25 * self.plot_y_scale,
+                #                        self.plot_y_scale * (n_cells * 1.5) + 4 * self.high_threshold)
+                self.ax_session.set_xlim(0, self.n_frames_to_be_acquired)
+                self.ax_session.set_xlabel("Frames (#)")
 
-                    #
-                    self.ax_session.set_ylim(-self.high_threshold*.5, self.high_threshold*1.5)
-                    self.ax_session.set_ylabel("Ensemble state")
+                #
+                self.ax_session.set_ylim(-self.high_threshold*.5, self.high_threshold*1.5)
+                self.ax_session.set_ylabel("Ensemble state")
 
-                    # save an initil value
-                    self.y_ensemble_old = 0
-                    self.x_ensemble_old = 0
+                # save an initil value
+                self.y_ensemble_old = 0
+                self.x_ensemble_old = 0
 
-                    #
-                    self.last_reward_plotted = -1
+                #
+                self.last_reward_plotted = -1
 
 
         #
@@ -1080,58 +1079,57 @@ class PlotROIs():
         ################################################
         ######### UPDATE WHOLE SESSION PLOT ############
         ################################################
-        if False:
-            if self.calibration_flag == False and self.align_flag==False:
-                # update ensemble state
-                memory = 5
-                x_value = self.n_ttl2[0]
-                y_value = np.mean(self.ensemble_state_array[self.x_ensemble_old:x_value])
-                if x_value>=memory:
+        if self.calibration_flag == False and self.align_flag==False:
+            # update ensemble state
+            memory = 5
+            x_value = self.n_ttl2[0]
+            y_value = np.mean(self.ensemble_state_array[self.x_ensemble_old:x_value])
+            if x_value>=memory:
 
-                    x_ = [self.x_ensemble_old+1, x_value]
-                    y_ = [self.y_ensemble_old, y_value]
+                x_ = [self.x_ensemble_old+1, x_value]
+                y_ = [self.y_ensemble_old, y_value]
 
-                    #print ("y value, xvalue: ", y_values, x_values)
-                    #
+                #print ("y value, xvalue: ", y_values, x_values)
+                #
 
-                    self.ax_session.plot(x_, y_,
-                                            #s=1,
-                                            c='black')
+                self.ax_session.plot(x_, y_,
+                                        #s=1,
+                                        c='black')
 
-                    # plot alos current threshold
-                    self.ax_session.scatter(x_value, self.high_threshold[0],
-                                            s=1,
-                                            c='green')
+                # plot alos current threshold
+                self.ax_session.scatter(x_value, self.high_threshold[0],
+                                        s=1,
+                                        c='green')
 
-                    # plot white noise state
-                    # if self.white_noise_state[0]:
-                    #     self.ax_session.axvspan(self.x_ensemble_old,
-                    #                             x_value,
-                    #                              alpha=0.5, color='grey')
-                    if self.post_reward_state[0]:
-                        self.ax_session.axvspan(self.x_ensemble_old,
-                                                x_value,
-                                                alpha=0.5, color='red')
+                # plot white noise state
+                # if self.white_noise_state[0]:
+                #     self.ax_session.axvspan(self.x_ensemble_old,
+                #                             x_value,
+                #                              alpha=0.5, color='grey')
+                if self.post_reward_state[0]:
+                    self.ax_session.axvspan(self.x_ensemble_old,
+                                            x_value,
+                                            alpha=0.5, color='red')
 
-                    #
-                    if self.dynamic_reward_lockout_state[0]:
-                        self.ax_session.axvspan(self.x_ensemble_old,
-                                                x_value,
-                                                alpha=0.2, color='grey')
+                #
+                if self.dynamic_reward_lockout_state[0]:
+                    self.ax_session.axvspan(self.x_ensemble_old,
+                                            x_value,
+                                            alpha=0.2, color='grey')
 
-                    #
-                    if self.last_reward_ttl[0] != self.last_reward_plotted:
-                        self.ax_session.scatter(self.last_reward_ttl[0],
-                                                self.high_threshold[0],
-                                                s=25,
-                                                c='blue',)
-
+                #
+                if self.last_reward_ttl[0] != self.last_reward_plotted:
+                    self.ax_session.scatter(self.last_reward_ttl[0],
+                                            self.high_threshold[0],
+                                            s=25,
+                                            c='blue',)
 
 
 
-                    #
-                    self.y_ensemble_old = y_value
-                    self.x_ensemble_old = x_value
+
+                #
+                self.y_ensemble_old = y_value
+                self.x_ensemble_old = x_value
 
 
         #####################################################
