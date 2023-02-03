@@ -109,7 +109,7 @@ if __name__ ==  '__main__':
     #################### INITIALIZE BMI MAIN ######################
     ###############################################################
     # compute the maximum number of seconds the session will run before existing in case there are no more TTL Pulses
-    max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 120  # gives 2 extra minutes at the end in case insufficient frames are detected
+    max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 30  # gives 2 extra minutes at the end in case insufficient frames are detected
 
     #
     if calibration_flag:
