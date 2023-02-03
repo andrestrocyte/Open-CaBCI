@@ -1317,7 +1317,7 @@ class BMI():
                 self.reward_times[1, k] = self.n_ttl[0]  # save current reward time
                 break
         #
-        self.rewarded_times_abs.append([1, self.n_ttl[0], self.abs_times])
+        self.rewarded_times_abs.append([1, self.n_ttl[0], self.now])
 
         # reset last reward time to current time
         self.last_reward_ttl[0] = self.n_ttl[0]
@@ -1678,6 +1678,7 @@ class BMI():
                  ttl_voltages=self.ttl_voltages,
                  ttl_n_computed=self.ttl_n_computed,
                  ttl_n_detected=self.ttl_n_detected,
+                 ttl_used = self.ttl_used,
                  abs_times=self.abs_times,
                  ttl_times=self.ttl_times,
                  rois_pixels_ensemble1=np.hstack(self.rois_pixels_ensemble1),
