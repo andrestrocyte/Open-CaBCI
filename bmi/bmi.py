@@ -1491,7 +1491,7 @@ class BMI():
         else:
             found_non_zero_frame = False
             z = 0
-            while True:
+            while (self.n_ttl[0] + z)<=self.n_frames_to_be_acquired:
                 #print ("z: ", z)
 
                 if abs(z)>30:
