@@ -1266,7 +1266,7 @@ class BMI():
             self.ttl_computed = self.n_ttl + 1
 
             #
-
+            self.n_ttl[0] = 0
 
         # after arrays initialized
         else:
@@ -1298,7 +1298,7 @@ class BMI():
 
                 # TODO: this sets the global clock for the bmi;
                 # for now we use ttl_computed as it seems the BMI falls behind about 1.5-2sec per hour missing about 45-60 frames
-                self.n_ttl[0] = self.ttl_computed
+                #self.n_ttl[0] = self.ttl_computed
 
     #
     def trigger_reward(self):
@@ -1347,7 +1347,7 @@ class BMI():
             self.last_trial_start_ttl = self.n_ttl[0]
 
             #
-            print("\n")
+            print("")
             print(">>>> reached end of trial without reward")
             print("WHITE NOISE ON # ttl: ", self.n_ttl[0], "post_reward_state: ", self.post_reward_state,
                   "white noise state: ", self.white_noise_state)
@@ -1397,6 +1397,7 @@ class BMI():
 
                 # we also set the last time a reward was had
                 self.last_trial_start_ttl = self.n_ttl[0]
+                print ('')
                 print("STARTING NEW TRIAL @ # TTL: ", self.last_trial_start_ttl)
 
                 #
@@ -1457,302 +1458,264 @@ class BMI():
         # - more to think about whether this can go wrong
         # - but for now, this next loop is quasi-guarantee that we are in real time
 
-        # search the very first ROI in time from previous frame to future frames until we get a non-zero pixel values;
-        #  then we set the time i.e. n_ttl
-        old_method = False
-        if old_method:
-            for z in range(-1, self.n_frames_search_forward, 1):
 
-                # check
-                # roi_sum0 = self.newfp[self.n_ttl[0]+z,
-                #                      self.rois[0][0]-self.roi_width:self.rois[0][0]+self.roi_width,
-                #                      self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].sum()
+        # TODO: new method
+        # search about 5 seconds back and forth; more than this things are bad!
+        buffer = 30
 
-                # TODO ;could just check any part of the FOV to see if there is non zero values
-                roi_sum0 = self.newfp[self.n_ttl[0] + z][self.rois_pixels_ensemble1[0]].sum()
+        # search a single second back and forth; if note enough do it again
+        if self.simulation_mode_bmi:
+            pass
 
-                #
-                if roi_sum0 != 0:
-                    # TODO: reset the n_ttl value here - check that this is safe!!!
-                    # self.n_ttl[0] = self.n_ttl[0]+z
-
-                    break
         else:
-            found_non_zero_frame = False
-            z = 0
+
+            # real modes must update bmi
             while True:
-                # s=time.time()
-                # exit once we reach the end
-                # TODO: this oculd be done more elegantly;
-                # the problem is that the n_ttl computed sometimes gets past the end of the file for the last frame for example
-                if (self.n_ttl[0] + z) == self.n_frames_to_be_acquired:
-                    self.n_ttl[0] = self.n_frames_to_be_acquired - 1
-                    print("Reached end of recording... existing dynamic fraem search...")
-                    # self.termination_flag[0]=1
-                    break
-
-                # search frame for non
-                roi_sum0 = self.newfp[self.n_ttl[0] + z][self.rois_pixels_ensemble1[0]].sum()
-
-                # SEARCHING FORWARD CASES
-                # case #1: we previously found end of imaging
-                if found_non_zero_frame:
-                    # 1.1: we also searched forward and found end
-                    if roi_sum0 == 0:
-                        self.dynamic_frame_offsets.append([self.n_ttl[0], z])
-                        self.n_ttl[0] = self.n_ttl[0] + z
-                        break
-                    # 1.2: we still have data, so move forward 1 frame
-                    else:
-                        z += 1
-                # SEARCHIN GBACKOWAR DCASES
-                # case 2: we haven't found end of imaginng frames
-                else:
-                    # 2.1: we don't find data so move back 1 frame
-                    if roi_sum0 == 0:
-                        z -= 1
-                    # 2.2: we found data so swtich on frame flag
-                    else:
-                        found_non_zero_frame = True
-                        # print ("found last good frame: z: ", z, self.n_ttl)
-                        z += 1
 
                 #
-                if abs(z) > 30:
-                    print("warning BMI off by > 1 sec... ")
+                roi_sum0 = self.newfp[max(0,self.n_ttl[0] - buffer):
+                                      min(self.n_ttl[0] + buffer, self.n_frames_to_be_acquired-1),     # slice in time
+                                      self.rois_pixels_ensemble1[0][0],                  # get indexes of x dim
+                                      self.rois_pixels_ensemble1[0][1]].sum(1)           # get indexes of y dim
 
-                    #
-                    if abs(z) > 90:
-                        print("ERROR BMI behind by 3 seconds forced dynamic search loops...")
+                #
+                idx = np.where(roi_sum0 == 0)[0]
+
+                #
+                if len(idx)>0:
+                    break
+
+                # if we couldn't find increase the window
+                print (" @@@@@@@@@@@@@@@ WARNING: computed ttl falling behind imaging by > ",buffer//30, " sec")
+                buffer+=30
+
+            # offset computaiton
+            offset = idx[0]-buffer
+
+            # set the image grabber to the last value
+            self.n_ttl[0] = self.n_ttl[0] + offset
+
+        # TODO: update latest image for imaging purposese
+        # this raw frame is fed to the drift correction algorithm (anywhere else!?)
+
+        # this is the same raw frame but now it is fixed for purpose of computing ROIs!!
+        #  - this is the latest frame extracted
+        # NOTE: outside functions do not see it unless explicitly copied
+        self.live_frame_local = self.newfp[self.n_ttl[0]].copy()
+
+        # # # simulate drift....
+        # if False:
+        #     simulated_shift = int(self.n_ttl[0]/300)
+        #     self.live_frame_local = np.roll(self.live_frame_local,
+        #                                     simulated_shift, axis=0)
+        #     print ("Simulated drift -------> ", simulated_shift)
+
+        # motion detector gets this frame; and returns drift_xy_values
+        self.live_frame_motion_detector[0] = self.live_frame_local.copy()
+
+        #
+        if self.motion_correction_flag[0]:
+
+            # save most recent drift values from drift module
+            self.drift_array.append([self.drift_xy_values[0],
+                                     self.drift_xy_values[1]])
+
+            # NOTE: the drift_xy values could be the previously saved ones
+            self.live_frame_local_drift_corrected = apply_shifts(self.live_frame_local.copy(),
+                                                                 self.drift_xy_values[0],
+                                                                 self.drift_xy_values[1])
+
+        else:
+            self.live_frame_local_drift_corrected = self.live_frame_local.copy()
+
+        # manual drift correction is always online;
+        # TODO: Check to see how slow this roll is... shouldn't be, but in case!
+        if True:
+            # print ("motion correcting: ", self.manual_motion_correction_array)
+            self.live_frame_local_drift_corrected = np.roll(self.live_frame_local_drift_corrected,
+                                                            self.manual_motion_correction_array[0],
+                                                            axis=1)
+            self.live_frame_local_drift_corrected = np.roll(self.live_frame_local_drift_corrected,
+                                                            -self.manual_motion_correction_array[1],
+                                                            axis=0)
+
+        # this is the frame that the plotting function sees
+        self.live_frame_plotter[0] = self.live_frame_local_drift_corrected.copy()
+
+
+    #
+    def update_rois(self):
+        # update ROIs ensemble 1
+        for p in range(0, len(self.rois_pixels_ensemble1), 1):
+            # new way use exact pixel location
+            temp = self.live_frame_local_drift_corrected[
+                self.rois_pixels_ensemble1[p].T[:, 0],  # broadcast/index into the frame as per ROI pixels
+                self.rois_pixels_ensemble1[p].T[:, 1]]
+
+            # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
+            # TODO: these algorithms must match the default water disposal algorithms
+            # TODO: USE A FUNCTION OVER THIS AND FOLLOWING STEP THAT IS SHARED WITH CALIBRATION CODE
+            roi_sum0 = temp / self.rois_pixels_ensemble1[p][0].shape[0]
+
+            # sum
+            # TODO: not sure this is the correct function; to check literature
+            # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
+            roi_sum0 = np.nansum(roi_sum0)
+
+            # Note: Do not remove baseline yet; this is done in the smoothing step;
+            # TODO: make sure that this approach is correct
+            self.rois_traces_raw_ensemble1[p, self.n_ttl[0]] = roi_sum0
+
+        # update ROIS ensemble 2
+        for p in range(0, len(self.rois_pixels_ensemble2), 1):
+            # new way use exact pixel location
+            temp = self.live_frame_local_drift_corrected[
+                self.rois_pixels_ensemble2[p].T[:, 0],  # broadcast/index into the frame as per ROI pixels
+                self.rois_pixels_ensemble2[p].T[:, 1]]
+
+            # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
+            # TODO: these algorithms must match the default water disposal algorithms
+            # TODO: USE A FUNCTION OVER THIS AND FOLLOWING STEP THAT IS SHARED WITH CALIBRATION CODE
+            roi_sum0 = temp / self.rois_pixels_ensemble2[p][0].shape[0]
+
+            # sum
+            # TODO: not sure this is the correct function; to check literature
+            # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
+            roi_sum0 = np.nansum(roi_sum0)
+
+            # Note: Do not remove baseline yet; this is done in the smoothing step;
+            # TODO: make sure that this approach is correct
+            self.rois_traces_raw_ensemble2[p, self.n_ttl[0]] = roi_sum0
+
+        #
+        if self.verbose:
+            print("")
+            print("")
+
+
+    #
+    def update_ensembles(self):
+        # wait for at least some frames to go by first
+        if self.n_ttl[0] > self.rois_smooth_window:
+
+            # compute ensemble 1
+            for k in range(len(self.rois_traces_smooth_ensemble1)):
+                self.ensemble_activity[0, self.n_ttl[0]] += self.rois_traces_smooth_ensemble1[k, self.n_ttl[0]]
+
+            # compute ensemble 1
+            for k in range(len(self.rois_traces_smooth_ensemble2)):
+                self.ensemble_activity[1, self.n_ttl[0]] += self.rois_traces_smooth_ensemble2[k, self.n_ttl[0]]
+
+        # Compute the E1-E2 for current time point
+        # this value goes to the tone package which converts it into a tone
+        # TODO: this value is sometimes zero, not clear why, perhaps we are readng too far ahead
+
+        # use the same diff funtion as in the calibration set
+        self.ensemble_state[0] = (self.ensemble_activity[0, self.n_ttl[0]] -
+                                  self.ensemble_activity[1, self.n_ttl[0]])
+
+        #
+        self.ensemble_diff_array[self.n_ttl[0]] = self.ensemble_state[0]
+
+
+    #
+    def tone_off(self):
+        # turn toneplayback off
+        #  freq = 0
+        #  np.save(self.fname_freq,freq)
+
+        # need to also pass the time out counter
+        #
+        # pass a zero neural state vector??!?!
+
+        pass
+
+
+    #
+    def save_data(self):
+        '''  TO FILL OUT
+             need better description of variables
+             TODO:  other variables we might want to save including
+             - tone frequencies, or tone state of the speaker
+             - the camera frames/informatin
+             - IR light info
+             - EMG data
+             - lick detector information
+             - treadmill/ball walking distance
+
+        '''
+
+        # add the last times if there was a premature termination
+        if self.termination_flag[0] == 1:
+            self.ttl_n_computed.append(self.ttl_computed)
+            self.ttl_n_detected.append(self.ttl_detected)
+            self.ttl_used.append(self.n_ttl[0])
+            self.ttl_times.append(self.now)
+
+        print("...Saving BMI meta/data...")
+
+        #
+        if self.align_flag == True:
+            print("  alignment session... skipping data save")
+            return
+
+        # find # of rewards
+        for k in range(self.reward_times.shape[1]):
+            if self.reward_times[1, k] == -1:
                 break
-            # print ("Z: ", z, ", found_non_zero_frame:", found_non_zero_frame,
-            #        ", self.n_ttl ", self.n_ttl, " roi_sum0: ", roi_sum0, ", time: ", time.time()-s)
 
-    # TODO: we should reset the n_ttl here
-    # - if we find that we needed to search x steps forward,
-    #   we should then add x to n_ttl - and vice versa
+        #
+        print(" ----> # OF REWARDS: ", k, ", water volume dispensed (@ 10uL per reward): ", k * 0.010, "mL")
 
-    # TODO: update latest image for imaging purposese
-    # this raw frame is fed to the drift correction algorithm (anywhere else!?)
+        #
+        # df = pd.DataFrame(data=self.bmi_dictionary, index=[0])
+        df = pd.DataFrame.from_dict(self.bmi_dictionary)
 
-    # this is the same raw frame but now it is fixed for purpose of computing ROIs!!
-    #  - this is the latest frame extracted
-    # NOTE: outside functions do not see it unless explicitly copied
-    self.live_frame_local = self.newfp[self.n_ttl[0]].copy()
+        df.to_excel(self.fname_save_data[:-4] + '.xlsx')
 
-    # # # simulate drift....
-    # if False:
-    #     simulated_shift = int(self.n_ttl[0]/300)
-    #     self.live_frame_local = np.roll(self.live_frame_local,
-    #                                     simulated_shift, axis=0)
-    #     print ("Simulated drift -------> ", simulated_shift)
+        #
+        np.savez(self.fname_save_data,
+                 ttl_voltages=self.ttl_voltages,
+                 ttl_n_computed=self.ttl_n_computed,
+                 ttl_n_detected=self.ttl_n_detected,
+                 abs_times=self.abs_times,
+                 ttl_times=self.ttl_times,
+                 rois_pixels_ensemble1=np.hstack(self.rois_pixels_ensemble1),
+                 rois_pixels_ensemble2=np.hstack(self.rois_pixels_ensemble2),
+                 rois_traces_raw_ensemble1=np.array(self.rois_traces_raw_ensemble1, dtype='object'),
+                 rois_traces_raw_ensemble2=np.array(self.rois_traces_raw_ensemble2, dtype='object'),
+                 rois_traces_smooth1=np.array(self.rois_traces_smooth_ensemble1, dtype='object'),
+                 rois_traces_smooth2=np.array(self.rois_traces_smooth_ensemble2, dtype='object'),
+                 reward_times=self.reward_times,
+                 rewarded_times_abs=np.array(self.rewarded_times_abs, dtype='object'),
+                 ensemble_activity=self.ensemble_activity,
+                 ensemble_diff_array=self.ensemble_diff_array,
+                 received_reward_lockout=self.received_reward_lockout,
+                 max_reward_window=self.max_reward_window,
+                 missed_reward_lockout=self.missed_reward_lockout,
+                 trials=self.trials,
+                 dynamic_frame_offsets=self.dynamic_frame_offsets,
 
-    # motion detector gets this frame; and returns drift_xy_values
-    self.live_frame_motion_detector[0] = self.live_frame_local.copy()
+                 #
+                 high_threshold=self.high_threshold[0],
 
-    #
-    if self.motion_correction_flag[0]:
+                 #
+                 sampleRate_NI=self.sampleRate_NI,
+                 ttl_pts=self.ttl_pts,
+                 sampleRate_2P=self.sampleRate_2P,
+                 image_width=self.image_width,
+                 image_length=self.image_length,
+                 max_n_seconds_session=self.max_n_seconds_session,
 
-        # save most recent drift values from drift module
-        self.drift_array.append([self.drift_xy_values[0],
-                                 self.drift_xy_values[1]])
-
-        # NOTE: the drift_xy values could be the previously saved ones
-        self.live_frame_local_drift_corrected = apply_shifts(self.live_frame_local.copy(),
-                                                             self.drift_xy_values[0],
-                                                             self.drift_xy_values[1])
-
-    else:
-        self.live_frame_local_drift_corrected = self.live_frame_local.copy()
-
-    # manual drift correction is always online;
-    # TODO: Check to see how slow this roll is... shouldn't be, but in case!
-    if True:
-        # print ("motion correcting: ", self.manual_motion_correction_array)
-        self.live_frame_local_drift_corrected = np.roll(self.live_frame_local_drift_corrected,
-                                                        self.manual_motion_correction_array[0],
-                                                        axis=1)
-        self.live_frame_local_drift_corrected = np.roll(self.live_frame_local_drift_corrected,
-                                                        -self.manual_motion_correction_array[1],
-                                                        axis=0)
-
-    # this is the frame that the plotting function sees
-    self.live_frame_plotter[0] = self.live_frame_local_drift_corrected.copy()
-
-
-#
-def update_rois(self):
-    # update ROIs ensemble 1
-    for p in range(0, len(self.rois_pixels_ensemble1), 1):
-        # new way use exact pixel location
-        temp = self.live_frame_local_drift_corrected[
-            self.rois_pixels_ensemble1[p].T[:, 0],  # broadcast/index into the frame as per ROI pixels
-            self.rois_pixels_ensemble1[p].T[:, 1]]
-
-        # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
-        # TODO: these algorithms must match the default water disposal algorithms
-        # TODO: USE A FUNCTION OVER THIS AND FOLLOWING STEP THAT IS SHARED WITH CALIBRATION CODE
-        roi_sum0 = temp / self.rois_pixels_ensemble1[p][0].shape[0]
-
-        # sum
-        # TODO: not sure this is the correct function; to check literature
-        # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
-        roi_sum0 = np.nansum(roi_sum0)
-
-        # Note: Do not remove baseline yet; this is done in the smoothing step;
-        # TODO: make sure that this approach is correct
-        self.rois_traces_raw_ensemble1[p, self.n_ttl[0]] = roi_sum0
-
-    # update ROIS ensemble 2
-    for p in range(0, len(self.rois_pixels_ensemble2), 1):
-        # new way use exact pixel location
-        temp = self.live_frame_local_drift_corrected[
-            self.rois_pixels_ensemble2[p].T[:, 0],  # broadcast/index into the frame as per ROI pixels
-            self.rois_pixels_ensemble2[p].T[:, 1]]
-
-        # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
-        # TODO: these algorithms must match the default water disposal algorithms
-        # TODO: USE A FUNCTION OVER THIS AND FOLLOWING STEP THAT IS SHARED WITH CALIBRATION CODE
-        roi_sum0 = temp / self.rois_pixels_ensemble2[p][0].shape[0]
-
-        # sum
-        # TODO: not sure this is the correct function; to check literature
-        # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
-        roi_sum0 = np.nansum(roi_sum0)
-
-        # Note: Do not remove baseline yet; this is done in the smoothing step;
-        # TODO: make sure that this approach is correct
-        self.rois_traces_raw_ensemble2[p, self.n_ttl[0]] = roi_sum0
-
-    #
-    if self.verbose:
-        print("")
-        print("")
-
-
-#
-def update_ensembles(self):
-    # wait for at least some frames to go by first
-    if self.n_ttl[0] > self.rois_smooth_window:
-
-        # compute ensemble 1
-        for k in range(len(self.rois_traces_smooth_ensemble1)):
-            self.ensemble_activity[0, self.n_ttl[0]] += self.rois_traces_smooth_ensemble1[k, self.n_ttl[0]]
-
-        # compute ensemble 1
-        for k in range(len(self.rois_traces_smooth_ensemble2)):
-            self.ensemble_activity[1, self.n_ttl[0]] += self.rois_traces_smooth_ensemble2[k, self.n_ttl[0]]
-
-    # Compute the E1-E2 for current time point
-    # this value goes to the tone package which converts it into a tone
-    # TODO: this value is sometimes zero, not clear why, perhaps we are readng too far ahead
-
-    # use the same diff funtion as in the calibration set
-    self.ensemble_state[0] = (self.ensemble_activity[0, self.n_ttl[0]] -
-                              self.ensemble_activity[1, self.n_ttl[0]])
-
-    #
-    self.ensemble_diff_array[self.n_ttl[0]] = self.ensemble_state[0]
-
-
-#
-def tone_off(self):
-    # turn toneplayback off
-    #  freq = 0
-    #  np.save(self.fname_freq,freq)
-
-    # need to also pass the time out counter
-    #
-    # pass a zero neural state vector??!?!
-
-    pass
-
-
-#
-def save_data(self):
-    '''  TO FILL OUT
-         need better description of variables
-         TODO:  other variables we might want to save including
-         - tone frequencies, or tone state of the speaker
-         - the camera frames/informatin
-         - IR light info
-         - EMG data
-         - lick detector information
-         - treadmill/ball walking distance
-
-    '''
-
-    # add the last times if there was a premature termination
-    if self.termination_flag[0] == 1:
-        self.ttl_n_computed.append(self.ttl_computed)
-        self.ttl_n_detected.append(self.ttl_detected)
-        self.ttl_used.append(self.n_ttl[0])
-        self.ttl_times.append(self.now)
-
-    print("...Saving BMI meta/data...")
-
-    #
-    if self.align_flag == True:
-        print("  alignment session... skipping data save")
-        return
-
-    # find # of rewards
-    for k in range(self.reward_times.shape[1]):
-        if self.reward_times[1, k] == -1:
-            break
-
-    #
-    print(" ----> # OF REWARDS: ", k, ", water volume dispensed (@ 10uL per reward): ", k * 0.010, "mL")
-
-    #
-    # df = pd.DataFrame(data=self.bmi_dictionary, index=[0])
-    df = pd.DataFrame.from_dict(self.bmi_dictionary)
-
-    df.to_excel(self.fname_save_data[:-4] + '.xlsx')
-
-    #
-    np.savez(self.fname_save_data,
-             ttl_voltages=self.ttl_voltages,
-             ttl_n_computed=self.ttl_n_computed,
-             ttl_n_detected=self.ttl_n_detected,
-             abs_times=self.abs_times,
-             ttl_times=self.ttl_times,
-             rois_pixels_ensemble1=np.hstack(self.rois_pixels_ensemble1),
-             rois_pixels_ensemble2=np.hstack(self.rois_pixels_ensemble2),
-             rois_traces_raw_ensemble1=np.array(self.rois_traces_raw_ensemble1, dtype='object'),
-             rois_traces_raw_ensemble2=np.array(self.rois_traces_raw_ensemble2, dtype='object'),
-             rois_traces_smooth1=np.array(self.rois_traces_smooth_ensemble1, dtype='object'),
-             rois_traces_smooth2=np.array(self.rois_traces_smooth_ensemble2, dtype='object'),
-             reward_times=self.reward_times,
-             rewarded_times_abs=np.array(self.rewarded_times_abs, dtype='object'),
-             ensemble_activity=self.ensemble_activity,
-             ensemble_diff_array=self.ensemble_diff_array,
-             received_reward_lockout=self.received_reward_lockout,
-             max_reward_window=self.max_reward_window,
-             missed_reward_lockout=self.missed_reward_lockout,
-             trials=self.trials,
-             dynamic_frame_offsets=self.dynamic_frame_offsets,
-
-             #
-             high_threshold=self.high_threshold[0],
-
-             #
-             sampleRate_NI=self.sampleRate_NI,
-             ttl_pts=self.ttl_pts,
-             sampleRate_2P=self.sampleRate_2P,
-             image_width=self.image_width,
-             image_length=self.image_length,
-             max_n_seconds_session=self.max_n_seconds_session,
-
-             #
-             n_frames=self.n_frames,
-             n_frames_to_be_acquired=self.n_frames_to_be_acquired,  #
-             rois_smooth_window=self.rois_smooth_window,
-             n_ttl_to_start_applying_dynamic_f0=self.n_ttl_to_start_applying_dynamic_f0,
-             n_frames_search_forward=self.n_frames_search_forward,
-             drift_array=self.drift_array,
-             # template = self.template,  # no need to save this; at least not now
-             lick_detector_abstime=self.lick_detector_abstime,
-             rotary_encoder1_abstime=self.rotary_encoder1_abstime,
-             rotary_encoder2_abstime=self.rotary_encoder2_abstime,
-             )
+                 #
+                 n_frames=self.n_frames,
+                 n_frames_to_be_acquired=self.n_frames_to_be_acquired,  #
+                 rois_smooth_window=self.rois_smooth_window,
+                 n_ttl_to_start_applying_dynamic_f0=self.n_ttl_to_start_applying_dynamic_f0,
+                 n_frames_search_forward=self.n_frames_search_forward,
+                 drift_array=self.drift_array,
+                 # template = self.template,  # no need to save this; at least not now
+                 lick_detector_abstime=self.lick_detector_abstime,
+                 rotary_encoder1_abstime=self.rotary_encoder1_abstime,
+                 rotary_encoder2_abstime=self.rotary_encoder2_abstime,
+                 )
