@@ -612,6 +612,7 @@ class BMI():
         self.ttl_computed = 0
         self.ttl_detected = 0
 
+        self.dynamic_frame_offsets = [] # this keeps track of finding frame offsets due to lag issues in NI/BMI/Windows
         self.ttl_n_detected = []        # number of ttl pulses detected based on TTL from NI board
         self.inter_ttl_time = []        # computed time between each detected TTL pluse
         self.abs_times = []             # Keep of every time TTL is read... important!
@@ -1468,23 +1469,58 @@ class BMI():
 
         # search the very first ROI in time from previous frame to future frames until we get a non-zero pixel values;
         #  then we set the time i.e. n_ttl
-        for z in range(-1,self.n_frames_search_forward,1):
+        old_method = False
+        if old_method:
+            for z in range(-1,self.n_frames_search_forward,1):
 
-            # check
-            #roi_sum0 = self.newfp[self.n_ttl[0]+z,
-            #                      self.rois[0][0]-self.roi_width:self.rois[0][0]+self.roi_width,
-            #                      self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].sum()
+                # check
+                #roi_sum0 = self.newfp[self.n_ttl[0]+z,
+                #                      self.rois[0][0]-self.roi_width:self.rois[0][0]+self.roi_width,
+                #                      self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].sum()
 
-            # TODO ;could just check any part of the FOV to see if there is non zero values
-            roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels_ensemble1[0]].sum()
+                # TODO ;could just check any part of the FOV to see if there is non zero values
+                roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels_ensemble1[0]].sum()
 
-            #
-            if roi_sum0 != 0:
+                #
+                if roi_sum0 != 0:
 
-                # TODO: reset the n_ttl value here - check that this is safe!!!
-                # self.n_ttl[0] = self.n_ttl[0]+z
+                    # TODO: reset the n_ttl value here - check that this is safe!!!
+                    # self.n_ttl[0] = self.n_ttl[0]+z
 
-                break
+                    break
+        else:
+            found_non_zero_frame = False
+            z = 0
+            while True:
+                #print ("z: ", z)
+
+                if abs(z)>30:
+                    print ("BMI off by 1 sec... exiting")
+                    break
+
+                # search frame for non
+                roi_sum0 = self.newfp[self.n_ttl[0] + z][self.rois_pixels_ensemble1[0]].sum()
+
+                # SEARCHING FORWARD CASES
+                # case #1: we previously found end of imaging
+                if found_non_zero_frame:
+                    # 1.1: we also searched forward and found end
+                    if roi_sum0!=0:
+                        self.dynamic_frame_offsets.append([self.n_ttl[0],z])
+                        break
+                    # 1.2: we still have data, so move forward 1 frame
+                    else:
+                        z+=1
+                # SEARCHIN GBACKOWAR DCASES
+                # case 2: we haven't found end of imaginng frames
+                else:
+                    # 2.1: we don't find data so move back 1 frame
+                    if roi_sum0 == 0:
+                        z-=1
+                    # 2.2: we found data so swtich on frame flag
+                    else:
+                        found_non_zero_frame=True
+
 
         # TODO: we should reset the n_ttl here
         # - if we find that we needed to search x steps forward,
@@ -1692,6 +1728,7 @@ class BMI():
                  max_reward_window = self.max_reward_window,
                  missed_reward_lockout = self.missed_reward_lockout,
                  trials = self.trials,
+                 dynamic_frame_offsets = self.dynamic_frame_offsets,
 
                 #
                  high_threshold = self.high_threshold[0],
