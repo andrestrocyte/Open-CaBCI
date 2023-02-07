@@ -235,8 +235,8 @@ class Calcium():
         
         #
         if stds.shape[0]<10:
-            std_global = np.mean(stds)
-            print ("too few cells... for std global")
+            std_global = stds
+            print ("too few cells... for std global, saving individual stds :", std_global.shape)
             return std_global, F
         
 
@@ -811,7 +811,6 @@ class Calcium():
             ####################################################
             # compute global std on filtered/detrended signal
             std_global, self.F_filtered = self.compute_std_global(self.F_filtered)
-            #print ("std global: ", std_global)
 
             #
             self.stds = np.zeros(self.F_filtered.shape[0])+std_global

@@ -156,7 +156,7 @@ def correlograms(spike_times,
     # Find `binsize`.
     bin_size = np.clip(bin_size, 1e-5, 1e5)  # in seconds
     binsize = int(sample_rate * bin_size)  # in samples
-    
+    print ("binsize: ", binsize, " sample rate: ", sample_rate)
     assert binsize >= 1
 
     # Find `winsize_bins`.
@@ -193,7 +193,6 @@ def correlograms(spike_times,
 
         # Binarize the delays between spike i and spike i+shift.
         spike_diff_b = spike_diff // binsize
-
         # Spikes with no matching spikes are masked.
         mask[:-shift][spike_diff_b > (winsize_bins // 2)] = False
 
