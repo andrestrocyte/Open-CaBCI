@@ -205,12 +205,6 @@ if __name__ ==  '__main__':
                                             motion_flag,
                                             bmi.shmem_dynamic_f0_flag.name,
                                             bmi.shmem_manual_motion_correction_array.name,
-                                            bmi.n_frames_to_be_acquired,
-                                            bmi.white_noise_state,
-                                            bmi.post_reward_state,
-                                            bmi.dynamic_reward_lockout_state,
-                                            bmi.last_reward_ttl,
-                                            align_flag
                                               ))
     plotter_.start()
 
