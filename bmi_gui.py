@@ -236,13 +236,13 @@ if __name__ ==  '__main__':
     ###############################################################
     if calibration_flag:
         fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
-                                   'calibration',"video.avi")
+                                   "video_calibration.avi")
     elif align_flag:
         fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
-                                   'alignment',"video.avi")
+                                   "video_alignment.avi")
     else:
         fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
-                                   'data',"video.avi")
+                                   "video_data.avi")
 
     #
     camera_player_ = Process(target=Camera, args=(
