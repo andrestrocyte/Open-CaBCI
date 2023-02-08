@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy
 import os
 import pandas as pd
+from tqdm import tqdm, trange
 
 import scipy.ndimage
 #from matplotlib_scalebar.scalebar import ScaleBar
@@ -23,7 +24,7 @@ class ProcessSession():
 
         #
         self.sample_rate = 30
-        print ("sample rate: ", self.sample_rate)
+        #print ("sample rate: ", self.sample_rate)
 
         #
         self.save_dir = os.path.join(self.root_dir,
@@ -45,45 +46,26 @@ class ProcessSession():
         #
         data = np.load(fname, allow_pickle=True)
 
-        fname_dict = os.path.join(self.root_dir,
-                                  self.animal_id,
-                                  self.session_id,
-                                  'data', 'results.xlsx')
-
-        #
-        df = pd.read_excel(fname_dict)
-        D = df.iloc[:, 1:].values
-
-        #
-        self.white_noise = D[:, 2]
-        self.high_threshold = D[:, 1]
-        post_reward = D[:, 3]
 
         #
         self.reward_times = np.int32(data['rewarded_times_abs'][:, 1])
-        print("reward times: ", self.reward_times.shape)
 
         #
         self.abs_times = data['abs_times']
-        print("abs times: ", self.abs_times.shape, self.abs_times)
 
         self.ttl_times = data['ttl_times']
-        print("ttl times: ", self.ttl_times.shape, self.ttl_times[0], self.ttl_times[-1], " total rec time sec: ",
-              self.ttl_times[-1] - self.ttl_times[0])
+
 
         self.ttl_comp = data['ttl_n_computed']
-        print("ttl computed: ", self.ttl_comp.shape, self.ttl_comp)
 
         #
         self.ttl_det = data['ttl_n_detected']
-        print("ttl detected: ", self.ttl_det.shape)
 
+        #
         self.lick_detector = data['lick_detector_abstime']
-        print("lick detector: ", self.lick_detector.shape)
-        # lick_detector -= lick_detector[0]
+
         idx = np.where(self.lick_detector > 3)[0]
         self.lick_times = self.abs_times[idx] - self.ttl_times[0]
-        print("lick times: ", self.lick_times)
         # licks = result[0]/(30*33.425)
 
         #
@@ -91,25 +73,70 @@ class ProcessSession():
 
         #
         self.E = data['ensemble_diff_array']
-        print(self.E.shape)
 
         #
         self.E1 = data["rois_traces_smooth1"]
         self.E2 = data["rois_traces_smooth2"]
         self.E1[:, :10] = 0
         self.E2[:, :10] = 0
-        print("E1 , E2, ", self.E1.shape, self.E2.shape)
 
         #
         self.rec_len_mins = self.E1.shape[1]/self.sample_rate/60.
 
         #
-        print ("Recording length (mins): ", self.rec_len_mins)
+        if self.verbose:
+            print("reward times: ", self.reward_times.shape)
+            print ("Recording length (mins): ", self.rec_len_mins)
+            print("abs times: ", self.abs_times.shape, self.abs_times)
+            print("ttl times: ", self.ttl_times.shape, self.ttl_times[0], self.ttl_times[-1], " total rec time sec: ",
+              self.ttl_times[-1] - self.ttl_times[0])
+            print("ttl computed: ", self.ttl_comp.shape, self.ttl_comp)
+            print("ttl detected: ", self.ttl_det.shape)
+            print("lick detector: ", self.lick_detector.shape)
+            print("lick times: ", self.lick_times)
+            print("E1 , E2, ", self.E1.shape, self.E2.shape)
 
 
-        print("DONE...")
 
-    def show_session_traces(self):
+
+
+
+
+        # Setdefault high trehsold and white noise in case they are not saved to xlsx document
+        self.high_threshold = data['high_threshold']
+        self.high_threshold = self.ttl_times*0 + self.high_threshold
+
+        self.white_noise = self.high_threshold*0
+
+
+
+        #######################################################
+        #######################################################
+        #######################################################
+        fname_dict = os.path.join(self.root_dir,
+                                  self.animal_id,
+                                  self.session_id,
+                                  'data', 'results.xlsx')
+
+        #
+        if os.path.exists(fname_dict):
+            #print ("found dictionary: loading...")
+
+            # SEARCH FOR DICTIONARY:
+            df = pd.read_excel(fname_dict)
+            D = df.iloc[:, 1:].values
+
+            #
+            self.white_noise = D[:, 2]
+            self.high_threshold = D[:, 1]
+            post_reward = D[:, 3]
+        else:
+            print ("Missing dictionary (early sessions... skipping)")
+
+
+        #print("DONE...")
+
+    def process_session_traces(self):
 
         #
         ########################################################
@@ -156,7 +183,8 @@ class ProcessSession():
 
         # lick times
         ctr += .4
-        plt.scatter(self.lick_times, self.lick_times * 0 + scale * ctr, alpha=0.8, c='orange', label='lick detector')
+        licks = np.unique(np.round(self.lick_times,1))
+        plt.scatter(licks, licks * 0 + scale * ctr, alpha=0.8, c='orange', label='lick detector')
 
         #
         plt.legend()
@@ -164,9 +192,14 @@ class ProcessSession():
         plt.xlim(self.ttl_times[0], self.ttl_times[-1])
         plt.suptitle(self.animal_id + " " + self.session_id)
 
-
         plt.savefig(os.path.join(self.save_dir,'session.png'),dpi=200)
-        plt.show()
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+
 
 
     #
@@ -180,6 +213,8 @@ class ProcessSession():
         print("pearson correlation E1 cells; ", self.E1_corr[0])
         print("pearson correlation E2 cells; ", self.E2_corr[0])
 
+        np.save(os.path.join(self.save_dir, 'pearson_corr_ensembles.npy'), [self.E1_corr, self.E2_corr])
+
     #
     def compute_correlograms_reward_vs_licking(self):
 
@@ -192,11 +227,14 @@ class ProcessSession():
 
         # lick times
         spikes2 = self.lick_times
+        spikes2 = np.unique(np.round(self.lick_times,2))
+        print ("lick times: ", spikes2)
 
         spike_times = np.hstack((spikes1, spikes2))
 
         idx = np.argsort(spike_times)
         spike_times = spike_times[idx]
+        print ("# of spikes: ", spike_times.shape[0])
 
         spike_clusters = np.int32(np.hstack((np.zeros(spikes1.shape[0]),
                                              np.zeros(spikes2.shape[0]) + 1)))
@@ -227,10 +265,14 @@ class ProcessSession():
                 plt.plot([0,0],
                          [0,np.max(corr[k,p]) ],
                          '--',c='grey')
-        plt.show()
+        plt.savefig(os.path.join(self.save_dir, 'correlograms_reward_vs_licking.png'), dpi=200)
 
-        np.save(os.path.join(self.save_dir, 'reward_vs_licking.npy'), corr)
-        plt.savefig(os.path.join(self.save_dir,'reward_vs_licking.png'),dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.save_dir, 'correlograms_reward_vs_licking.npy'), corr)
 
         print("DONE...")
 
@@ -271,10 +313,13 @@ class ProcessSession():
         #
         plt.suptitle(self.animal_id + " -- " + self.session_id)
         plt.xlabel("Time (mins)")
-        plt.show()
-
-        np.save(os.path.join(self.save_dir, 'cell_isis.npy'), isi_array)
         plt.savefig(os.path.join(self.save_dir,'cell_isis.png'),dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+        np.save(os.path.join(self.save_dir, 'cell_isis.npy'), isi_array)
 
 
 
@@ -308,10 +353,14 @@ class ProcessSession():
         #
         plt.suptitle(self.animal_id + " -- " + self.session_id)
         plt.xlabel("Time (mins)")
-        plt.show()
+        plt.savefig(os.path.join(self.save_dir,'cell_burst_histogram_v2.png'),dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
 
         np.save(os.path.join(self.save_dir, 'cell_burst_histogram_v2.npy'), burst_array)
-        plt.savefig(os.path.join(self.save_dir,'cell_burst_histogram_v2.png'),dpi=200)
 
     def compute_intra_session_cell_burst_histogram(self):
 
@@ -339,10 +388,14 @@ class ProcessSession():
         #
         plt.suptitle(self.animal_id + " -- " + self.session_id)
         plt.xlabel("Time (mins)")
-        plt.show()
+        plt.savefig(os.path.join(self.save_dir,'cell_burst_histogram.png'),dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
 
         np.save(os.path.join(self.save_dir, 'cell_burst_histogram.npy'), burst_array)
-        plt.savefig(os.path.join(self.save_dir,'cell_burst_histogram.png'),dpi=200)
 
 
     #
@@ -357,10 +410,7 @@ class ProcessSession():
         xx = y[1][:-1]+self.bin_width/2.
         yy = y[0]
 
-
         #
-
-
         from scipy import stats
         res = stats.pearsonr(xx,yy)
         print ("Perason corr: ", res)
@@ -380,10 +430,13 @@ class ProcessSession():
         plt.xlabel("Time (mins)")
         plt.ylabel("# of rewards")
         plt.title(self.animal_id +  " -- " + self.session_id)
-        plt.show()
-
-        #
         plt.savefig(os.path.join(self.save_dir,'intra_session_reward.png'),dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+        #
         np.save(os.path.join(self.save_dir,'intra_session_reward.npy'),y)
 
     #
@@ -425,7 +478,7 @@ class ProcessSession():
         spike_times = spike_times[idx]
 
         spike_times = spike_times/self.sample_rate
-        print ("spike times: ", spike_times)
+        #print ("spike times: ", spike_times)
 
         # MAKE SPIKE CLUSTERS
         spike_clusters = np.int32(np.hstack((
@@ -449,7 +502,7 @@ class ProcessSession():
                             bin_size=self.bin_size,
                             window_size=self.corr_window)
 
-        print(corr.shape)
+
         plt.figure(figsize=(15,10))
         titles = ['roi1', 'roi2', 'roi3', 'roi4']
         t = np.arange(corr.shape[2]) - corr.shape[2] // 2
@@ -464,9 +517,14 @@ class ProcessSession():
                 plt.xlabel("Time (sec)")
                 plt.xlim(t[0], t[-1])
                 plt.ylim(bottom=0)
-        plt.show()
 
         plt.savefig(os.path.join(self.save_dir,'correlograms_upphase.png'),dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+
         np.save(os.path.join(self.save_dir,'correlograms_upphase.npy'),corr)
 
 
@@ -493,6 +551,7 @@ class ProcessSession():
             cc_array.append([])
             for p in range(4):
                 cc_array[k].append([])
+
         for k in range(4):
             for p in range(k,4,1):
                 t1 = self.F_filtered[k]
@@ -520,10 +579,15 @@ class ProcessSession():
                          [0,np.max(cc) ],
                          '--',c='grey')
 
-
         plt.suptitle(self.animal_id + " " + self.session_id + " Raw fluorescence based xcorrelation")
+        plt.savefig(os.path.join(self.save_dir, 'correlograms_fluorescence.png'), dpi=200)
+        #import time
+        #time.sleep(1)
         plt.show()
-        plt.savefig(os.path.join(self.save_dir,'correlograms_fluorescence.png'),dpi=200)
+
+        if self.show_plots==False:
+            plt.close()
+        #
         np.save(os.path.join(self.save_dir,'correlograms_fluorescence.npy'),cc_array, allow_pickle=True)
 
         print("DONE...")
@@ -541,19 +605,18 @@ class ProcessSession():
         # c.detrend_model_order = 1
         c.save_python = True
         c.save_matlab = False
-        c.recompute_binarization = True
         c.sample_rate = 30
 
         #
-        c.min_width_event_onphase = c.sample_rate // 2  # set minimum withd of an onphase event; default: 0.5 seconds
-        c.min_width_event_upphase = c.sample_rate // 4  # set minimum width of upphase event; default: 0.25 seconds
+        c.min_width_event_onphase = self.min_width_event_onphase
+        c.min_width_event_upphase = self.min_width_event_upphase
 
         ############# PARAMTERS TO TWEAK ##############
         #     1. Cutoff for calling somthing a spike:
         #        This is stored in: std_Fluorescence_onphase/uppohase: defaults: 1.5
         #                                        higher -> less events; lower -> more events
         #                                        start at default and increase if data is very noisy and getting too many noise-events
-        c.min_thresh_std_onphase = 2.5              # set the minimum thrshold for onphase detection; defatul 2.5
+        c.min_thresh_std_onphase = self.std_upphase               # set the minimum thrshold for onphase detection; defatul 2.5
         c.min_thresh_std_upphase = self.std_upphase  # set the minimum thershold for uppohase detection; default: 2.5
 
         #     2. Filter of [Ca] data which smooths the data significantly more and decreases number of binarzied events within a multi-second [Ca] event
@@ -573,17 +636,25 @@ class ProcessSession():
 
         #
         c.F = traces
-        c.binarize_fluorescence()
+        c.percentile_threshold = self.percentile_threshold
+        c.recompute_binarization = self.recompute_binarization
+
+        #c.binarize_fluorescence2()
         c.load_binarization()
 
         print("Binarized traces: ", c.F_upphase_bin.shape)
 
         self.F_upphase_bin = c.F_upphase_bin
+        self.F_onphase_bin = c.F_onphase_bin
         self.F_filtered = c.F_filtered
+
+        np.save(os.path.join(self.save_dir,'binarized_traces.npy'),self.F_upphase_bin)
 
         ################################################
         ############### SIMPLE VIS TEST ################
         ################################################
+        from scipy.optimize import curve_fit
+        from scipy import asarray as ar, exp
         plt.figure(figsize=(15,10))
         Ensembles = [
             self.E1[0],
@@ -594,16 +665,351 @@ class ProcessSession():
         names = ["roi1", "roi2","roi3","roi4",]
         clrs=['blue','red']
         for k in range(4):
+
             plt.subplot(4,1,k+1)
+
+            if self.use_upphase:
+                yy = self.F_upphase_bin[k]
+            else:
+                yy = self.F_onphase_bin[k]
+            #
             t=np.arange(self.F_filtered.shape[1])/30.
-            plt.plot(t,self.F_upphase_bin[k], c=clrs[k//2],alpha=.5)
-            plt.plot(t,self.F_filtered[k],c='black',alpha=.5,label=names[k])
+
+            #
+            y = self.F_filtered[k]
+            if k == 3:
+                print ("filtered plooted: ", y)
+            plt.plot(t,y,c='black',alpha=.5,label=names[k])
+
+            #
+            plt.plot(t,yy, c=clrs[k//2],alpha=.5)
+
+          # plot histogram side of panel
+            if False:
+                y = np.histogram(y, bins=np.arange(-1,1,0.02))
+                x = y[1][:-1]
+                y = y[0]/yy.shape[0]*1000
+                plt.plot(y,x)
+
+                n = len(x)  # the number of data
+                mean = sum(x * y) / n  # note this correction
+                sigma = sum(y * (x - mean) ** 2) / n  # note this correction
+
+                def gaus(x, a, x0, sigma):
+                    return a * exp(-(x - x0) ** 2 / (2 * sigma ** 2))
+
+                popt, pcov = curve_fit(gaus, x, y, p0=[1, mean, sigma])
+                plt.plot(gaus(x, *popt),x, 'ro:', label='fit')
+                #
             plt.legend()
             plt.xlim(t[0],t[-1])
 
-        plt.suptitle("Using STD for upphase detection: "+str(self.std_upphase))
+            plt.suptitle("Using STD for upphase detection: "+str(self.std_upphase))
+
+        plt.savefig(os.path.join(self.save_dir, 'binarized_traces.png'), dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+
+
+    def n_rewards_intra_session(self):
+        #
+        labels = []
+        n_rewards = []
+        rewards_array = []
+        ctr=0
+        for session_id in self.session_ids:
+            S = ProcessSession(self.root_dir,
+                               self.animal_id,
+                               session_id)
+            #
+            S.verbose=self.verbose
+            S.load_data()
+
+            #
+            labels.append(session_id)
+
+            #
+            n_rewards.append(S.reward_times.shape[0])
+
+            temp = S.reward_times/30./60.
+            y = np.histogram(temp, bins=np.arange(0,55,5))
+            rewards_array.append(y[0])
+
+            ctr+=1
+            #if ctr>3:
+            #    break
+
+        #
+        from scipy import stats
+
+        #
+        print (rewards_array)
+        yy = np.vstack(rewards_array)
+        print (yy.shape)
+        xx = np.arange(yy.shape[1])*5+2.5
+
+        mean = np.mean(yy,axis=0)
+        std = np.std(yy, axis=0)
+
+        #
+        res = stats.pearsonr(xx,mean)
+        print ("Perason corr: ", res)
+
+
+
+        plt.figure()
+        ax1=plt.subplot(111)
+        plt.plot(np.unique(xx), np.poly1d(np.polyfit(xx, mean, 1))(np.unique(xx)),
+                 '--')
+
+        plt.plot(xx,mean, c='blue', label = "pcorr: "+str(round(res[0],2))+ ", pval: "+str(round(res[1],5)),
+                    linewidth=5)
+
+        ax1.fill_between(xx, mean + std, mean - std, color='blue', alpha=0.1)
+        #plt.xticks(np.arange(len(mean)), labels, rotation=30)
+        plt.xlim(xx[0]-2.5,xx[-1]+2.5)
+        #plt.bar(xx,mean,0.9, alpha=.5)
+        plt.ylabel("# rewards")
+        plt.xlabel("Time (mins)")
+        plt.ylim(bottom=0)
+        plt.legend()
+        plt.suptitle(self.animal_id)
+
         plt.show()
 
-        plt.savefig(os.path.join(self.save_dir,'binarized_traces.png'),dpi=200)
-        np.save(os.path.join(self.save_dir,'binarized_traces.npy'),self.F_upphase_bin)
 
+    def n_rewards_intra_session_normalized(self):
+
+        #
+        labels = []
+        n_rewards = []
+        rewards_array = []
+        ctr=0
+        for session_id in tqdm(self.session_ids):
+            S = ProcessSession(self.root_dir,
+                               self.animal_id,
+                               session_id)
+            #
+            S.verbose = self.verbose
+            S.load_data()
+
+            #
+            labels.append(session_id)
+
+            #
+            n_rewards.append(S.reward_times.shape[0])
+
+            temp = S.reward_times/30./60.
+            y = np.histogram(temp, bins=np.arange(0,55,5))
+
+            y_out = (y[0]+1)/(y[0][0]+1)
+            rewards_array.append(y_out)
+
+            ctr+=1
+
+            #
+            #if ctr>3:
+            #    break
+
+        #
+        from scipy import stats
+
+        #
+        #print (rewards_array)
+        yy = np.vstack(rewards_array)
+        #print (yy.shape)
+        xx = np.arange(yy.shape[1])*5+2.5
+
+        mean = np.mean(yy,axis=0)
+        std = np.std(yy, axis=0)
+
+        #
+        res = stats.pearsonr(xx,mean)
+        print ("Perason corr: ", res)
+
+
+
+        plt.figure()
+        ax1=plt.subplot(111)
+        plt.plot(np.unique(xx), np.poly1d(np.polyfit(xx, mean, 1))(np.unique(xx)),
+                 '--')
+
+        plt.plot(xx,mean, c='blue', label = "pcorr: "+str(round(res[0],2))+ ", pval: "+str(round(res[1],5)),
+                    linewidth=5)
+
+        ax1.fill_between(xx, mean + std, mean - std, color='blue', alpha=0.1)
+        plt.xlim(xx[0]-2.5,xx[-1]+2.5)
+        plt.ylabel("# rewards (normalized to first 5mins)")
+        plt.xlabel("Time (mins)")
+        plt.ylim(bottom=0)
+        plt.legend()
+        plt.suptitle(self.animal_id)
+
+        plt.show()
+
+
+    def n_rewards_per_session(self):
+        #
+        labels = []
+        n_rewards = []
+        ctr=0
+        for session_id in self.session_ids:
+            S = ProcessSession(self.root_dir,
+                               self.animal_id,
+                               session_id)
+            #
+            S.verbose = self.verbose
+            S.load_data()
+
+            #
+            labels.append(session_id)
+
+            #
+            n_rewards.append(S.reward_times.shape[0])
+
+
+        from scipy import stats
+        xx = np.arange(len(n_rewards))
+        yy = np.array(n_rewards)
+        res = stats.pearsonr(xx,yy)
+        print ("Perason corr: ", res)
+
+
+
+        plt.figure()
+        plt.plot(np.unique(xx), np.poly1d(np.polyfit(xx, yy, 1))(np.unique(xx)),
+                 '--')
+
+        plt.scatter(xx,yy, c='blue', label = "pcorr: "+str(round(res[0],2))+ ", pval: "+str(round(res[1],5)),
+                    linewidth=5)
+
+        plt.xticks(np.arange(len(yy)), labels, rotation=30)
+        plt.xlim(xx[0]-0.5,xx[-1]+0.5)
+        plt.bar(xx,yy,0.9, alpha=.5)
+        plt.ylabel("# rewards")
+        plt.ylim(bottom=0)
+        plt.legend()
+        plt.suptitle(self.animal_id)
+
+        plt.show()
+
+    def n_bursts_per_session(self):
+
+
+        #
+
+
+        #
+        labels = []
+        bursts_all = []
+
+        for session_id in self.session_ids:
+            S = ProcessSession(self.root_dir,
+                               self.animal_id,
+                               session_id)
+            #
+            #S.load_data()
+            self.save_dir = os.path.join(self.root_dir,
+                                         self.animal_id,
+                                         session_id,
+                                         'results')
+
+            burst_array = np.load(os.path.join(self.save_dir, 'cell_burst_histogram_v2.npy'))
+
+            bursts_all.append(burst_array)
+            #
+            labels.append(session_id)
+
+        #
+        from scipy import stats
+
+        ########################################################
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        names = ['roi1','roi2','roi3','roi4']
+        clrs = ['blue','red']
+        for k in range(4):
+            plt.subplot(2,2,k+1)
+
+            xx = np.arange(len(labels))
+
+            yys = []
+            yys_sums = []
+            for s in range(len(bursts_all)):
+                yys.append(bursts_all[s][k])
+                yys_sums.append(bursts_all[s][k].sum())
+
+            #
+            yys_sums = np.array(yys_sums)
+            res = stats.pearsonr(xx,yys_sums)
+            #print ("Perason corr: ", res)
+
+            plt.plot(np.unique(xx),
+                     np.poly1d(np.polyfit(xx, yys_sums, 1))(np.unique(xx)),
+                     '--')
+
+            plt.scatter(xx,yys_sums, c=clrs[k//2], label = names[k]+ ", pcorr: "+str(round(res[0],2))+ ", pval: "+str(round(res[1],5)),
+                        linewidth=5)
+
+            plt.xticks(np.arange(len(yys_sums)), labels, rotation=30)
+            plt.xlim(xx[0]-0.5,xx[-1]+0.5)
+            plt.bar(xx,yys_sums,0.9, color=clrs[k//2],alpha=.5)
+            plt.ylabel("# bursts")
+            plt.ylim(bottom=0)
+            plt.legend()
+            if k < 2:
+                plt.xticks([])
+        plt.suptitle(self.animal_id)
+
+        #########################################################
+        #########################################################
+        #########################################################
+        plt.figure()
+        import matplotlib.patches as mpatches
+        import matplotlib.pyplot as plt
+
+
+        names = ['roi1','roi2','roi3','roi4']
+        clrs = ['blue','red']
+        for k in range(4):
+            plt.subplot(2,2,k+1)
+
+            xx = np.arange(len(labels))
+
+            yys = []
+            yys_sums = []
+            for s in range(len(bursts_all)):
+                yys.append(bursts_all[s][k])
+                yys_sums.append(bursts_all[s][k].sum())
+
+            colors = plt.cm.viridis(np.linspace(0, 1, len(yys)))
+            #print (cmap)
+
+            #
+            for s in range(len(yys)):
+                xx = np.arange(len(yys[s])) * 5+2.5
+
+                plt.plot(xx, yys[s], color=colors[s],
+                         label=labels[s]
+                         )
+
+            #red_patch = mpatches.Patch(color='none', label=names[k])
+            #plt.legend(handles=[red_patch])
+            if k<2:
+                plt.xticks([])
+            plt.title(names[k])
+            plt.ylabel("# bursts")
+            plt.xlabel("Time (mins)")
+            plt.ylim(bottom=0)
+            plt.xlim(xx[0]-2.5, xx[-1]+2.5)
+            plt.legend()
+        plt.suptitle(self.animal_id)
+
+
+        #
+
+
+        plt.show()

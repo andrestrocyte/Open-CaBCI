@@ -31,7 +31,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 import sys
 module_path = os.path.abspath(os.path.join('..'))
 sys.path.append(module_path)
-
+from scipy.optimize import curve_fit
+from scipy import asarray as ar,exp
 #from utils.wheel import wheel
 
 
@@ -614,6 +615,7 @@ class Calcium():
         
         #
         if os.path.exists(fname_out) and self.recompute_binarization==False:
+
             data = np.load(fname_out, allow_pickle=True)
             self.F_onphase_bin = data['F_onphase']
             self.F_upphase_bin = data['F_upphase']
@@ -642,7 +644,7 @@ class Calcium():
                 print ("   todo: print binarization defaults...")
             
         else:
-            self.binarize_fluorescence()
+            self.binarize_fluorescence2()
 
     def get_footprint_contour(self, cell_id, cell_boundary='convex_hull'):
         points = np.vstack((self.stat[cell_id]['xpix'],
@@ -749,7 +751,7 @@ class Calcium():
 
     
 
-    def binarize_fluorescence(self):
+    def binarize_fluorescence2(self):
 
         fname_out = os.path.join(self.data_dir,
                                  'binarized_traces.npz'
@@ -813,11 +815,82 @@ class Calcium():
             std_global, self.F_filtered = self.compute_std_global(self.F_filtered)
 
             #
-            self.stds = np.zeros(self.F_filtered.shape[0])+std_global
+
+
+            def find_threshold_by_gaussian_fit(F_filtered, percentile_threshold):
+
+                print ("fitting guassian to compute f0:...")
+                from statistics import NormalDist, mode
+                thresholds = []
+                for k in range(F_filtered.shape[0]):
+
+                    # F_filtered2 = butter_lowpass_filter(F_filtered[k],0.02,30,1)
+                    F_filtered2 = F_filtered[k]
+
+                    #
+                    # y = np.histogram(F_filtered2, bins=np.arange(-1, 1, 0.01))
+                    x = np.arange(-1,1,0.0001)
+
+                    # y = y[0]/np.max(y[0])  #/ self.F_upphase_bin[k].shape[0] * 1000
+
+                    #
+                    # plt.figure()
+                    # plt.plot(x,y)
+                    # plt.show()
+
+                    # OPTION 1: MEAN MIRRORIING
+                    if True:
+                        mean = np.mean(F_filtered2)
+                        idx = np.where(F_filtered2<=mean)[0]
+                        pts_neg = F_filtered2[idx]
+                        pts_pos = -pts_neg.copy()
+
+                        pooled = np.hstack((pts_neg, pts_pos))
+
+                    else:
+                        y_mode = mode(F_filtered2)
+                        idx = np.where(F_filtered2 <= y_mode)[0]
+                        pts_neg = F_filtered2[idx]
+                        pts_pos = -pts_neg.copy()
+
+                        pooled = np.hstack((pts_neg, pts_pos))
+
+                    norm = NormalDist.from_samples(pooled)
+                    mu = norm.mean
+                    sigma = norm.stdev
+                    #n_points = 1000
+
+
+                    #
+                    y_fit = stats.norm.pdf(x, mu, sigma)
+                    y_fit = y_fit/np.max(y_fit)
+
+                    # shift peak of fit to match themode
+                    # plt.plot(x, y_fit)
+
+                    #
+                    cumsum = np.cumsum(y_fit)
+                    cumsum = cumsum/np.max(cumsum)
+                    # plt.figure()
+                    # plt.plot(x, cumsum)
+                    # plt.show()
+
+                    idx = np.where(cumsum>percentile_threshold)[0]
+
+                    #
+
+                    #
+                    thresh = x[idx[0]]
+                    print ("threshold: ", thresh)
+                    thresholds.append(thresh)
+
+                return thresholds
 
             #
-            self.F_onphase_bin = self.binarize_onphase(self.F_filtered,
-                                                       self.stds,
+            self.thresholds = find_threshold_by_gaussian_fit(self.F_filtered, self.percentile_threshold)
+
+            #
+            self.F_onphase_bin = self.binarize_onphase2(self.F_filtered,
                                                        self.min_width_event_onphase,
                                                        self.min_thresh_std_onphase,
                                                        'filtered fluorescence onphase')
@@ -846,20 +919,20 @@ class Calcium():
             idx = np.where(self.der <= self.der_min_slope)
             F_upphase = self.F_filtered.copy()
             F_upphase[idx]=0
-
+            self.stds = [None,None]
             #
-            self.F_upphase_bin = self.binarize_onphase(F_upphase,
-                                                       self.stds,    # use the same std array as for full Fluorescence
+            self.F_upphase_bin = self.binarize_onphase2(F_upphase,
                                                        self.min_width_event_upphase,
                                                        self.min_thresh_std_upphase,
                                                        'filtered fluorescence upphase')
-
+            #plt.plot(self.F_upphase_bin[3])
             # make sure that upphase data has at least one onphase start
             # some of the cells miss this
-            for k in range(len(onphases)):
-                idx = np.int32(onphases[k])
-                for id_ in idx:
-                    self.F_upphase_bin[k,id_:id_+2] = 1
+            if False:
+                for k in range(len(onphases)):
+                    idx = np.int32(onphases[k])
+                    for id_ in idx:
+                        self.F_upphase_bin[k,id_:id_+2] = 1
 
             ############################################################
             ################## THRESHOLD RAW OASIS #####################
@@ -1143,9 +1216,8 @@ class Calcium():
 
         return traces
 
-    def binarize_onphase(self,
+    def binarize_onphase2(self,
                          traces,
-                         val_scale,
                          min_width_event,
                          min_thresh_std,
                          text=''):
@@ -1165,9 +1237,8 @@ class Calcium():
             temp = traces[k].copy()
 
             # find threshold crossings standard deviation based
-            val = val_scale[k]
             #print ("using threshold: ", min_thresh_std, "val_scale: ", val)
-            idx1 = np.where(temp>=val*min_thresh_std)[0]  # may want to use absolute threshold here!!!
+            idx1 = np.where(temp>=self.thresholds[k])[0]  # may want to use absolute threshold here!!!
 
             #
             temp = temp*0
@@ -1181,6 +1252,7 @@ class Calcium():
             #
             xys = np.int32(np.vstack((starts, ends)).T)
             idx = np.where(widths < min_width_event)[0]
+            #print ("# evetns too short ", idx.shape, min_width_event)
             xys = np.delete(xys, idx, axis=0)
 
             traces_bin[k] = traces_bin[k]*0
@@ -1189,6 +1261,14 @@ class Calcium():
             buffer = 0
             for p in range(xys.shape[0]):
                 traces_bin[k,xys[p,0]:xys[p,1]+buffer] = 1
+
+            # if k==3:
+            #     plt.figure()
+            #     plt.plot(temp)
+            #     plt.plot(traces_bin[k])
+            #     plt.show()
+            #     print ("ycomputed: ", traces_bin[k])
+            #     #print (temp.shape, traces_bin.shape)
 
         return traces_bin
 
