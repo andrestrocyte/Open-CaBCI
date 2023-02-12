@@ -964,6 +964,7 @@ class BMI():
 
         # get time of ttl pulse
         self.now_ttl_pulse = time.perf_counter() #perf_counter_ns()/1E9
+        self.now = self.now_ttl_pulse
 
         # this helps us figure out how fast this loop runs
         # TODO: we may want to introduce a delay of 5ms or so so we don't constanly read TTL pulses

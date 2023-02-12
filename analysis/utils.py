@@ -38,7 +38,9 @@ class ProcessSession():
 
     def load_data(self):
 
-        #
+        ################################################
+        ############ LOAD RESULTS NPZ FILE #############
+        ################################################
         fname = os.path.join(self.root_dir,
                              self.animal_id,
                              self.session_id,
@@ -51,15 +53,26 @@ class ProcessSession():
         self.reward_times = np.int32(data['rewarded_times_abs'][:, 1])
 
         #
-        self.abs_times = data['abs_times']
+        try:
+            self.abs_times = data['abs_times_ttl_read']
+        except:
+            self.abs_times = data['abs_times']
 
-        self.ttl_times = data['ttl_times']
+        #print ("self.abs_times")
+
+        try:
+            self.ttl_times = data['abs_times_ca_read']
+        except:
+            self.ttl_times = data['ttl_times']
 
 
         self.ttl_comp = data['ttl_n_computed']
 
         #
-        self.ttl_det = data['ttl_n_detected']
+        try:
+            self.ttl_det = data['rewarded_times_abs'][:,1]
+        except:
+            self.ttl_det = data['ttl_n_detected']
 
         #
         self.lick_detector = data['lick_detector_abstime']
@@ -72,16 +85,51 @@ class ProcessSession():
         self.ttl_times -= self.ttl_times[0]
 
         #
-        self.E = data['ensemble_diff_array']
+
 
         #
         self.E1 = data["rois_traces_smooth1"]
         self.E2 = data["rois_traces_smooth2"]
+
+
+        #
         self.E1[:, :10] = 0
         self.E2[:, :10] = 0
 
+        #self.E2[1, self.ttl_det]
+
+        # old method:
+        # self.E = data['ensemble_diff_array']
+        self.E = self.E1.sum(0)-self.E2.sum(0)
+
         #
         self.rec_len_mins = self.E1.shape[1]/self.sample_rate/60.
+
+
+
+        #######################################################
+        ################## LOAD DICTIONARY ####################
+        #######################################################
+        fname_dict = os.path.join(self.root_dir,
+                                  self.animal_id,
+                                  self.session_id,
+                                  'data', 'results.xlsx')
+
+        #
+        if os.path.exists(fname_dict):
+            # SEARCH FOR DICTIONARY:
+            df = pd.read_excel(fname_dict)
+            D = df.iloc[:, 1:].values
+
+            #
+            self.white_noise = D[:, 2]
+            self.high_threshold = D[:, 1]
+            self.ttl_det = np.int32(D[:,0])-1
+            post_reward = D[:, 3]
+        else:
+            print ("Missing dictionary (early sessions... skipping)")
+
+
 
         #
         if self.verbose:
@@ -91,7 +139,7 @@ class ProcessSession():
             print("ttl times: ", self.ttl_times.shape, self.ttl_times[0], self.ttl_times[-1], " total rec time sec: ",
               self.ttl_times[-1] - self.ttl_times[0])
             print("ttl computed: ", self.ttl_comp.shape, self.ttl_comp)
-            print("ttl detected: ", self.ttl_det.shape)
+            print("ttl detected: ", self.ttl_det.shape, self.ttl_det)
             print("lick detector: ", self.lick_detector.shape)
             print("lick times: ", self.lick_times)
             print("E1 , E2, ", self.E1.shape, self.E2.shape)
@@ -110,30 +158,6 @@ class ProcessSession():
 
 
 
-        #######################################################
-        #######################################################
-        #######################################################
-        fname_dict = os.path.join(self.root_dir,
-                                  self.animal_id,
-                                  self.session_id,
-                                  'data', 'results.xlsx')
-
-        #
-        if os.path.exists(fname_dict):
-            #print ("found dictionary: loading...")
-
-            # SEARCH FOR DICTIONARY:
-            df = pd.read_excel(fname_dict)
-            D = df.iloc[:, 1:].values
-
-            #
-            self.white_noise = D[:, 2]
-            self.high_threshold = D[:, 1]
-            post_reward = D[:, 3]
-        else:
-            print ("Missing dictionary (early sessions... skipping)")
-
-
         #print("DONE...")
 
     def process_session_traces(self):
@@ -149,14 +173,19 @@ class ProcessSession():
         #
         scale = 2
         alpha = .7
-        plt.plot(self.ttl_times, self.E1[0, self.ttl_comp], c='blue', label='roi1', alpha=alpha)
-        plt.plot(self.ttl_times, self.E1[1, self.ttl_comp] + scale, c='lightblue', label='roi2', alpha=alpha)
-        plt.plot(self.ttl_times, self.E2[0, self.ttl_comp] + scale * 2, c='red', label='roi3', alpha=alpha)
-        plt.plot(self.ttl_times, self.E2[1, self.ttl_comp] + scale * 3, c='pink', label='roi4', alpha=alpha)
+        #plt.plot(self.ttl_times, self.E1[0, self.ttl_comp], c='blue', label='roi1', alpha=alpha)
+        #plt.plot(self.ttl_times, self.E1[1, self.ttl_comp] + scale, c='lightblue', label='roi2', alpha=alpha)
+        #plt.plot(self.ttl_times, self.E2[0, self.ttl_comp] + scale * 2, c='red', label='roi3', alpha=alpha)
+        #plt.plot(self.ttl_times, self.E2[1, self.ttl_comp] + scale * 3, c='pink', label='roi4', alpha=alpha)
+
+        plt.plot(self.ttl_times, self.E1[0, self.ttl_det], c='blue', label='roi1', alpha=alpha)
+        plt.plot(self.ttl_times, self.E1[1, self.ttl_det] + scale, c='lightblue', label='roi2', alpha=alpha)
+        plt.plot(self.ttl_times, self.E2[0, self.ttl_det] + scale * 2, c='red', label='roi3', alpha=alpha)
+        plt.plot(self.ttl_times, self.E2[1, self.ttl_det] + scale * 3, c='pink', label='roi4', alpha=alpha)
 
         # total ensemble state
         ctr = 6
-        plt.plot(self.ttl_times, self.E[self.ttl_comp] + scale * ctr, c='black', label='Ensemble state', alpha=.3)
+        plt.plot(self.ttl_times, self.E[self.ttl_det] + scale * ctr, c='black', label='Ensemble state', alpha=.3)
 
         # plot rewarded times
         plt.scatter(self.ttl_times[self.reward_times],
