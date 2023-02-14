@@ -36,6 +36,63 @@ class ProcessSession():
         if os.path.exists(self.save_dir)==False:
             os.mkdir(self.save_dir)
 
+    def view_contingency_degradation(self):
+
+        # load test data
+        pre = []
+        for session_id in self.pre:
+            d = np.load(os.path.join(self.root_dir,
+                                     self.animal_id,
+                                     session_id,
+                                     'results/intra_session_reward_hits_per_minute.npy'
+                                     ))
+            pre.append(d.mean())
+
+        print (pre)
+
+        # load contingency degradata
+        cont_deg = []
+        for session_id in self.during:
+            d = np.load(os.path.join(self.root_dir,
+                                     self.animal_id,
+                                     session_id,
+                                     'results/intra_session_reward_hits_per_minute.npy'
+                                     ))
+            cont_deg.append(d.mean())
+
+        print (cont_deg)
+        # load contingency degradata
+        post = []
+        for session_id in self.post:
+            d = np.load(os.path.join(self.root_dir,
+                                     self.animal_id,
+                                     session_id,
+                                     'results/intra_session_reward_hits_per_minute.npy'
+                                     ))
+            post.append(d.mean())
+        print (post)
+        #
+        plt.figure()
+        xticks = ['T','CD','R']
+
+        #
+        x = np.arange(3)
+        #
+        y = np.array(([np.mean(pre),
+                     np.mean(cont_deg),
+                     np.mean(post)]))
+        print (y)
+
+        plt.bar(x,y,width=0.9)
+        plt.xticks(x,xticks)
+        plt.ylabel("% hits")
+
+
+
+        plt.show()
+
+
+
     def load_data(self):
 
         ################################################
@@ -52,10 +109,19 @@ class ProcessSession():
         #
         self.reward_times = np.int32(data['rewarded_times_abs'][:, 1])
 
+
+        self.trials = data['trials']
+        self.starts_ttl = data['trials'][:, 0]
+        self.starts_time = data['trials'][:, 1]
+        self.ends_ttl = data['trials'][:, 2]
+        self.ends_time = data['trials'][:, 3]
+        self.rewards = data['trials'][:, 4]
+
         #
         try:
             self.abs_times = data['abs_times_ttl_read']
         except:
+            print ("missing: ", 'abs_times_ttl_read')
             self.abs_times = data['abs_times']
 
         #print ("self.abs_times")
@@ -63,6 +129,7 @@ class ProcessSession():
         try:
             self.ttl_times = data['abs_times_ca_read']
         except:
+            print ("missing: ", 'abs_times_ca_read')
             self.ttl_times = data['ttl_times']
 
 
@@ -72,6 +139,7 @@ class ProcessSession():
         try:
             self.ttl_det = data['rewarded_times_abs'][:,1]
         except:
+            print ("missing: ", 'rewarded_times_abs')
             self.ttl_det = data['ttl_n_detected']
 
         #
@@ -106,6 +174,14 @@ class ProcessSession():
         self.rec_len_mins = self.E1.shape[1]/self.sample_rate/60.
 
 
+        # Setdefault high trehsold and white noise in case they are not saved to xlsx document
+        self.high_threshold = data['high_threshold']
+        self.high_threshold = self.ttl_times*0 + self.high_threshold
+
+        self.white_noise = self.high_threshold*0
+
+
+
 
         #######################################################
         ################## LOAD DICTIONARY ####################
@@ -114,6 +190,7 @@ class ProcessSession():
                                   self.animal_id,
                                   self.session_id,
                                   'data', 'results.xlsx')
+
 
         #
         if os.path.exists(fname_dict):
@@ -147,14 +224,6 @@ class ProcessSession():
 
 
 
-
-
-
-        # Setdefault high trehsold and white noise in case they are not saved to xlsx document
-        self.high_threshold = data['high_threshold']
-        self.high_threshold = self.ttl_times*0 + self.high_threshold
-
-        self.white_noise = self.high_threshold*0
 
 
 
@@ -202,6 +271,7 @@ class ProcessSession():
 
         # plot white noise
         idx = np.where(self.white_noise)[0]
+        print ("White noise: ", idx.shape)
         ax.scatter(
             self.ttl_times[idx],
             self.ttl_times[idx] * 0 + scale * ctr,
@@ -467,6 +537,78 @@ class ProcessSession():
             plt.close()
         #
         np.save(os.path.join(self.save_dir,'intra_session_reward.npy'),y)
+
+
+    #
+    def compute_intra_session_reward_histogram_hist_per_minute(self):
+
+        #
+        # d = np.load('/media/cat/4TB/donato/andres/Cohort 6 Data/DON-014266/20230205/data/results.npz',
+        #             allow_pickle=True)
+        #
+        #
+        # self.trials = d['trials']
+        # self.starts_ttl = d['trials'][:, 0]
+        # self.starts_time = d['trials'][:, 1]
+        # self.ends_ttl = d['trials'][:, 2]
+        # self.ends_time = d['trials'][:, 3]
+        # self.rewards = d['trials'][:, 4]
+
+        #
+        # make hits per min array
+        xx = np.arange(0,self.rec_len_mins,self.bin_width_mins)
+        start_ttl = 0
+        start_time = self.starts_time[0]
+        hits_per_bin = np.zeros(xx.shape[0])
+        misses_per_bin = np.zeros(xx.shape[0])
+        n_trials_per_bin = np.zeros(xx.shape[0])
+
+        for k in range(self.rewards.shape[0]):
+            temp = self.rewards[k]
+            abs_time = self.ends_time[k]-start_time
+            abs_ttl_in_mins = (self.ends_ttl[k]-start_ttl)/self.sample_rate/60.
+            if np.isnan(abs_ttl_in_mins):
+                break
+
+            # find bin of the reward
+            idx = int(abs_ttl_in_mins/self.bin_width_mins)
+            if temp:
+                hits_per_bin[idx]+= 1
+            else:
+                misses_per_bin[idx]+= 1
+
+            n_trials_per_bin[idx]+=1
+
+        #
+        yy = hits_per_bin/n_trials_per_bin
+
+        #
+        from scipy import stats
+        res = stats.pearsonr(xx,yy)
+        print ("Perason corr: ", res)
+
+        #
+        plt.figure()
+        plt.plot(np.unique(xx), np.poly1d(np.polyfit(xx, yy, 1))(np.unique(xx)),
+                 '--')
+        plt.scatter(xx,yy, label = "pcorr: "+str(round(res[0],2))+ ", pval: "+str(round(res[1],5)))
+        plt.bar(xx,yy,self.bin_width_mins*0.9, alpha=.5)
+        plt.ylim(bottom=0)
+        plt.xlim(xx[0]-self.bin_width_mins/2.,xx[-1]+self.bin_width_mins/2.)
+        plt.legend()
+
+        plt.xlabel("Time (mins)")
+        plt.ylabel("% trial hits")
+        plt.title(self.animal_id +  " -- " + self.session_id)
+        plt.savefig(os.path.join(self.save_dir,'intra_session_reward_hist_per_minute.png'),dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+        #
+        np.save(os.path.join(self.save_dir,'intra_session_reward_hits_per_minute.npy'),yy)
+
 
     #
     def compute_correlograms_ensembles_upphase(self):
