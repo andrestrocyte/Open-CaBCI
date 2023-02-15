@@ -237,7 +237,7 @@ class Calcium():
         #
         if stds.shape[0]<10:
             std_global = stds
-            print ("too few cells... for std global, saving individual stds :", std_global.shape)
+            #print ("too few cells... for std global, saving individual stds :", std_global.shape)
             return std_global, F
         
 
@@ -819,7 +819,7 @@ class Calcium():
 
             def find_threshold_by_gaussian_fit(F_filtered, percentile_threshold):
 
-                print ("fitting guassian to compute f0:...")
+                #print ("fitting guassian to compute f0:...")
                 from statistics import NormalDist, mode
                 thresholds = []
                 for k in range(F_filtered.shape[0]):
@@ -881,7 +881,7 @@ class Calcium():
 
                     #
                     thresh = x[idx[0]]
-                    print ("threshold: ", thresh)
+                    #print ("threshold: ", thresh)
                     thresholds.append(thresh)
 
                 return thresholds
@@ -988,7 +988,7 @@ class Calcium():
                                                              self.spks)
             else:
             #except:
-                print("   Oasis based binarization skipped by default ... ")
+                #print("   Oasis based binarization skipped by default ... ")
                 self.spks = np.nan
                 self.spks_smooth_bin = np.nan
                 self.spks_upphase_bin = np.nan

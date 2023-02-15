@@ -10,12 +10,93 @@ import scipy.ndimage
 #from matplotlib_scalebar.scalebar import ScaleBar
 
 
+#
+class ProcessCohort():
+
+    def __init__(self, root_dir, animal_ids, cohort_name):
+
+        #
+        self.root_dir = root_dir
+        self.animal_ids = animal_ids
+        self.cohort_name = cohort_name
+
+    def load_animals(self):
+
+        for animal_id in self.animal_ids:
+            sessions = np.load(os.path.join(
+                                self.root_dir,
+                                animal_id,
+                                'session_names.npy'
+                                ))
+            print (animal_id, sessions)
+
+    def cohort_hit_rate(self):
+
+        #
+        early_rates = []
+        late_rates = []
+        for animal_id in self.animal_ids:
+            d = np.load(os.path.join(self.root_dir,
+                                        animal_id, 'early_vs_late_per_session.npy'))
+            early_rates.append(d[0].mean())
+            late_rates.append(d[1].mean())
+
+        early = np.hstack(early_rates)
+        late = np.hstack(late_rates)
+
+        #
+        res_ttest = scipy.stats.ttest_ind(early, late)
+        res_ks = scipy.stats.ks_2samp(early, late)
+
+        #
+        x = np.arange(2)
+        #
+        plt.bar(0,np.mean(early),width=0.9,
+                color='mediumturquoise',alpha=1, edgecolor='black',linewidth=5)
+
+        plt.scatter(np.zeros(early.shape[0]), early,
+                    edgecolor='black',
+                    c='mediumturquoise', label="ttest statistic: "+str(round(res_ttest[0],3))+
+                    ", ttest pval: "+str(round(res_ttest[1],5)))
+
+        ################################
+        plt.bar(1, np.mean(late), width=0.9,
+                color='royalblue', alpha=1, edgecolor='black',linewidth=5)
+        plt.scatter(np.zeros(early.shape[0])+1, late,edgecolor='black',
+                    c='royalblue', label="ks test: "+str(round(res_ks[0],3))+
+                    ", ks pval: "+str(round(res_ks[1],5)))
+
+        plt.legend()
+
+
+
+        #
+        xticks=['early','late']
+        plt.xticks(x,xticks)
+        plt.ylabel("% hit rate")
+        plt.suptitle(self.cohort_name + " hit-rate")
+
+
+        plt.savefig(os.path.join(self.root_dir,
+                                 'early_vs_late_cohort.png'), dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.root_dir,
+                            'early_vs_late_cohort.npy'), [early,late])
+
+
+
+
 class ProcessSession():
 
     def __init__(self,
                  root_dir,
                  animal_id,
-                 session_id):
+                 session_id=''):
 
         #
         self.root_dir = root_dir
@@ -32,11 +113,19 @@ class ProcessSession():
                                      self.session_id,
                                      'results')
 
+        # default show plots
+        self.show_plots = True
+
+        #
+        self.verbose = False
+
+
+
         #
         if os.path.exists(self.save_dir)==False:
             os.mkdir(self.save_dir)
 
-    def view_contingency_degradation(self):
+    def contingency_degradation(self):
 
         # load test data
         pre = []
@@ -48,7 +137,6 @@ class ProcessSession():
                                      ))
             pre.append(d.mean())
 
-        print (pre)
 
         # load contingency degradata
         cont_deg = []
@@ -60,7 +148,6 @@ class ProcessSession():
                                      ))
             cont_deg.append(d.mean())
 
-        print (cont_deg)
         # load contingency degradata
         post = []
         for session_id in self.post:
@@ -70,7 +157,7 @@ class ProcessSession():
                                      'results/intra_session_reward_hits_per_minute.npy'
                                      ))
             post.append(d.mean())
-        print (post)
+
         #
         plt.figure()
         xticks = ['T','CD','R']
@@ -81,16 +168,170 @@ class ProcessSession():
         y = np.array(([np.mean(pre),
                      np.mean(cont_deg),
                      np.mean(post)]))
-        print (y)
 
         plt.bar(x,y,width=0.9)
         plt.xticks(x,xticks)
-        plt.ylabel("% hits")
+        plt.ylabel("% hits (per session)")
+
+        plt.savefig(os.path.join(self.root_dir,
+                                self.animal_id,
+                                 'contingency_degradation.png'), dpi=200)
+        plt.suptitle(self.animal_id)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.root_dir,
+                                self.animal_id, 'contingency_degradation.npy'), y)
 
 
 
-        plt.show()
+    def early_vs_late(self):
 
+        # load test data
+        early = []
+        for session_id in self.early:
+            d = np.load(os.path.join(self.root_dir,
+                                     self.animal_id,
+                                     session_id,
+                                     'results/intra_session_reward_hits_per_minute.npy'
+                                     ))
+            early.append(d)
+
+        early = np.hstack(early)
+        #print (pre)
+
+        # load contingency degradata
+        late = []
+        for session_id in self.late:
+            d = np.load(os.path.join(self.root_dir,
+                                     self.animal_id,
+                                     session_id,
+                                     'results/intra_session_reward_hits_per_minute.npy'
+                                     ))
+            late.append(d)
+        late = np.hstack(late)
+
+        #
+        plt.figure()
+        xticks = ['Early','Late']
+
+        res = scipy.stats.ttest_ind(early, late)
+        res_ks = scipy.stats.ks_2samp(early, late)
+
+        #
+        x = np.arange(2)
+        #
+        plt.bar(0,np.mean(early),width=0.9,
+                color='mediumturquoise',alpha=1, edgecolor='black',linewidth=5)
+
+        plt.scatter(np.zeros(early.shape[0]), early,
+                    edgecolor='black',
+                    c='mediumturquoise', label="ttest statistic: "+str(round(res[0],3))+
+                    ", ttest pval: "+str(round(res[1],5)))
+
+        ################################
+        plt.bar(1, np.mean(late), width=0.9,
+                color='royalblue', alpha=1, edgecolor='black',linewidth=5)
+        plt.scatter(np.zeros(early.shape[0])+1, late,edgecolor='black',
+                    c='royalblue', label="ks test: "+str(round(res_ks[0],3))+
+                    ", ks pval: "+str(round(res_ks[1],5)))
+
+        plt.legend()
+
+
+
+        #
+        plt.xticks(x,xticks)
+        plt.ylabel("% hits (every 5min bin)")
+        plt.suptitle(self.animal_id)
+
+
+        plt.savefig(os.path.join(self.root_dir,
+                                self.animal_id,
+                                 'early_vs_late.png'), dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.root_dir,
+                                self.animal_id, 'early_vs_late.npy'), [early,late])
+
+
+    def early_vs_late_session(self):
+
+        # load test data
+        early = []
+        for session_id in self.early:
+            d = np.load(os.path.join(self.root_dir,
+                                     self.animal_id,
+                                     session_id,
+                                     'results/intra_session_reward_hits_per_minute.npy'
+                                     ))
+            early.append(d.mean())
+
+        early = np.hstack(early)
+        #print (pre)
+
+        # load contingency degradata
+        late = []
+        for session_id in self.late:
+            d = np.load(os.path.join(self.root_dir,
+                                     self.animal_id,
+                                     session_id,
+                                     'results/intra_session_reward_hits_per_minute.npy'
+                                     ))
+            late.append(d.mean())
+        late = np.hstack(late)
+
+        #
+        plt.figure()
+        xticks = ['Early','Late']
+
+        res = scipy.stats.ttest_ind(early, late)
+        res_ks = scipy.stats.ks_2samp(early, late)
+
+        #
+        x = np.arange(2)
+
+        #################################
+        plt.bar(0, np.mean(early), width=0.9,
+                color='mediumturquoise', alpha=1, edgecolor='black',linewidth=5)
+        plt.scatter(np.zeros(early.shape[0]), early,
+                    edgecolor='black',
+                    c='mediumturquoise', label="ttest statistic: "+str(round(res[0],3))+
+                    ", ttest pval: "+str(round(res[1],5)))
+
+
+        ################################
+        plt.bar(1, np.mean(late), width=0.9,
+                color='royalblue', alpha=1,edgecolor='black',linewidth=5)
+        plt.scatter(np.zeros(early.shape[0])+1, late,edgecolor='black',
+                    c='royalblue', label="ks test: "+str(round(res_ks[0],3))+
+                    ", ks pval: "+str(round(res_ks[1],5)))
+
+        plt.legend()
+
+        #
+        plt.xticks(x,xticks)
+        plt.ylabel("% hits (per session)")
+        plt.suptitle(self.animal_id)
+
+
+        plt.savefig(os.path.join(self.root_dir,
+                                self.animal_id,
+                                 'early_vs_late_per_session.png'), dpi=200)
+        #
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.root_dir,
+                             self.animal_id, 'early_vs_late_per_session.npy'), [early,late])
 
 
     def load_data(self):
@@ -121,7 +362,8 @@ class ProcessSession():
         try:
             self.abs_times = data['abs_times_ttl_read']
         except:
-            print ("missing: ", 'abs_times_ttl_read')
+            if self.verbose:
+                print ("missing: ", 'abs_times_ttl_read')
             self.abs_times = data['abs_times']
 
         #print ("self.abs_times")
@@ -129,20 +371,17 @@ class ProcessSession():
         try:
             self.ttl_times = data['abs_times_ca_read']
         except:
-            print ("missing: ", 'abs_times_ca_read')
+            if self.verbose:
+                print ("missing: ", 'abs_times_ca_read')
             self.ttl_times = data['ttl_times']
 
 
         self.ttl_comp = data['ttl_n_computed']
 
         #
-        try:
-            self.ttl_det = data['rewarded_times_abs'][:,1]
-        except:
-            print ("missing: ", 'rewarded_times_abs')
-            self.ttl_det = data['ttl_n_detected']
+        self.ttl_det = np.arange(self.ttl_times.shape[0]).astype('int32')
 
-        #
+        # TODO: Need to lock this to time correctly
         self.lick_detector = data['lick_detector_abstime']
 
         idx = np.where(self.lick_detector > 3)[0]
@@ -151,9 +390,6 @@ class ProcessSession():
 
         #
         self.ttl_times -= self.ttl_times[0]
-
-        #
-
 
         #
         self.E1 = data["rois_traces_smooth1"]
@@ -204,9 +440,8 @@ class ProcessSession():
             self.ttl_det = np.int32(D[:,0])-1
             post_reward = D[:, 3]
         else:
-            print ("Missing dictionary (early sessions... skipping)")
-
-
+            if self.verbose:
+                print ("Missing dictionary (early sessions... skipping)")
 
         #
         if self.verbose:
@@ -221,13 +456,6 @@ class ProcessSession():
             print("lick times: ", self.lick_times)
             print("E1 , E2, ", self.E1.shape, self.E2.shape)
 
-
-
-
-
-
-
-        #print("DONE...")
 
     def process_session_traces(self):
 
@@ -247,6 +475,7 @@ class ProcessSession():
         #plt.plot(self.ttl_times, self.E2[0, self.ttl_comp] + scale * 2, c='red', label='roi3', alpha=alpha)
         #plt.plot(self.ttl_times, self.E2[1, self.ttl_comp] + scale * 3, c='pink', label='roi4', alpha=alpha)
 
+        #
         plt.plot(self.ttl_times, self.E1[0, self.ttl_det], c='blue', label='roi1', alpha=alpha)
         plt.plot(self.ttl_times, self.E1[1, self.ttl_det] + scale, c='lightblue', label='roi2', alpha=alpha)
         plt.plot(self.ttl_times, self.E2[0, self.ttl_det] + scale * 2, c='red', label='roi3', alpha=alpha)
@@ -271,7 +500,8 @@ class ProcessSession():
 
         # plot white noise
         idx = np.where(self.white_noise)[0]
-        print ("White noise: ", idx.shape)
+        if self.verbose:
+            print ("White noise: ", idx.shape)
         ax.scatter(
             self.ttl_times[idx],
             self.ttl_times[idx] * 0 + scale * ctr,
@@ -309,8 +539,9 @@ class ProcessSession():
         self.E1_corr = stats.pearsonr(self.E1[0], self.E1[1])
         self.E2_corr = stats.pearsonr(self.E2[0], self.E2[1])
 
-        print("pearson correlation E1 cells; ", self.E1_corr[0])
-        print("pearson correlation E2 cells; ", self.E2_corr[0])
+        if self.verbose:
+            print("pearson correlation E1 cells; ", self.E1_corr[0])
+            print("pearson correlation E2 cells; ", self.E2_corr[0])
 
         np.save(os.path.join(self.save_dir, 'pearson_corr_ensembles.npy'), [self.E1_corr, self.E2_corr])
 
@@ -327,13 +558,15 @@ class ProcessSession():
         # lick times
         spikes2 = self.lick_times
         spikes2 = np.unique(np.round(self.lick_times,2))
-        print ("lick times: ", spikes2)
+        if self.verbose:
+            print ("lick times: ", spikes2)
 
         spike_times = np.hstack((spikes1, spikes2))
 
         idx = np.argsort(spike_times)
         spike_times = spike_times[idx]
-        print ("# of spikes: ", spike_times.shape[0])
+        if self.verbose:
+            print ("# of spikes: ", spike_times.shape[0])
 
         spike_clusters = np.int32(np.hstack((np.zeros(spikes1.shape[0]),
                                              np.zeros(spikes2.shape[0]) + 1)))
@@ -373,7 +606,6 @@ class ProcessSession():
 
         np.save(os.path.join(self.save_dir, 'correlograms_reward_vs_licking.npy'), corr)
 
-        print("DONE...")
 
 
     def compute_intra_session_inter_burst_interval(self):
@@ -512,7 +744,8 @@ class ProcessSession():
         #
         from scipy import stats
         res = stats.pearsonr(xx,yy)
-        print ("Perason corr: ", res)
+        if self.verbose:
+            print ("Perason corr: ", res)
 
         #
 
@@ -585,7 +818,8 @@ class ProcessSession():
         #
         from scipy import stats
         res = stats.pearsonr(xx,yy)
-        print ("Perason corr: ", res)
+        if self.verbose:
+            print ("Perason corr: ", res)
 
         #
         plt.figure()
@@ -598,7 +832,7 @@ class ProcessSession():
         plt.legend()
 
         plt.xlabel("Time (mins)")
-        plt.ylabel("% trial hits")
+        plt.ylabel("% hit rate")
         plt.title(self.animal_id +  " -- " + self.session_id)
         plt.savefig(os.path.join(self.save_dir,'intra_session_reward_hist_per_minute.png'),dpi=200)
 
@@ -608,6 +842,62 @@ class ProcessSession():
             plt.close()
         #
         np.save(os.path.join(self.save_dir,'intra_session_reward_hits_per_minute.npy'),yy)
+
+
+
+    #
+    def compute_animal_hit_rate(self):
+
+        #
+        hit_rates = []
+        for session_id in self.session_ids:
+            hit_rate = np.load(os.path.join(self.root_dir,
+                                     self.animal_id,
+                                     session_id,
+                                     'results',
+                                     'intra_session_reward_hits_per_minute.npy'))
+            hit_rates.append(hit_rate)
+
+        hit_rates = np.vstack(hit_rates)
+
+        #
+        # make hits per min array
+        xx = np.arange(0,self.rec_len_mins,self.bin_width_mins)
+
+        #
+        yy = np.mean(hit_rates,0)
+
+
+        #
+        from scipy import stats
+        res = stats.pearsonr(xx,yy)
+        if self.verbose:
+            print ("Perason corr: ", res)
+
+        #
+        plt.figure()
+        plt.plot(np.unique(xx), np.poly1d(np.polyfit(xx, yy, 1))(np.unique(xx)),
+                 '--')
+        plt.scatter(xx,yy, label = "pcorr: "+str(round(res[0],2))+ ", pval: "+str(round(res[1],5)))
+        plt.bar(xx,yy,self.bin_width_mins*0.9, alpha=.5)
+        plt.ylim(bottom=0)
+        plt.xlim(xx[0]-self.bin_width_mins/2.,xx[-1]+self.bin_width_mins/2.)
+        plt.legend()
+
+        plt.xlabel("Time (mins)")
+        plt.ylabel("% hit rates- all essions")
+        plt.title(self.animal_id +  " -- " + self.session_id + ", average hit rate all sessions")
+
+        self.save_dir_root = os.path.join(self.root_dir,
+                                          self.animal_id)
+        plt.savefig(os.path.join(self.save_dir_root,'average_hit_rate.png'),dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+        #
+        np.save(os.path.join(self.save_dir,'average_hit_rate.npy'),yy)
 
 
     #
@@ -699,8 +989,6 @@ class ProcessSession():
         np.save(os.path.join(self.save_dir,'correlograms_upphase.npy'),corr)
 
 
-        print("DONE...")
-
 
     #
     def compute_correlograms_ensembles_fluorescence(self):
@@ -761,8 +1049,6 @@ class ProcessSession():
         #
         np.save(os.path.join(self.save_dir,'correlograms_fluorescence.npy'),cc_array, allow_pickle=True)
 
-        print("DONE...")
-
     #
     def binarize_ensembles(self):
 
@@ -807,13 +1093,13 @@ class ProcessSession():
 
         #
         c.F = traces
+        c.verbose=False
         c.percentile_threshold = self.percentile_threshold
         c.recompute_binarization = self.recompute_binarization
 
         #c.binarize_fluorescence2()
         c.load_binarization()
 
-        print("Binarized traces: ", c.F_upphase_bin.shape)
 
         self.F_upphase_bin = c.F_upphase_bin
         self.F_onphase_bin = c.F_onphase_bin
@@ -848,30 +1134,15 @@ class ProcessSession():
 
             #
             y = self.F_filtered[k]
-            if k == 3:
-                print ("filtered plooted: ", y)
+            #if k == 3:
+            #    print ("filtered plooted: ", y)
+
             plt.plot(t,y,c='black',alpha=.5,label=names[k])
 
             #
             plt.plot(t,yy, c=clrs[k//2],alpha=.5)
 
           # plot histogram side of panel
-            if False:
-                y = np.histogram(y, bins=np.arange(-1,1,0.02))
-                x = y[1][:-1]
-                y = y[0]/yy.shape[0]*1000
-                plt.plot(y,x)
-
-                n = len(x)  # the number of data
-                mean = sum(x * y) / n  # note this correction
-                sigma = sum(y * (x - mean) ** 2) / n  # note this correction
-
-                def gaus(x, a, x0, sigma):
-                    return a * exp(-(x - x0) ** 2 / (2 * sigma ** 2))
-
-                popt, pcov = curve_fit(gaus, x, y, p0=[1, mean, sigma])
-                plt.plot(gaus(x, *popt),x, 'ro:', label='fit')
-                #
             plt.legend()
             plt.xlim(t[0],t[-1])
 
@@ -917,9 +1188,7 @@ class ProcessSession():
         from scipy import stats
 
         #
-        print (rewards_array)
         yy = np.vstack(rewards_array)
-        print (yy.shape)
         xx = np.arange(yy.shape[1])*5+2.5
 
         mean = np.mean(yy,axis=0)
@@ -927,9 +1196,8 @@ class ProcessSession():
 
         #
         res = stats.pearsonr(xx,mean)
-        print ("Perason corr: ", res)
-
-
+        if self.verbose:
+            print ("Perason corr: ", res)
 
         plt.figure()
         ax1=plt.subplot(111)
@@ -940,16 +1208,23 @@ class ProcessSession():
                     linewidth=5)
 
         ax1.fill_between(xx, mean + std, mean - std, color='blue', alpha=0.1)
-        #plt.xticks(np.arange(len(mean)), labels, rotation=30)
+
         plt.xlim(xx[0]-2.5,xx[-1]+2.5)
-        #plt.bar(xx,mean,0.9, alpha=.5)
+
         plt.ylabel("# rewards")
         plt.xlabel("Time (mins)")
         plt.ylim(bottom=0)
         plt.legend()
         plt.suptitle(self.animal_id)
 
-        plt.show()
+        plt.savefig(os.path.join(self.save_dir_root,
+                                'n_rewards_intra_session.png'), dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.save_dir_root,'n_rewards_intra_session.npy'),mean)
 
 
     def n_rewards_intra_session_normalized(self):
@@ -999,9 +1274,8 @@ class ProcessSession():
 
         #
         res = stats.pearsonr(xx,mean)
-        print ("Perason corr: ", res)
-
-
+        if self.verbose:
+            print ("Perason corr: ", res)
 
         plt.figure()
         ax1=plt.subplot(111)
@@ -1019,7 +1293,14 @@ class ProcessSession():
         plt.legend()
         plt.suptitle(self.animal_id)
 
-        plt.show()
+        plt.savefig(os.path.join(self.save_dir_root,
+                                'n_rewards_intra_session_normalized.png'), dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.save_dir_root,'n_rewards_intra_session_normalized.npy'), mean)
 
 
     def n_rewards_per_session(self):
@@ -1027,7 +1308,7 @@ class ProcessSession():
         labels = []
         n_rewards = []
         ctr=0
-        for session_id in self.session_ids:
+        for session_id in tqdm(self.session_ids,desc='loading data for n_rewards_per_session'):
             S = ProcessSession(self.root_dir,
                                self.animal_id,
                                session_id)
@@ -1046,9 +1327,8 @@ class ProcessSession():
         xx = np.arange(len(n_rewards))
         yy = np.array(n_rewards)
         res = stats.pearsonr(xx,yy)
-        print ("Perason corr: ", res)
-
-
+        if self.verbose:
+            print ("Perason corr: ", res)
 
         plt.figure()
         plt.plot(np.unique(xx), np.poly1d(np.polyfit(xx, yy, 1))(np.unique(xx)),
@@ -1065,7 +1345,21 @@ class ProcessSession():
         plt.legend()
         plt.suptitle(self.animal_id)
 
-        plt.show()
+        self.save_dir_root = os.path.join(self.root_dir,
+                                          self.animal_id)
+        plt.savefig(os.path.join(self.save_dir_root,
+                                'n_rewards_per_session.png'), dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.save_dir_root,'n_rewards_per_session.npy'),yy)
+
+
+
+
+
 
     def n_bursts_per_session(self):
 
@@ -1077,7 +1371,7 @@ class ProcessSession():
         labels = []
         bursts_all = []
 
-        for session_id in self.session_ids:
+        for session_id in tqdm(self.session_ids,desc='loading data for n_bursts_per_session'):
             S = ProcessSession(self.root_dir,
                                self.animal_id,
                                session_id)
@@ -1099,7 +1393,7 @@ class ProcessSession():
 
         ########################################################
         import matplotlib.pyplot as plt
-        fig = plt.figure()
+        plt.figure()
         names = ['roi1','roi2','roi3','roi4']
         clrs = ['blue','red']
         for k in range(4):
@@ -1133,7 +1427,17 @@ class ProcessSession():
             plt.legend()
             if k < 2:
                 plt.xticks([])
+
         plt.suptitle(self.animal_id)
+
+        plt.savefig(os.path.join(self.save_dir_root,
+                                 'n_bursts_per_session.png'), dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+
 
         #########################################################
         #########################################################
@@ -1176,11 +1480,15 @@ class ProcessSession():
             plt.xlabel("Time (mins)")
             plt.ylim(bottom=0)
             plt.xlim(xx[0]-2.5, xx[-1]+2.5)
-            plt.legend()
+            #plt.legend()
         plt.suptitle(self.animal_id)
 
 
         #
+        plt.savefig(os.path.join(self.save_dir_root,
+                                 'n_bursts_per_session2.png'), dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
 
-
-        plt.show()
