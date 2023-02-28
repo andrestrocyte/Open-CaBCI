@@ -573,8 +573,14 @@ class PlotROIs():
                 #                        [self.contours_all_cells[c][k][1], self.contours_all_cells[c][k + 1][1]],
                 #                         c='white',
                 #                         linewidth=1)
-                temp = self.contours_all_cells[c][0]
+                #temp = self.contours_all_cells[c][0]
+                # not clear what's happening here; I think older version saved differetn
+                # type of contour data
+                temp = self.contours_all_cells[c].squeeze()
+                #if len(temp.shape) <=1:
+                #    continue
                 for k in range(len(temp) - 1):
+                    #print (k, temp, temp.shape)
                     plt.plot([temp[k][0], temp[k + 1][0]],
                              [temp[k][1], temp[k + 1][1]],
                              c='white',
