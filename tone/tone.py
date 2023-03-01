@@ -37,7 +37,11 @@ class PlayTone():
                  shmem_alignment_flag,
                  water_vol_ttl,
                  simulation_flag,
-                 calibration_flag):
+                 calibration_flag,
+                 sleep_time_sec):
+
+        #
+        self.sleep_time_sec = sleep_time_sec
 
         #
         self.water_vol_ttl = water_vol_ttl
@@ -325,14 +329,14 @@ class PlayTone():
         #print("Playing reward tone: SET TO high frequency")
 
         #
+        self.tone_state[0] = 16000
+
+        #
         if self.simulation_flag:
             return
 
 		# TODO : this is not ideal; this fuctnion shoul donly play the tone, not do anything else,
 		#      including generating tone data etc.
-
-        #
-        self.tone_state[0] = 16000
 
         #
         tone_data = self.make_tone(self.tone_state[0], self.amplitude, self.duration)
@@ -402,8 +406,6 @@ class PlayTone():
         tone_data = self.make_tone(self.tone_state[0].copy(),
                                    self.amplitude,
                                    self.duration)
-
-
 
         # exit if in simulation mode
         if self.simulation_flag:
@@ -549,45 +551,57 @@ class PlayTone():
                 self.water_reward[0] = 0
                 return
 
-            # skip water release for simulation mode also
-            if self.simulation_flag:
-                self.water_reward[0] = 0
-                return
+            # give water and cycle through NI card ttls...
+            if self.simulation_flag==True:
 
-            # close the audio writer
-            # TODO: update this entire function to handle water + tone in parallel/simultaneously
-            print("closing audio writer")
-            self.close_audio_writer()
+                # set the tone to high reward threshold
+                self.tone_state[0] = 16000
 
-            # initialize the output function for water dispesning
-            print("initializing water writer")
-            self.initialize_water_writer()
+                # simulate playing the tone state for duration of time
+                # play hightest tone to indicate reward  for specific amount of time
+                # TODO: this essentially counts some frames; ~ correct, but not quite
+                #sleep_time = self.n_sec_reward_tone*self.sleep_time_sec*self.duration
+                #print ("sleep time: ", sleep_time)
+                #time.sleep(sleep_time)
 
-            # put water state to 5volts
-            # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
-            # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
-            start = time.time()
-            for p in range(self.water_spout_ttl_duration):
-                # print ("water reward loop: ", p)
-                self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
-            print(" released water for: ", time.time() - start,
-                  " sec. (Closing water port)")
+            else:
+                #self.water_reward[0] = 0
+                #return
 
-            # return water ttl state to 0volts
-            # TODO Not clear we have to take so long to reset the water writer; maybe 100 time points is enough
-            for p in range(self.water_spout_ttl_duration):
-                self.water_Writer.write_one_sample(0)
+                # close the audio writer
+                # TODO: update this entire function to handle water + tone in parallel/simultaneously
+                print("closing audio writer")
+                self.close_audio_writer()
 
-            # close water writer
-            self.close_water_writer()
+                # initialize the output function for water dispesning
+                print("initializing water writer")
+                self.initialize_water_writer()
 
-            # reopen the audio tone after water release
-            # TODO: this should technically be simultaneous with the water release!!
-            self.initialize_audio_writer()
+                # put water state to 5volts
+                # TODO: not sure the loop is required? perhaps just write it once and then wait for duration!?
+                # THIS FUNCTION WRITES 5v to the output for 10000 microseconds
+                start = time.time()
+                for p in range(self.water_spout_ttl_duration):
+                    # print ("water reward loop: ", p)
+                    self.water_Writer.write_one_sample(self.water_spout_ttl_voltage)
+                print(" released water for: ", time.time() - start,
+                      " sec. (Closing water port)")
 
-            # play hightest tone to indicate reward  for specific amount of time
-            for k in range(int(self.n_sec_reward_tone / self.duration)):
-                self.play_reward_tone_high_freq()
+                # return water ttl state to 0volts
+                # TODO Not clear we have to take so long to reset the water writer; maybe 100 time points is enough
+                for p in range(self.water_spout_ttl_duration):
+                    self.water_Writer.write_one_sample(0)
+
+                # close water writer
+                self.close_water_writer()
+
+                # reopen the audio tone after water release
+                # TODO: this should technically be simultaneous with the water release!!
+                self.initialize_audio_writer()
+
+                # play hightest tone to indicate reward  for specific amount of time
+                for k in range(int(self.n_sec_reward_tone / self.duration)):
+                    self.play_reward_tone_high_freq()
 
             # NOTE: this is set to negative so that during calibration so there's no other sounds outside of
             # otherwise during online bmi this is overwritten shortly after exiting this conditional
@@ -595,10 +609,10 @@ class PlayTone():
             # TODO: currently not used; but could be implemented for varying types of calibration paradigms;
             # - e.g. if water rewards are paired to tone during calbration (randomly or not), may wish to turn off
             #      the tones after
-            self.ensemble_state[0] = -30000
+            #self.ensemble_state[0] = -30000
 
             # return tone to default state
             # TODO: this doesn't seem necessary as the rest of pipeline takes care of this
 
-        # This resets the water reward back to 0 to turn off rewards in future
-        self.water_reward[0] = 0
+            # This resets the water reward back to 0 to turn off rewards in future
+            self.water_reward[0] = 0

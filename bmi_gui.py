@@ -174,6 +174,7 @@ if __name__ ==  '__main__':
                                                   bmi.water_vol_ttl,
                                                   simulation_flag_tone,
                                                   calibration_flag,
+                                                  bmi.sleep_time_sec,
                                                   ))
     tone_player_.start()
 

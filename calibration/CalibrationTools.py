@@ -1799,9 +1799,10 @@ class CalibrationTools(object):
         print (" high guess: ", high)
 
         # loop over time series decreasing the rewards until we hit the random #
-        stepper = 0.95
+        stepper = 0.99
         self.fps = 30
         n_rewards = 0
+        exit_flag_next_cycle= False
         from tqdm.notebook import tqdm
         for qq in range(200):
 
@@ -1903,23 +1904,26 @@ class CalibrationTools(object):
                     #
                     post_reward_lockout = True
 
-
-                #if k % 10000==0:
-                #print ("k : ", k)
-
-
+            #
             print("updated rewards #: ", n_rewards, high)
 
-            #
-            if n_rewards >= n_rewards_random:
+            if exit_flag_next_cycle and n_rewards>=n_rewards_random:
                 break
 
-            # check exit condition otherwise decrase thresholds
-            high *= stepper
-            #low *= stepper
+            # check if we're getting more rewards then wanted
+            # and reset to previous threshold and restart
+            if n_rewards > n_rewards_random:
+                exit_flag_next_cycle = True
+                high /=stepper
+                stepper = 0.999
+            else:
+                # check exit condition otherwise decrase thresholds
+                high *= stepper
+                #low *= stepper
+
 
         #
-        print("updated rewards #: ", n_rewards, high)
+        print("FINAL # of rewards #: ", n_rewards, ", set threshold: ", high)
 
         #
         self.reward_times = np.vstack(reward_times)

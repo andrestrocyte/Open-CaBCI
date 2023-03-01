@@ -837,6 +837,8 @@ class BMI():
                  "post_reward_state": self.post_reward_state[0],
                  "reward_lockout_counter": self.reward_lockout_counter[0],
                  "tone_state": self.tone_state[0],
+                 "ensemble_state": self.ensemble_state[0],
+                 "water_reward": self.water_reward[0],
                  }
         #
         self.bmi_dictionary.append(state)

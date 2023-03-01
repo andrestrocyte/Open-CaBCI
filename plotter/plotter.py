@@ -576,7 +576,9 @@ class PlotROIs():
                 #temp = self.contours_all_cells[c][0]
                 # not clear what's happening here; I think older version saved differetn
                 # type of contour data
-                temp = self.contours_all_cells[c].squeeze()
+                temp = self.contours_all_cells[c][0]
+                #print (temp.shape)
+
                 #if len(temp.shape) <=1:
                 #    continue
                 for k in range(len(temp) - 1):
