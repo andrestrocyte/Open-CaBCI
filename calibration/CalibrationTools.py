@@ -15,7 +15,7 @@ from matplotlib.widgets import Slider, Button, RadioButtons
 import os, pickle
 
 
-#from stardist.models import StarDist2D
+from stardist.models import StarDist2D
 from utils.utils import smooth_ca_time_series4, compute_dff0, compute_dff0_with_reference, get_mode
 
 
@@ -38,8 +38,10 @@ class CalibrationTools(object):
 
         #
         # data = np.memmap(self.fname, dtype='uint16', mode='r+')
-        # data = np.memmap(self.fname, dtype='uint16', mode='r')
-        data = np.fromfile(self.fname, dtype='uint16')
+        data = np.memmap(self.fname, dtype='uint16', mode='r')
+        #data = np.fromfile(self.fname, dtype='uint16')
+        #data = np.fromfile(self.fname, dtype='uint16'
+        #                   np.memmap('a.npy', dtype=np.float64, mode='r', shape=(2, 3))                   )
         self.data = data.reshape(-1, 512, 512)
         print("memmap : ", self.data.shape)
 
@@ -520,6 +522,10 @@ class CalibrationTools(object):
         # add cell contours
         clrs=['white']
         for p in range(len(footprints)):
+
+            if self.roi_f0s[p]<self.min_f0:
+                continue
+
             temp = np.zeros(std_map.shape)
             #print ("footrpints: ", footprints[p])
             temp[footprints[p]] = 1
@@ -1520,7 +1526,7 @@ class CalibrationTools(object):
         print("memmap : ", data.shape)
 
         ###########################################################
-        ################## PLOT CELLS IN TYPE ORDER ################
+        ################## PLOT CELLS IN TYPE ORDER ###############
         ###########################################################
         plt.figure()
 
@@ -1531,6 +1537,9 @@ class CalibrationTools(object):
         ctr = 0
         cell_ids = []
         for k in range(self.roi_traces.shape[0]):
+
+            if self.roi_f0s[k]<self.min_f0:
+                continue
 
             ax=plt.subplot(1,2,j+1)
             ax.tick_params(axis='both', which='both', labelsize=20)
@@ -1555,9 +1564,7 @@ class CalibrationTools(object):
             if ctr > self.max_n_cells:
                 break
 
-
-
-
+        #
         labels = cell_ids
         labels_old = np.arange(0, ctr * self.scale, self.scale)
 
@@ -2218,7 +2225,9 @@ def get_img_std(smin, smax, std_map, bmi_c):
 #
 def get_rois_stardist2d(img,
                         min_size,
-                        max_size):
+                        max_size,
+                        fname):
+
     # prints a list of available models
     print(StarDist2D.from_pretrained())
 
@@ -2259,11 +2268,75 @@ def get_rois_stardist2d(img,
     plt.imshow(labels, cmap='viridis', alpha=0.5)
     plt.axis('off');
 
-    plt.show()
+    #plt.show(block=False)
 
     #
+    save_ca_mask(footprints, roi_centres, fname)
+
 
     return roi_centres, footprints
+
+def save_ca_mask(footprints,
+                 roi_centres,
+                 fname,
+                 plot_flag = True):
+    import cv2
+
+    #
+    if plot_flag:
+        plt.figure(figsize=(8, 8))
+
+    #
+    contours = []
+    for p in trange(len(footprints)):
+
+        temp = np.zeros((512, 512))
+
+        #
+        temp[footprints[p]] = 1
+        temp = temp.astype('uint8')
+        contour, _ = cv2.findContours(temp,
+                                      cv2.RETR_TREE,
+                                      cv2.CHAIN_APPROX_SIMPLE)
+        contour = contour[0].squeeze()
+        # print ("contour: ", contour.shape)
+        try:
+            contour = np.vstack((contour, contour[0]))
+        except:
+            continue
+        contours.append(contour)
+
+        if plot_flag:
+            #
+            for k in range(len(contour) - 1):
+                plt.plot([contour[k][0], contour[k + 1][0]],
+                         [contour[k][1], contour[k + 1][1]],
+                         c='black')
+            #
+            z = np.vstack(footprints[p]).T
+            plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='black', fontsize=10)
+
+            plt.xlim(0, 512)
+            plt.ylim(512, 0)
+
+    #
+    # footprints = np.array(footprints)#, allow_pickle=True)
+    # contours = np.array(contours)#, allow_pickle=True)
+
+    idx = fname.find('day0')
+    print ("idx: ", idx)
+    fname_out = fname[:idx+4] + "/day0_ca_mask.npz"
+    print ("saving: ", fname_out)
+    np.savez(fname_out,
+             mask_roi_centres=roi_centres,
+             mask_footprints=footprints,
+             mask_contours=contours
+             )
+
+    # if plot_flag:
+    #     plt.show(block=False)
+
+
 
 
 def save_calibration_data_new_day(bmi_c, text=''):

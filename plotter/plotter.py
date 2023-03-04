@@ -4,7 +4,7 @@
 
 '''
 
-import time
+import time, os
 import numpy as np
 from multiprocessing import shared_memory
 import matplotlib.pyplot as plt
@@ -159,6 +159,9 @@ class PlotROIs():
             #
             self.initialize_motion_correction_flag()
 
+            #
+            self.initialize_day0_ca_mask()
+
         #
         self.initialize_live_frame_shared_memory()
 
@@ -201,6 +204,17 @@ class PlotROIs():
             # optional decrease plotting speed, may help in some cases
             # time.sleep(self.plotter_sleep_time_between_updates)
 
+    def initialize_day0_ca_mask(self):
+
+        fname = os.path.join(os.path.split(os.path.split(self.fname_rois_pixels_and_thresholds)[0])[0],\
+                                'day0',\
+                                "day0_ca_mask.npz")
+        d = np.load(fname, allow_pickle=True)
+
+        self.ca_mask_contours = d['mask_contours']
+
+        self.mask_flag = 0
+
     #
     def initialize_camera_frame_shared_memory(self):
 
@@ -235,8 +249,6 @@ class PlotROIs():
         self.manual_motion_correction_array = np.ndarray(aa.shape,
                                      dtype=aa.dtype,
                                      buffer=self.existing_shmem_manual_motion_correction_array.buf)
-
-
 
     #
     def initialize_high_threshold(self):
@@ -479,6 +491,50 @@ class PlotROIs():
         # also load the F0 computed from the calibration session
         self.cell_f0s_ensemble2 = data['ensemble2_f0s']
 
+    def show_ca_mask(self):
+
+
+        if self.mask_flag:
+            color = 'pink'
+            alpha=.8
+        else:
+            color = 'black'
+            alpha=.8
+
+        # add other cell contours to the data
+        ids = np.arange(len(self.ca_mask_contours))
+        for c in ids:
+            temp = self.ca_mask_contours[c]
+
+            self.ax_image.plot(temp[:,0],
+                     temp[:,1],
+                     c=color,
+                     linewidth=1,
+                     alpha=alpha)
+
+            #
+        self.fig.canvas.flush_events()
+
+        #
+        self.fig.canvas.draw()
+
+        #
+        self.fig.canvas.flush_events()
+
+        #
+        # self.fig.clf()
+
+        # cache the background
+        self.axbackground = []
+        if self.calibration_flag == False:
+            self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_traces.bbox))
+            self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
+
+        self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_camera.bbox))
+
+        #
+        plt.show(block=False)
+
     ################################################################################################
     ##################################### INITIALIZE PLOTS #########################################
     ################################################################################################
@@ -671,12 +727,31 @@ class PlotROIs():
             self.vals_threshold.on_changed(threshold_slider)
 
         #########################################################
+        ########## INITIALIZE MASK TOGGLE BUTTON ################
+        #########################################################
+        #
+        if self.calibration_flag == False:
+
+            axca_mask = plt.axes([0.925, 0.15, 0.04, 0.04])
+
+            def show_mask(event):
+                print ("TOGGLE MASK")
+                self.mask_flag= (self.mask_flag+1)%2
+
+                #
+                self.show_ca_mask()
+
+            bmask = Button(axca_mask, 'show-mask')
+            bmask.on_clicked(show_mask)
+
+
+        #########################################################
         ########## INITIALIZE STOP BUTTON #######################
         #########################################################
         #
         if self.calibration_flag == False:
 
-            axstop = plt.axes([0.925, 0.15, 0.04, 0.04])
+            axstop = plt.axes([0.925, 0.05, 0.04, 0.04])
 
             def stop_bmi(event):
                 print ("MANUAL STOP DETECTED")
@@ -748,7 +823,7 @@ class PlotROIs():
             self.time_course_objects_ensemble_sum = []
             self.f0_objects = []
 
-            # plot ROIS ensemble 1
+            # plot traces ensemble 1
             ctr=0
             for k in range(self.rois_traces_ensemble1.shape[0]):
 
@@ -775,7 +850,7 @@ class PlotROIs():
                 self.f0_objects.append(f0object)
                 ctr+=1
 
-            # plot ROIS ensemble 2
+            # plot traces ensemble 2
             for k in range(self.rois_traces_ensemble2.shape[0]):
 
                 #
