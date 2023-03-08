@@ -576,7 +576,11 @@ class PlotROIs():
                                    c='red',
                                    linewidth=4)
         #
-        ids = np.random.choice(np.arange(len(self.contours_all_cells)), min(50,len(self.contours_all_cells)), replace=False)
+
+        if self.contour_flag==0:
+            ids = np.arange(0,min(100,len(self.contours_all_cells)),1)
+        else:
+            ids = np.random.choice(np.arange(len(self.contours_all_cells)), min(50,len(self.contours_all_cells)), replace=False)
         print ("random cell ids: ", ids)
         for c in ids:
 
@@ -721,6 +725,7 @@ class PlotROIs():
             self.dynamic_f0_slider.on_changed(update_dynamic_flag)
 
             # add other cell contours to the data
+            self.contour_flag = 0
             self.show_other_cell_contours()
 
 
@@ -759,7 +764,7 @@ class PlotROIs():
 
             #
             def update_contour_drawing(val):
-                self.motion_corection_flag[0] = int(self.motion_slider.val)
+                self.contour_flag = int(self.contour_slider.val)
                 self.show_other_cell_contours()
 
 
