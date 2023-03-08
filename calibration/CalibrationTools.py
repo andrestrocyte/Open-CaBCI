@@ -1541,7 +1541,8 @@ class CalibrationTools(object):
             if self.roi_f0s[k]<self.min_f0:
                 continue
 
-            ax=plt.subplot(1,2,j+1)
+            #ax=plt.subplot(1,2,j+1)
+            ax=plt.subplot(2,1,j+1)
             ax.tick_params(axis='both', which='both', labelsize=20)
             plt.ylabel("Neuron ID ", fontsize=20)
 
@@ -1575,7 +1576,7 @@ class CalibrationTools(object):
         ###########################################################
         ################### PLOT IMAGE OF [CA] ####################
         ###########################################################
-        plt.subplot(1,2,2)
+        plt.subplot(2,1,2)
         new_plot = False
         self.show_contour_map(std_map,
                               self.footprints[:self.max_n_cells],
