@@ -528,7 +528,195 @@ class ProcessSession():
         else:
             plt.close()
 
+    def process_calibration(self):
 
+        d = np.load(os.path.join(self.root_dir,
+                                 self.animal_id,
+                                 self.session_id,
+                                 'rois_pixels_and_thresholds.npz'), allow_pickle=True)
+        if False:
+            roi_traces = np.array(d['all_roi_traces_submsampled'])
+            print ("Calibration roi traces: ", roi_traces.shape)
+
+            cell_ids = d['cell_ids']
+            print ("cell ids: ", cell_ids)
+
+            self.roi_traces_calibration = roi_traces[cell_ids]
+
+            f0s = np.mean(self.roi_traces_calibration, axis=0)
+            self.roi_traces_calibration = self.roi_traces_calibration/f0s
+
+        else:
+            e1_footprints = d['ensemble1_footprints']
+            e2_footprints = d['ensemble2_footprints']
+            #print ("e1 footprints: ", e1_footprints)
+
+            #
+            raw_ca = np.memmap(os.path.join(self.root_dir,
+                                            self.animal_id,
+                                            self.session_id,
+                                            'calibration',
+                                            "Image_001_001.raw"),
+                                           dtype='uint16',
+                                           mode='r')
+            raw_ca = raw_ca.reshape(-1, 512, 512)
+            print (raw_ca.shape)
+
+            self.calibration_subsample = 1
+            self.e1_1 = []
+            self.e1_2 = []
+            self.e2_1 = []
+            self.e2_2 = []
+
+            def get_roi(frame, roi):
+                # new way use exact pixel location
+                temp = frame[
+                        roi[:, 0],  # broadcast/index into the frame as per ROI pixels
+                        roi[:, 1]]
+
+                # divide by the number of pixels in the ROI - NOT SURE IF THIS IS CORRECT?!
+                # TODO: these algorithms must match the default water disposal algorithms
+                # TODO: USE A FUNCTION OVER THIS AND FOLLOWING STEP THAT IS SHARED WITH CALIBRATION CODE
+                roi_sum0 = temp / roi.shape[0]
+
+                # sum
+                # TODO: not sure this is the correct function; to check literature
+                # TODO: also this part shoudl be refactored to a callabale function by both calibration and BMI classes
+                roi_sum0 = np.nansum(roi_sum0)
+
+                # Note: Do not remove baseline yet; this is done in the smoothing step;
+                # TODO: make sure that this approach is correct
+                return roi_sum0
+
+
+            for k in trange(0,raw_ca.shape[0],self.calibration_subsample):
+                self.e1_1.append(get_roi(raw_ca[k], e1_footprints[0]))
+                self.e1_2.append(get_roi(raw_ca[k], e1_footprints[1]))
+                self.e2_1.append(get_roi(raw_ca[k], e2_footprints[0]))
+                self.e2_2.append(get_roi(raw_ca[k], e2_footprints[1]))
+
+            def smooth_ca_time_series4(diff):
+                #
+                ''' This returns the last value. i.e. no filter
+
+                '''
+
+                temp = (diff[-1] * 0.4 +
+                        diff[-2] * 0.25 +
+                        diff[-3] * 0.15 +
+                        diff[-4] * 0.10 +
+                        diff[-5] * 0.10)
+
+                return temp
+
+            def get_dff(trace):
+
+                trace = np.hstack(trace)
+                trace_smooth = trace.copy()
+                trace_smooth[:5]=0
+
+                f0 = np.mean(trace)
+
+                for p in trange(5, trace.shape[0],1):
+                    #
+                    roi_history = trace[p-5:p]
+
+                    #
+                    rois_dff = (roi_history - f0) / f0
+
+                    #
+                    trace_smooth[p] = smooth_ca_time_series4(rois_dff)
+
+                return trace_smooth
+
+            self.e1_1 = get_dff(self.e1_1)
+            self.e1_2 = get_dff(self.e1_2)
+            self.e2_1 = get_dff(self.e2_1)
+            self.e2_2 = get_dff(self.e2_2)
+
+
+    def show_session_traces_and_calibration(self):
+
+        #
+
+
+        ########################################################
+        ########################################################
+        ########################################################
+        #
+        scale = 2
+        alpha = .7
+
+        plt.figure(figsize=(40,20))
+        ax = plt.subplot(1, 1, 1)
+
+        # plot calibration
+        t_calibration = np.arange(self.e1_1.shape[0])*self.calibration_subsample/30.
+        t_calibration = t_calibration-t_calibration[-1]
+
+
+        plt.plot(t_calibration, self.e1_1, c='blue', alpha=alpha)
+        plt.plot(t_calibration, self.e1_2+scale , c='lightblue', alpha=alpha)
+        plt.plot(t_calibration, self.e2_1+scale*2, c='red', alpha=alpha)
+        plt.plot(t_calibration, self.e2_2+scale*3, c='pink', alpha=alpha)
+
+
+        #
+        plt.plot(self.ttl_times, self.E1[0, self.ttl_det], c='blue', label='roi1', alpha=alpha)
+        plt.plot(self.ttl_times, self.E1[1, self.ttl_det] + scale, c='lightblue', label='roi2', alpha=alpha)
+        plt.plot(self.ttl_times, self.E2[0, self.ttl_det] + scale * 2, c='red', label='roi3', alpha=alpha)
+        plt.plot(self.ttl_times, self.E2[1, self.ttl_det] + scale * 3, c='pink', label='roi4', alpha=alpha)
+
+        # total ensemble state
+        ctr = 6
+        plt.plot(self.ttl_times, self.E[self.ttl_det] + scale * ctr, c='black', label='Ensemble state', alpha=.3)
+
+        # plot rewarded times
+        plt.scatter(self.ttl_times[self.reward_times],
+                    self.high_threshold[self.reward_times] + scale * ctr, s=25, c='green', label='reward times')
+
+        # add lines
+        for k in range(self.reward_times.shape[0]):
+            plt.plot([self.ttl_times[self.reward_times[k]], self.ttl_times[self.reward_times[k]]],
+                     [0, self.high_threshold[self.reward_times[k]] + scale * ctr], c='green', alpha=.2)
+
+        # plot reward threshold
+        plt.plot(self.ttl_times,
+                 self.high_threshold + scale * ctr, '--', c='lightgreen', label='threshold')
+
+        # plot white noise
+        idx = np.where(self.white_noise)[0]
+        if self.verbose:
+            print ("White noise: ", idx.shape)
+        ax.scatter(
+            self.ttl_times[idx],
+            self.ttl_times[idx] * 0 + scale * ctr,
+            color='brown',
+            alpha=1,
+            label='white-nose',
+        )
+
+        # lick times
+        ctr += .4
+        licks = np.unique(np.round(self.lick_times,1))
+        plt.scatter(licks, licks * 0 + scale * ctr, alpha=0.8, c='orange', label='lick detector')
+
+
+        plt.plot([0,0],[0,scale*ctr],'--',c='grey')
+
+
+        #
+        plt.legend()
+        plt.xlabel("Time (sec)")
+        plt.xlim(t_calibration[0], self.ttl_times[-1])
+        plt.suptitle(self.animal_id + " " + self.session_id)
+
+        plt.savefig(os.path.join(self.save_dir,'session.png'),dpi=200)
+
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
 
 
     #
