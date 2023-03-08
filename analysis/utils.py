@@ -1049,6 +1049,69 @@ class ProcessSession():
         #
         np.save(os.path.join(self.save_dir,'correlograms_fluorescence.npy'),cc_array, allow_pickle=True)
 
+
+    def correlograms_inter_session(self):
+
+        from scipy import stats
+
+        self.sample_rate = 30  # in Hz
+        self.bin_size = 1  # in seconds
+
+        # rewarded times
+        std_threshold = 5
+        names = ["roi1", "roi2","roi3","roi4",]
+
+        #
+        plt.figure()
+        t=np.arange(-self.window, self.window, 1)
+        cc_array = []
+
+        #for k in range()
+        colors = plt.cm.viridis(np.linspace(0, 1, len(self.session_ids)))
+        ctr_sess =0
+        for session_id in tqdm(self.session_ids, desc='loading data for hit rate per session'):
+
+            #
+            cc = np.load(os.path.join(self.root_dir,
+                                      self.animal_id,
+                                      session_id,
+                                      'results',
+                                      'correlograms_fluorescence.npy'), allow_pickle=True)
+           # print ("cc : ", cc)
+            print ("Length of cc: ", len(cc), len(cc[0]))
+            ctr=0
+            for k in range(4):
+                for p in range(k,4,1):
+
+                    plt.subplot(4,4,k*4+p+1)
+
+                    y = cc[k][p]
+                    #print ("y,: ", y)
+                    plt.plot(t,y, color=colors[ctr_sess])
+                    ctr+=1
+
+                    plt.title(names[k] + " vs " +names[p])
+                    plt.xlim(t[0],t[-1])
+                    if p!=k:
+                        plt.xticks([])
+                    else:
+                        plt.xlabel("Time (sec)")
+                    plt.ylim(bottom=0)
+                # plt.plot([0,0],
+                #          [0,np.max(cc) ],
+                #          '--',c='grey')
+            ctr_sess+=1
+        plt.suptitle(self.animal_id  + " Raw fluorescence based xcorrelation")
+        #plt.savefig(os.path.join(self.save_dir, 'correlograms_fluorescence.png'), dpi=200)
+        #import time
+        #time.sleep(1)
+        plt.show()
+
+        #if self.show_plots==False:
+        #    plt.close()
+        #
+        #np.save(os.path.join(self.save_dir,'correlograms_fluorescence.npy'),cc_array, allow_pickle=True)
+
     #
     def binarize_ensembles(self):
 
@@ -1354,6 +1417,8 @@ class ProcessSession():
             plt.close()
 
         np.save(os.path.join(self.save_dir_root, 'hit_Rates.npy'), hit_rates)
+
+
     def n_rewards_per_session(self):
         #
         labels = []
