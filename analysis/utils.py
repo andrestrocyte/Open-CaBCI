@@ -1302,7 +1302,58 @@ class ProcessSession():
 
         np.save(os.path.join(self.save_dir_root,'n_rewards_intra_session_normalized.npy'), mean)
 
+    def hit_rate_per_session(self):
+        #
+        labels = []
+        n_rewards = []
+        hit_rates = []
+        for session_id in tqdm(self.session_ids, desc='loading data for hit rate per session'):
 
+            #
+            hr = np.load(os.path.join(self.root_dir,
+                                      self.animal_id,
+                                     session_id,
+                                     'results',
+                                     'intra_session_reward_hits_per_minute.npy'))
+
+            #
+            hit_rates.append(hr)
+            labels.append(session_id)
+
+        # from scipy import stats
+        # xx = np.arange(len(n_rewards))
+        # yy = np.array(n_rewards)
+        # res = stats.pearsonr(xx, yy)
+        # if self.verbose:
+        #     print("Perason corr: ", res)
+
+        plt.figure()
+        #plt.plot(np.unique(xx), np.poly1d(np.polyfit(xx, yy, 1))(np.unique(xx)),
+        #         '--')
+
+        for k in range(len(hit_rates)):
+            y = hit_rates[k]
+            x = y*0 + k
+            plt.scatter(x, y, c='black')
+            plt.bar(x[0], np.mean(y), 0.9, color='blue', alpha=.5)
+
+        plt.xticks(np.arange(len(hit_rates)), labels, rotation=30)
+        #plt.xlim(xx[0] - 0.5, xx[-1] + 0.5)
+        plt.ylabel("hit rates")
+        plt.ylim(bottom=0)
+        plt.legend()
+        plt.suptitle(self.animal_id)
+
+        self.save_dir_root = os.path.join(self.root_dir,
+                                          self.animal_id)
+        plt.savefig(os.path.join(self.save_dir_root,
+                                 'hit_rates.png'), dpi=200)
+        if self.show_plots:
+            plt.show()
+        else:
+            plt.close()
+
+        np.save(os.path.join(self.save_dir_root, 'hit_Rates.npy'), hit_rates)
     def n_rewards_per_session(self):
         #
         labels = []
@@ -1320,7 +1371,7 @@ class ProcessSession():
             labels.append(session_id)
 
             #
-            n_rewards.append(S.reward_times.shape[0])
+        #    n_rewards.append(S.reward_times.shape[0])
 
 
         from scipy import stats
