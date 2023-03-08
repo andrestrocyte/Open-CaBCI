@@ -168,7 +168,7 @@ def gui():
     window.geometry('1000x800')
 
     fontsize = 10
-    default_option = 0
+    default_option = 1
 
     # button box to read the directory of the location of the Bscope raw data
     fname_root_path = askdirectory()

@@ -493,7 +493,6 @@ class PlotROIs():
 
     def show_ca_mask(self):
 
-
         if self.mask_flag:
             color = 'pink'
             alpha=.8
@@ -534,6 +533,80 @@ class PlotROIs():
 
         #
         plt.show(block=False)
+
+    def show_other_cell_contours(self):
+
+        #
+        self.fig.canvas.restore_region(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
+
+        # clear previous plotting
+        self.ax_image.cla()
+
+        #
+        #self.fig.canvas.flush_events()
+
+        #
+        self.image_obj = self.ax_image.imshow(self.live_frame[0],
+                                              vmin=self.live_image_vmin,
+                                              vmax=self.live_image_vmax,
+                                              interpolation="none")
+        self.image_obj.set_clim([self.smin.val,
+                                 self.smax.val])
+
+        ################################################
+        ############## PLOT ROI CONTOURS ###############
+        ################################################
+        # ROI contours ensemble 1
+        for c in range(len(self.rois_contours_ensemble1)):
+            for k in range(len(self.rois_contours_ensemble1[c]) - 1):
+                self.ax_image.plot([self.rois_contours_ensemble1[c][k][0],
+                                    self.rois_contours_ensemble1[c][k + 1][0]],
+                                   [self.rois_contours_ensemble1[c][k][1],
+                                    self.rois_contours_ensemble1[c][k + 1][1]],
+                                   c='blue',
+                                   linewidth=4)
+
+        # ROI contours ensemble 2
+        for c in range(len(self.rois_contours_ensemble2)):
+            for k in range(len(self.rois_contours_ensemble2[c]) - 1):
+                self.ax_image.plot([self.rois_contours_ensemble2[c][k][0],
+                                    self.rois_contours_ensemble2[c][k + 1][0]],
+                                   [self.rois_contours_ensemble2[c][k][1],
+                                    self.rois_contours_ensemble2[c][k + 1][1]],
+                                   c='red',
+                                   linewidth=4)
+        #
+        ids = np.random.choice(np.arange(len(self.contours_all_cells)), min(50,len(self.contours_all_cells)), replace=False)
+        print ("random cell ids: ", ids)
+        for c in ids:
+
+            temp = self.contours_all_cells[c][0]
+
+            for k in range(len(temp) - 1):
+                # print (k, temp, temp.shape)
+                self.ax_image.plot([temp[k][0], temp[k + 1][0]],
+                         [temp[k][1], temp[k + 1][1]],
+                         c='white',
+                         linewidth=1)
+
+        #
+        # self.fig.canvas.restore_region(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
+        #
+        # #
+        # self.fig.canvas.flush_events()
+
+        print ("DONE PLOTTING CONTOURS...")
+
+        return None
+
+        #
+        self.fig.canvas.flush_events()
+        #
+        # #
+        self.fig.canvas.draw()
+        #
+        # #
+        # self.fig.canvas.flush_events()
 
     ################################################################################################
     ##################################### INITIALIZE PLOTS #########################################
@@ -588,63 +661,8 @@ class PlotROIs():
             self.ax_image = self.fig.add_subplot(self.grid[:, 4:])
 
             #
-            self.image_obj = self.ax_image.imshow(self.live_frame[0],
-                                                  vmin=self.live_image_vmin,
-                                                  vmax=self.live_image_vmax,
-                                                  interpolation="none")
-            #
             self.ax_image.set_xlim(0,512)
             self.ax_image.set_ylim(512,0)
-
-            ################################################
-            ############## PLOT ROI CONTOURS ###############
-            ################################################
-            # ROI contours ensemble 1
-            for c in range(len(self.rois_contours_ensemble1)):
-                for k in range(len(self.rois_contours_ensemble1[c])-1):
-
-                    self.ax_image.plot([self.rois_contours_ensemble1[c][k][0],
-                                        self.rois_contours_ensemble1[c][k+1][0]],
-                                       [self.rois_contours_ensemble1[c][k][1],
-                                        self.rois_contours_ensemble1[c][k+1][1]],
-                                        c='blue',
-                                        linewidth=4)
-
-            # ROI contours ensemble 2
-            for c in range(len(self.rois_contours_ensemble2)):
-                for k in range(len(self.rois_contours_ensemble2[c])-1):
-                    self.ax_image.plot([self.rois_contours_ensemble2[c][k][0],
-                                        self.rois_contours_ensemble2[c][k+1][0]],
-                                       [self.rois_contours_ensemble2[c][k][1],
-                                        self.rois_contours_ensemble2[c][k+1][1]],
-                                        c='red',
-                                       linewidth=4)
-
-            # add other cell contours to the data
-            ids = np.arange(0,min(100,len(self.contours_all_cells)),1)
-            for c in ids:
-                # plot each cell contour
-                # for k in range(len(self.contours_all_cells[c])-1):
-                #     self.ax_image.plot([self.contours_all_cells[c][k][0], self.contours_all_cells[c][k+1][0]],
-                #                        [self.contours_all_cells[c][k][1], self.contours_all_cells[c][k + 1][1]],
-                #                         c='white',
-                #                         linewidth=1)
-                #temp = self.contours_all_cells[c][0]
-                # not clear what's happening here; I think older version saved differetn
-                # type of contour data
-                temp = self.contours_all_cells[c][0]
-                #print (temp.shape)
-
-                #if len(temp.shape) <=1:
-                #    continue
-                for k in range(len(temp) - 1):
-                    #print (k, temp, temp.shape)
-                    plt.plot([temp[k][0], temp[k + 1][0]],
-                             [temp[k][1], temp[k + 1][1]],
-                             c='white',
-                             linewidth=1)
-
-
 
             #################################################
             ############ ADD IMAGINING VIS BUTTONS ##########
@@ -690,6 +708,7 @@ class PlotROIs():
             def update_motion_flag(val):
                 self.motion_corection_flag[0] = int(self.motion_slider.val)
 
+
             #
             def update_dynamic_flag(val):
                 self.dynamic_f0_flag[0] = int(self.dynamic_f0_slider.val)
@@ -700,6 +719,10 @@ class PlotROIs():
             self.n_frame_ave.on_changed(update_n_frames_average)
             self.motion_slider.on_changed(update_motion_flag)
             self.dynamic_f0_slider.on_changed(update_dynamic_flag)
+
+            # add other cell contours to the data
+            self.show_other_cell_contours()
+
 
         #########################################################
         ########## INITIALIZE THRESHOLD SLIDER ##################
@@ -732,17 +755,39 @@ class PlotROIs():
         #
         if self.calibration_flag == False:
 
-            axca_mask = plt.axes([0.925, 0.15, 0.04, 0.04])
+            contour_slider  = self.fig.add_axes([0.925, 0.15, 0.04, 0.04])
 
-            def show_mask(event):
-                print ("TOGGLE MASK")
-                self.mask_flag= (self.mask_flag+1)%2
+            #
+            def update_contour_drawing(val):
+                self.motion_corection_flag[0] = int(self.motion_slider.val)
+                self.show_other_cell_contours()
 
-                #
-                self.show_ca_mask()
 
-            bmask = Button(axca_mask, 'show-mask')
-            bmask.on_clicked(show_mask)
+
+            #
+            vals_contour_slider = [0,1]
+            self.contour_slider = Slider(contour_slider, 'redraw', 0, 1, valinit=0,
+                                        # loc= 1,
+                                         valstep=vals_contour_slider)
+
+            self.contour_slider.on_changed(update_contour_drawing)
+
+
+            # def show_mask(event):
+            #     print ("TOGGLE MASK")
+            #     self.mask_flag= (self.mask_flag+1)%2
+            #
+            #     #
+            #     res = self.show_other_cell_contours()
+            #
+            #     print ("Button exited: ", res)
+            #
+            #     #
+            #     #return
+            #     #self.show_ca_mask()
+            #
+            # bmask = Button(axca_mask, 'draw-contours')
+            # bmask.on_clicked(show_mask)
 
 
         #########################################################
