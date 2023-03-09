@@ -1627,12 +1627,14 @@ class ProcessSession():
             labels.append(session_id)
 
             #
-        #    n_rewards.append(S.reward_times.shape[0])
+            n_rewards.append(S.reward_times.shape[0])
 
 
         from scipy import stats
         xx = np.arange(len(n_rewards))
         yy = np.array(n_rewards)
+        print ("xx: ", xx)
+        print ("yy: ",yy)
         res = stats.pearsonr(xx,yy)
         if self.verbose:
             print ("Perason corr: ", res)
