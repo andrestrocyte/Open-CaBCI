@@ -612,6 +612,39 @@ class PlotROIs():
         # #
         # self.fig.canvas.flush_events()
 
+    def generate_buttons(self):
+        axleft = plt.axes([0.9, 0.3, 0.04, 0.04])
+        axright = plt.axes([.95, 0.3, 0.04, 0.04])
+        axup = plt.axes([0.925, 0.35, 0.04, 0.04])
+        axdown = plt.axes([0.925, 0.25, 0.04, 0.04])
+
+        #
+        def shift_fov_right(event):
+            self.manual_motion_correction_array[0] += 1
+            print("moving FOV right")
+
+        def shift_fov_left(event):
+            self.manual_motion_correction_array[0] -= 1
+            print("moving FOV left")
+
+        def shift_fov_up(event):
+            self.manual_motion_correction_array[1] += 1
+            print("moving FOV up")
+
+        def shift_fov_down(event):
+            self.manual_motion_correction_array[1] -= 1
+            print("moving FOV down")
+
+        #
+        bleft = Button(axleft, 'LEFT')
+        bleft.on_clicked(shift_fov_left)
+        bright = Button(axright, 'RIGHT')
+        bright.on_clicked(shift_fov_right)
+        bup = Button(axup, 'UP')
+        bup.on_clicked(shift_fov_up)
+        bdown = Button(axdown, 'DOWN')
+        bdown.on_clicked(shift_fov_down)
+
     ################################################################################################
     ##################################### INITIALIZE PLOTS #########################################
     ################################################################################################
@@ -740,7 +773,7 @@ class PlotROIs():
             #                          valstep = vals_n_frames)
 
 
-            ax_threshold = plt.axes([0.925, 0.45, 0.04, 0.35])
+            ax_threshold = plt.axes([0.925, 0.65, 0.04, 0.15])
 
             vals_threshold = np.arange(1, 100, 1)
             self.vals_threshold = Slider(ax_threshold, 'Threshold', 1, 100,
@@ -815,40 +848,40 @@ class PlotROIs():
         #########################################################
         #
         if self.calibration_flag == False:
-            #self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
+            # self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
+
+            # NOT WORKING CURRENTLY
+            # self.generate_buttons()
+
+            def update_vertical_slider(event):
+                self.manual_motion_correction_array[1] = self.vertical_slider.val
+
+            def update_horizontal_slider(event):
+                self.manual_motion_correction_array[0] = self.horizontal_slider.val
 
             #
-            axleft = plt.axes([0.9, 0.3, 0.04, 0.04])
-            axright = plt.axes([.95, 0.3, 0.04, 0.04])
-            axup = plt.axes([0.925, 0.35, 0.04, 0.04])
-            axdown = plt.axes([0.925, 0.25, 0.04, 0.04])
+            #ax_threshold = plt.axes([0.925, 0.65, 0.04, 0.35])
 
-			#
-            def shift_fov_right(event):
-                self.manual_motion_correction_array[0]+=1
-                print ("moving FOV right")
+            ax_vertical_shift = plt.axes([0.925, 0.23, 0.04, 0.35])
+            ax_horizontal_shift = plt.axes([0.500, 0.01, 0.35, 0.04])
 
-            def shift_fov_left(event):
-                self.manual_motion_correction_array[0]-=1
-                print ("moving FOV left")
+            self.max_drift = 20
+            vals_threshold = np.arange(-self.max_drift, self.max_drift, 1)
+            self.vertical_slider = Slider(ax_vertical_shift, 'y-drift',
+                                          -self.max_drift,
+                                          self.max_drift,
+                                         orientation='vertical',
+                                         valinit=0,
+                                         valstep=vals_threshold)
+            self.horizontal_slider = Slider(ax_horizontal_shift, 'x-drift',
+                                          -self.max_drift,
+                                          self.max_drift,
+                                         orientation='horizontal',
+                                         valinit=0,
+                                         valstep=vals_threshold)
 
-            def shift_fov_up(event):
-                self.manual_motion_correction_array[1]+=1
-                print ("moving FOV up")
-
-            def shift_fov_down(event):
-                self.manual_motion_correction_array[1]-=1
-                print ("moving FOV down")
-
-            #
-            bleft = Button(axleft, 'LEFT')
-            bleft.on_clicked(shift_fov_left)
-            bright = Button(axright, 'RIGHT')
-            bright.on_clicked(shift_fov_right)
-            bup = Button(axup, 'UP')
-            bup.on_clicked(shift_fov_up)
-            bdown = Button(axdown, 'DOWN')
-            bdown.on_clicked(shift_fov_down)
+            self.vertical_slider.on_changed(update_vertical_slider)
+            self.horizontal_slider.on_changed(update_horizontal_slider)
 
         #########################################################
         ##################### PLOT ROI TRACES ###################
