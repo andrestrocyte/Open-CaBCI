@@ -154,7 +154,7 @@ class BMI():
         self.last_trial_start_ttl = 0
 
         # save trial bouts and times
-        #                   [start n_ttl, start abs time, end n_ttl, end abs time, reward (0/1)]
+        #                   [start n_ttl, start abs time, end n_ttl, end abs time, reward (0/1/2 <- 2 is random reward)]
         self.trials = np.zeros((1000, 5), 'float64')+np.nan
 
         #
@@ -205,6 +205,9 @@ class BMI():
 
         #
         self.initialize_termination_flag()
+
+        #
+        self.initialize_contingency_degradation_flag()
 
         #
         self.initialize_live_frame_shared_memory()
@@ -361,6 +364,28 @@ class BMI():
         self.termination_flag[:] = aa[:]
 
         #
+
+    def initialize_contingency_degradation_flag(self):
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int32)
+        self.shmem_contingency_degradation = shared_memory.SharedMemory(create=True,
+                                                                size=aa.nbytes)
+
+        #
+        self.contingency_degradation = np.ndarray(aa.shape,
+                                          dtype=aa.dtype,
+                                          buffer=self.shmem_contingency_degradation.buf)
+
+        #
+        self.contingency_degradation[0] = 0
+
+
     def initialize_dynamic_f0_variable(self):
         '''
             Signal that is shared with all cores to indicate termination of BMI
@@ -1292,9 +1317,13 @@ class BMI():
 
         #
         print("\n ")
-        print(" >>>>> reached high reward condition: ")
-        print(" ensemble state: ", self.ensemble_state)
-        print(" high_threshold: ", self.high_threshold)
+
+        if self.contingency_degradation[0]:
+            print (">>> GIVING RANDOM REWARD <<<")
+        else:
+            print(" >>>>> reached high reward condition: ")
+            print(" ensemble state: ", self.ensemble_state)
+            print(" high_threshold: ", self.high_threshold)
 
         # search for the first empty slot in the reward times list
         # TODO: this is a poor way to save these values;
@@ -1372,6 +1401,38 @@ class BMI():
         # TODO: check if it matters to do the dynamic reward lockout check always (so it can turn off anytime)
         if self.white_noise_state[0] == 1 or self.post_reward_state[0] ==1:
             return
+
+        # CD case
+        if self.contingency_degradation[0]:
+
+            # draw random probability:
+            #threshold = 0.00027778
+            threshold = 0.00035
+            x = np.random.rand()
+            #print (self.n_ttl, "Rnadom draw: ", x)
+            if x <= threshold:
+
+                # reward mouse
+                self.trigger_reward()
+
+                # close reward trial
+                print("RANDOM REWARD GIVEN @ # TTL: ", self.n_ttl)
+                self.trials[self.trial_number, 2] = self.n_ttl[0]
+                self.trials[self.trial_number, 3] = time.time()
+                self.trials[self.trial_number, 4] = 1
+
+                # enter post reward lockout
+                self.post_reward_state[0] = 1
+
+                # reset the lockout counter for rewards
+                self.reward_lockout_counter[0] = self.received_reward_lockout * self.sampleRate_2P
+
+                # here we don't do dynamic lockouts only the static ones
+                self.dynamic_reward_lockout_state[0] = 0
+                print("DYNAMIC LOCKOUT ON (post-reward) # ttl: ", self.n_ttl[0])
+
+            return
+
 
         # if we are in a lockout period; mouse not eligible for reward
         if self.dynamic_reward_lockout_state[0]==1:

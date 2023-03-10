@@ -206,6 +206,7 @@ if __name__ ==  '__main__':
                                             motion_flag,
                                             bmi.shmem_dynamic_f0_flag.name,
                                             bmi.shmem_manual_motion_correction_array.name,
+                                            bmi.shmem_contingency_degradation.name,
                                               ))
     plotter_.start()
 
