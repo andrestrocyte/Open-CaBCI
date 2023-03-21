@@ -46,7 +46,11 @@ class PlotROIs():
                  motion_flag,
                  shmem_dynamic_f0_flag,
                  shmem_manual_motion_correction_array,
-                 ):
+                 shmem_contingency_degradation,
+    ):
+
+        #
+        self.shmem_contingency_degradation = shmem_contingency_degradation
 
         #
         self.shmem_rois_traces_ensemble1 = shmem_rois_traces_ensemble1
@@ -149,6 +153,9 @@ class PlotROIs():
 
             #
             self.initialize_ensemble_state_array()
+
+            #
+            self.initialize_contingency_degradation()
 
             #
             self.initialize_tone_state()
@@ -269,6 +276,24 @@ class PlotROIs():
 
         #
         #self.ensemble_state_counter = 0
+
+
+    #
+    def initialize_contingency_degradation(self):
+
+        #
+        aa = np.zeros((1,), dtype=np.float32)
+
+        # get the rois_traces from the shared memory name
+        self.existing_shm_contingency_degradation = shared_memory.SharedMemory(name=self.shmem_contingency_degradation)
+
+        #
+        self.contingency_degradation = np.ndarray(aa.shape,
+                                 dtype=aa.dtype,
+                                 buffer=self.existing_shm_contingency_degradation.buf)
+
+        #
+        self.contingency_degradation[0] = 0
 
 
     #
@@ -844,6 +869,21 @@ class PlotROIs():
             bstop.on_clicked(stop_bmi)
 
         #########################################################
+        ########## INITIALIZE STOP BUTTON #######################
+        #########################################################
+        #
+        if self.calibration_flag == False:
+            axcontdeg = plt.axes([0.925, 0.10, 0.04, 0.04])
+
+            def contingency_button(event):
+                self.contingency_degradation[0] = (self.contingency_degradation[0]+1)%2
+                print("Switching to contingency degradation ", self.contingency_degradation[0])
+
+            bcontdeg = Button(axcontdeg, 'CD')
+            bcontdeg.on_clicked(contingency_button)
+
+
+        #########################################################
         ########## INITIALIZE DRIFT BUTTONS ######################
         #########################################################
         #
@@ -1188,9 +1228,16 @@ class PlotROIs():
         if self.calibration_flag==False:
             idx1 = np.where(self.reward_times[0]>-1)[0]
             idx2 = np.where(self.reward_times[1]>-1)[0]
-            self.ax_traces.set_title(" # rewards : "+str(idx1.shape[0])+" "+str(idx2.shape[0]) +
+            if self.contingency_degradation[0]:
+                self.ax_traces.set_title(" # rewards : "+str(idx1.shape[0])+" "+str(idx2.shape[0]) +
                                      ": Freq: " +str(int(self.tone_state[0]))+"hz"+
-                                     "\n Ensemble state: "+str(round(self.ensemble_state[0],2)), fontsize=12)
+                                     "\n Ensemble state: "+str(round(self.ensemble_state[0],2)), fontsize=12,
+                                         c='red')
+            else:
+                self.ax_traces.set_title(" # rewards : "+str(idx1.shape[0])+" "+str(idx2.shape[0]) +
+                                     ": Freq: " +str(int(self.tone_state[0]))+"hz"+
+                                     "\n Ensemble state: "+str(round(self.ensemble_state[0],2)), fontsize=12,
+                                         c='black')
 
         #####################################################
         ################# REFRESH PLOTS #####################
