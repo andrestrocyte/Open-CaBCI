@@ -12,6 +12,7 @@ from bmi.bmi import BMI
 from calibration.calibration import BMICalibration
 from plotter.plotter import PlotROIs
 from tone.tone import PlayTone
+from microphone.microphone import Microphone
 from drift.drift import DriftCorrection
 from gui.gui import gui
 from camera.camera import Camera
@@ -82,21 +83,22 @@ if __name__ ==  '__main__':
         fname_fluorescence = os.path.join(fname_root_path,
                                       'calibration',                   # this is the root directory of the .raw file saved by bscope
                                       'Image_001_001.raw')
+    
+    elif align_flag:
+        fname_fluorescence = os.path.join(fname_root_path,
+                                      'alignment',                   # this is the root directory of the .raw file saved by bscope
+                                      'Image_001_001.raw')
+    
     else:
         fname_fluorescence = os.path.join(fname_root_path,
                                       'data',                   # this is the root directory of the .raw file saved by bscope
-                                      'Image_001_001.raw')
-
-    if align_flag:
-        fname_fluorescence = os.path.join(fname_root_path,
-                                      'alignment',                   # this is the root directory of the .raw file saved by bscope
                                       'Image_001_001.raw')
 
     # required for bmi simulation mode as there are no ttl -pulses being read
     fname_ttl = os.path.join('data_samples',
                              "ttl_pulses.npy")
                              
-    #
+    # set location of rois files
     if align_flag:
         fname_rois_pixels_and_thresholds = os.path.join(os.path.split(fname_root_path)[0],
                                                         'day0',
@@ -109,7 +111,7 @@ if __name__ ==  '__main__':
     #################### INITIALIZE BMI MAIN ######################
     ###############################################################
     # compute the maximum number of seconds the session will run before existing in case there are no more TTL Pulses
-    max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 30  # gives 2 extra minutes at the end in case insufficient frames are detected
+    max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 30  # gives bit of extra time... TODO: Not required any longer?!
 
     #
     if calibration_flag:
@@ -210,6 +212,33 @@ if __name__ ==  '__main__':
                                               ))
     plotter_.start()
 
+
+    ###############################################################
+    ############ INITIALIZE AND START MICROPHONE ##################
+    ###############################################################
+    '''  Microphone recording
+    '''
+    #
+    #if calibration_flag==False:
+    print ("STARTING MIC ROUTINES")
+    rec_time_n_sec = int(n_frames_session/sampleRate_2P)+100 # add extra 10 seconds; audio always starts before video and eveyrthing else by a few sec
+
+#         mic_ =  Microphone(fname_root_path,
+#                            rec_time_n_sec,
+#                                                )
+    
+    mic_ =  Process(target=Microphone, args=(
+                                           fname_root_path,
+                                           rec_time_n_sec,
+                                           bmi.shmem_termination_flag.name,
+                                           ))
+    
+    # mic starts right away
+    #time.sleep(3)
+    #print ("Setup AUDIO FILE: ", mic_.WAVE_OUTPUT_FILENAME)
+    #mic_.start()
+
+        
     ###############################################################
     ############ INITIALIZE AND START DRIFT CORRECTION ############
     ###############################################################
