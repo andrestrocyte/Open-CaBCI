@@ -83,6 +83,7 @@ class BMI():
         #
         self.simulation_mode_bmi = simulation_mode_bmi
 
+
         #
         self.simulation_mode_lick_detector = simulation_flag_licking
 
@@ -120,7 +121,27 @@ class BMI():
         self.image_width = 512
         self.image_length = 512
 
+        ################# BINNING PARAMETERS #########################
+        # amount of time to bin [ca] data in seconds
+        self.binning_flag = True
+
+        # bining time in seconds
+        self.binning_time = 0.200
+
         #
+        self.binning_n_frames = int(self.binning_time * self.sampleRate_2P)
+        print ("binning time: ", self.binning_time, " , binning_n_frames: ", self.binning_n_frames)
+
+        #
+        self.binning_count = self.binning_n_frames
+
+        # # of binned frames to use for smoothing
+        self.smoothing_n_frames = 3
+
+        #
+        self.smoothing_flag = True
+
+        ###########################################################
         self.max_n_seconds_session = max_n_seconds_session
 
         # number of frames to run BMI for
@@ -1084,8 +1105,6 @@ class BMI():
             if self.n_ttl[0]>(self.n_ttl_to_start_applying_dynamic_f0):
 
                 #
-                #print (">>>>>>>>>>>>>>>Updating f0 values<<<<<<<<<<<<<<<<<<")
-
                 # loop over ensembel 1
                 for p in range(len(self.rois_traces_raw_ensemble1)):
 
@@ -1111,6 +1130,54 @@ class BMI():
                 pass
                 #print (" Too soon to recompute baseline... please wait 90 seconds at least from start")
     #
+
+
+    def bin_rois(self):
+
+        # check if binning clock reset
+        if self.binning_count>0:
+            self.binning_count-=1
+            return
+
+        ################ BINNING STEP ################
+        # TODO: NOTE:# need to work from the raw data
+        for p in range(2):
+            ############## ENSEMBLE 1 ##########
+            # bin step
+            temp = self.rois_traces_raw_ensemble1[p, self.n_ttl[0]-self.binning_n_frames:self.n_ttl[0]]
+            dff_temp = (temp - self.roi_f0s_ensemble1[p]) / self.roi_f0s_ensemble1[p]
+            dff_now = np.mean(dff_temp)
+
+            # extra step where we smooth current dff with previous N values
+            if self.smoothing_flag:
+                dff_prev_n_frames = []
+                for q in range(self.smoothing_n_frames - 1, 0, -1):
+                    dff_prev_n_frames.append(self.rois_traces_smooth_ensemble1[p,self.n_ttl[0] - q * self.binning_n_frames])
+                dff_all = np.mean(np.hstack((dff_now, dff_prev_n_frames)))
+                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = dff_all
+            else:
+                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = dff_now
+
+            ############ ENSEMBLE 2 #############
+            temp = self.rois_traces_raw_ensemble2[p, self.n_ttl[0] - self.binning_n_frames:self.n_ttl[0]]
+            dff_temp = (temp - self.roi_f0s_ensemble2[p]) / self.roi_f0s_ensemble2[p]
+            dff_now = np.mean(dff_temp)
+
+            # extra step where we smooth current dff with previous N values
+            if self.smoothing_flag:
+                dff_prev_n_frames = []
+                for q in range(self.smoothing_n_frames - 1, 0, -1):
+                    dff_prev_n_frames.append(
+                        self.rois_traces_smooth_ensemble2[p,self.n_ttl[0] - q * self.binning_n_frames])
+                dff_all = np.mean(np.hstack((dff_now, dff_prev_n_frames)))
+                self.rois_traces_smooth_ensemble2[p, self.n_ttl[0]] = dff_all
+            else:
+                self.rois_traces_smooth_ensemble2[p, self.n_ttl[0]] = dff_now
+
+        # reset binning count to
+        self.binning_count = self.binning_n_frames
+
+
     def bmi_update(self):
 
         #
@@ -1124,6 +1191,10 @@ class BMI():
 
         # smooth the ROIs using the external function
         self.compute_dff_and_smooth_rois()
+
+        # check if binning the rois
+        if self.binning_flag:
+            self.bin_rois()
 
         # check if doing dynamic f0 updates
         if self.dynamic_f0_flag[0]:
@@ -1191,8 +1262,12 @@ class BMI():
                 #
                 rois_dff = (roi_history - self.roi_f0s_ensemble1[p])/self.roi_f0s_ensemble1[p]
 
-                #
-                self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = smooth_ca_time_series4(rois_dff)
+                # smooth data only if not in binning mode
+                if self.binning_flag==False:
+                    self.rois_traces_smooth_ensemble1[p,self.n_ttl[0]] = smooth_ca_time_series4(rois_dff)
+                # if binning then just copy last value until it's overwritten by binning function
+                else:
+                    self.rois_traces_smooth_ensemble1[p, self.n_ttl[0]] = self.rois_traces_smooth_ensemble1[p, self.n_ttl[0]-1]
 
             # Ensemble 2
             for p in range(len(self.rois_traces_raw_ensemble2)):
@@ -1203,7 +1278,11 @@ class BMI():
                 rois_dff = (roi_history - self.roi_f0s_ensemble2[p])/self.roi_f0s_ensemble2[p]
 
                 #
-                self.rois_traces_smooth_ensemble2[p,self.n_ttl[0]] = smooth_ca_time_series4(rois_dff)
+                if self.binning_flag==False:
+                    self.rois_traces_smooth_ensemble2[p,self.n_ttl[0]] = smooth_ca_time_series4(rois_dff)
+                else:
+                    self.rois_traces_smooth_ensemble2[p, self.n_ttl[0]] = self.rois_traces_smooth_ensemble2[p, self.n_ttl[0]-1]
+
         else:
             #
             for p in range(len(self.rois_traces_raw_ensemble1)):

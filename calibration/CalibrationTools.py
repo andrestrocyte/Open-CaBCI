@@ -927,8 +927,11 @@ class CalibrationTools(object):
 
                 # save
                 roi_traces[ctr].append(temp)
+
                 ctr += 1
-        #
+
+
+
         self.roi_traces = np.array(roi_traces)
 
         ###########################################################
@@ -950,6 +953,9 @@ class CalibrationTools(object):
 
             #
             self.roi_snrs[k] = np.max((self.roi_traces[k]-f0)/f0)
+
+            #
+            self.roi_traces[k] = (self.roi_traces[k]-f0)/f0
 
         ###########################################################
         ################# REORDER CELLS BY SNR  ###################
@@ -1826,43 +1832,65 @@ class CalibrationTools(object):
             E2_2= np.zeros(self.ensemble2_traces[1].shape[0])
 
             #
-             #
-            #p_bar = tqdm(np.arange(self.ensemble1_traces[0].shape[0]), desc='loop',position=0, leave=True)
             counter=-1
 
-            #for k in tqdm(np.arange(5,self.ensemble1_traces[0].shape[0],1), desc='loop'):
+            #
             post_reward_lockout=False
-            for k in range(5, self.ensemble1_traces[0].shape[0], 1):
+            binning_n_frames = int(self.binning_time * self.fps)
+            binning_counter = binning_n_frames
+            white_noise_starts = []
+            white_noise_ends = []
+
+            for k in range(binning_n_frames, self.ensemble1_traces[0].shape[0], 1):
 
                 #
-                if True:
+                if self.binning_flag:
+                    if binning_counter<=0:
+                        temp_now = np.mean(self.ensemble1_traces[0][k-binning_n_frames:k])
+                        temp2 = []
+                        # go to previous n time bins and grab data
+                        for q in range(self.smoothing_n_bins-1,0,-1):
+                            temp2.append(E1_1[k-q*binning_n_frames])
+                        self.E1_1 = np.mean(np.hstack((temp2, temp_now)))
+
+                        temp_now = np.mean(self.ensemble1_traces[1][k-binning_n_frames:k])
+                        temp2 = []
+                        # go to previous n time bins and grab data
+                        for q in range(self.smoothing_n_bins-1,0,-1):
+                            temp2.append(E1_2[k-q*binning_n_frames])
+                        self.E1_2 = np.mean(np.hstack((temp2, temp_now)))
+
+                        temp_now = np.mean(self.ensemble2_traces[0][k-binning_n_frames:k])
+                        temp2 = []
+                        # go to previous n time bins and grab data
+                        for q in range(self.smoothing_n_bins-1,0,-1):
+                            temp2.append(E2_1[k-q*binning_n_frames])
+                        self.E2_1 = np.mean(np.hstack((temp2, temp_now)))
+
+                        temp_now = np.mean(self.ensemble2_traces[1][k-binning_n_frames:k])
+                        temp2 = []
+                        # go to previous n time bins and grab data
+                        for q in range(self.smoothing_n_bins-1,0,-1):
+                            temp2.append(E2_2[k-q*binning_n_frames])
+                        self.E2_2 = np.mean(np.hstack((temp2, temp_now)))
+
+
+                        # reset counter
+                        binning_counter = binning_n_frames
+                    else:
+                        self.E1_1 = E1_1[k-1]
+                        self.E1_2 = E1_2[k-1]
+                        self.E2_1 = E2_1[k-1]
+                        self.E2_2 = E2_2[k-1]
+                        binning_counter-=1
+
+                # old way of smoothing
+                else:
                     self.E1_1 = smooth_ca_time_series4(self.ensemble1_traces[0][k - self.rois_smooth_window:k])
                     self.E1_2 = smooth_ca_time_series4(self.ensemble1_traces[1][k - self.rois_smooth_window:k])
                     self.E2_1 = smooth_ca_time_series4(self.ensemble2_traces[0][k - self.rois_smooth_window:k])
                     self.E2_2 = smooth_ca_time_series4(self.ensemble2_traces[1][k - self.rois_smooth_window:k])
 
-                # else:
-                #     self.E1_1 = self.ensemble1_traces[0][k]
-                #     self.E1_2 = self.ensemble1_traces[1][k]
-                #     self.E2_1 = self.ensemble2_traces[0][k]
-                #     self.E2_2 = self.ensemble2_traces[1][k]
-
-                # # remove F0 baseline
-                # # TODO: this is not quite right as we skip over values all the time here
-                # if False:
-                #     if k % (self.fps*120)==0:
-                #         for p in range(2):
-                #             E1_f0s[p] = get_mode(self.ensemble1_traces[p][k-self.fps*120:k])
-                #             E2_f0s[p] = get_mode(self.ensemble2_traces[p][k-self.fps*120:k])
-                #
-                # #
-                # if False:
-                #     self.E1_1 = (self.E1_1) / E1_f0s[0]
-                #     self.E1_2 = (self.E1_2) / E1_f0s[1]
-                #     self.E2_1 = (self.E2_1) / E2_f0s[0]
-                #     self.E2_2 = (self.E2_2) / E2_f0s[1]
-
-                #print (self.E1_1,self.E1_2,self.E2_1,self.E2_2)
 
                 # save data arrays for later visualization
                 E1_1[k] = self.E1_1
@@ -1875,7 +1903,6 @@ class CalibrationTools(object):
                 self.E2 = self.E2_1+self.E2_2
 
                 temp_diff = self.E1-self.E2
-                #print ("k: ", k, " tempdiff: ", temp_diff)
 
                 #
                 counter-=1
@@ -1889,7 +1916,7 @@ class CalibrationTools(object):
                         post_reward_lockout=False
 
 
-
+                ############ REWARD REACHED ###########
                 if temp_diff >= high:
                     # high reward state reached
                     n_rewards += 1
@@ -1903,6 +1930,7 @@ class CalibrationTools(object):
                     #
                     post_reward_lockout = True
 
+                ########### WHITE NOISE PENALTY ############
                 elif (k-last_reward)>= int(self.trial_time * self.sample_rate):
 
                     last_reward = k
@@ -1910,10 +1938,13 @@ class CalibrationTools(object):
                     counter = int(self.post_missed_reward_lockout * self.sample_rate)
 
                     #
+                    white_noise_starts.append(k)
+                    white_noise_ends.append(k+300)
+
                     post_reward_lockout = True
 
             #
-            print("updated rewards #: ", n_rewards, high)
+            print("updated rewards #: ", n_rewards, " for threshold: ", high)
 
             if exit_flag_next_cycle and n_rewards>=n_rewards_random:
                 break
@@ -1936,6 +1967,7 @@ class CalibrationTools(object):
         #
         self.reward_times = np.vstack(reward_times)
         self.high = high
+        self.white_noise = np.vstack((white_noise_starts, white_noise_ends)).T
         self.ensemble1_traces_smooth= []
         self.ensemble2_traces_smooth= []
         self.ensemble1_traces_smooth.append(E1_1)
@@ -2087,17 +2119,19 @@ class CalibrationTools(object):
         #clrs = ['lightblue','darkblue','lightcoral','red']
         #names = ["Roi #1","Roi #2","Roi #3","Roi #4",]
         # ensembel 1
+        clrs=['blue','lightblue']
         for k in range(len(self.ensemble1_traces_smooth)):
             plt.plot(t, self.ensemble1_traces_smooth[k],
-                             c='blue', alpha=.8)
+                             c=clrs[k], alpha=.8)
 
         #
+        clrs = ['red','pink']
         for k in range(len(self.ensemble2_traces_smooth)):
             plt.plot(t, self.ensemble2_traces_smooth[k],
-                             c='red', alpha=.8)
+                             c=clrs[k], alpha=.8)
 
         #
-        plt.plot(t, self.diff, c='black', alpha=1, label='Global ensemble state (i.e. E1-E2)')
+        #plt.plot(t, self.diff, c='black', alpha=1, label='Global ensemble state (i.e. E1-E2)')
         plt.plot([t[0], t[-1]], [0, 0], '--', c='black', linewidth=1, alpha=.5)
 
         ymaxes = np.max(np.abs(self.diff))
@@ -2114,7 +2148,12 @@ class CalibrationTools(object):
         plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E1 rewarded # ' + str(idx1), )
         plt.legend()
         plt.xlim(t[0],t[-1])
-
+        for k in range(len(self.white_noise)):
+            #print(self.white_noise[k])
+            ax.axvspan(t[self.white_noise[k][0]],
+                       t[self.white_noise[k][1]],
+                       alpha=0.2,
+                       color='grey')
         ####################################################
         ################## VISUALIZE ENSEMBELS #############
         ####################################################
@@ -2122,8 +2161,8 @@ class CalibrationTools(object):
         plt.title("ENSEMBLES")
         plt.plot([t[0], t[-1]], [self.low, self.low], '--', c='grey')#, label='Low threshold')
         plt.plot([t[0], t[-1]], [self.high, self.high], '--', c='grey')#', label='high threshold')
-        plt.plot(t, self.E1, c='darkblue', alpha=1, label='E1')
-        plt.plot(t, self.E2, c='darkred', alpha=1, label='E2')
+        #plt.plot(t, self.E1, c='darkblue', alpha=1, label='E1')
+        #plt.plot(t, self.E2, c='darkred', alpha=1, label='E2')
         plt.xlim(t[0],t[-1])
         #
         plt.plot(t, self.diff, c='black', alpha=1, label='Global ensemble state (i.e. E1-E2)')
@@ -2143,8 +2182,15 @@ class CalibrationTools(object):
         plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E1 rewarded # ' + str(idx1), )
         plt.legend()
 
+        for k in range(len(self.white_noise)):
+            #print(self.white_noise[k])
+            ax.axvspan(t[self.white_noise[k][0]],
+                       t[self.white_noise[k][1]],
+                       alpha=0.2,
+                       color='grey')
+
         #
-        plt.suptitle("Rec duration: " + str(int(t[-1])) + " sec " +
+        plt.suptitle("binning: "+str(self.binning_flag) + ", rec time: " + str(int(t[-1])) + " sec " +
                   "\n expected # of random rewards: " + str(int(t[-1] / 30)) +
                   "\n actual # of provided rewards: " + str(self.reward_times.shape[0]))
         plt.xlabel("Time (sec)", fontsize=20)

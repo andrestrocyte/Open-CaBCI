@@ -930,7 +930,7 @@ class PlotROIs():
             # TODO: refactor this plot to another function
             self.ax_traces = self.fig.add_subplot(self.grid[:4, :4])
 
-            #self.ax_traces.set_ylim(0, self.plot_y_scale*4.5 + self.plot_y_scale*3)
+            #
             n_cells = 0
             n_cells+= len(self.rois_traces_ensemble1)
             n_cells+= len(self.rois_traces_ensemble2)
@@ -955,21 +955,20 @@ class PlotROIs():
 
                 #
                 lineobject, = self.ax_traces.plot(self.plot_times,
-                                           #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
-                                           y_values,  # plot last X values depending on length of plttimes
+                                           y_values,
                                            c='blue'
-                                              #'r-'
-                                           )  # Returns a tuple of line objects, thus the comma
+                                           )
                 #
                 self.time_course_objects_ensemble1.append(lineobject)
 
                 # also draw the f0 baseline of each cell!!
                 f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                           # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
                                            [0+self.plot_y_scale*k,0+self.plot_y_scale*k],  # plot last X values depending on length of plttimes
                                            '--',
                                            c='blue'
-                                           )  # Return
+                                           )
+
+                #
                 self.f0_objects.append(f0object)
                 ctr+=1
 
@@ -981,21 +980,18 @@ class PlotROIs():
 
                 #
                 lineobject, = self.ax_traces.plot(self.plot_times,
-                                           #self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
-                                           y_values,  # plot last X values depending on length of plttimes
+                                           y_values,
                                            c='red'
-                                              #'r-'
-                                           )  # Returns a tuple of line objects, thus the comma
+                                           )
                 #
                 self.time_course_objects_ensemble2.append(lineobject)
 
                 # also draw the f0 baseline of each cell!!
                 f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
-                                           # self.rois_traces[k,-self.plot_times:]-1000*k,  # plot last X values depending on length of plttimes
-                                           [0+self.plot_y_scale*ctr,0+self.plot_y_scale*ctr],  # plot last X values depending on length of plttimes
+                                           [0+self.plot_y_scale*ctr,0+self.plot_y_scale*ctr],
                                            '--',
                                            c='red'
-                                           )  # Return
+                                           )
                 self.f0_objects.append(f0object)
                 ctr+=1
 
@@ -1007,24 +1003,23 @@ class PlotROIs():
             self.ensemble_state_y_offset = 2.5
             y_values = self.ensemble_state_array[:self.plotting_window_width*self.sampleRate_2P]*self.ensemble_state_y_scaling+\
                        self.plot_y_scale*(ctr)+self.ensemble_state_y_offset
-                            #+self.plot_y_scale*ctr
             #
             lineobject, = self.ax_traces.plot(self.plot_times,
-                                       y_values,  # plot last X values depending on length of plttimes
+                                       y_values,
                                        linewidth = 4,
                                        c='black'
-                                       )  # Returns a tuple of line objects, thus the comma
+                                       )
             #
             self.time_course_objects_ensemble_sum.append(lineobject)
 
             # ADD F0 for ensemble states
             f0object, = self.ax_traces.plot([self.plot_times[0],self.plot_times[-1]],
                                        [0+self.plot_y_scale*(ctr)+self.ensemble_state_y_offset,
-                                        0+self.plot_y_scale*(ctr)+self.ensemble_state_y_offset],  # plot last X values depending on length of plttimes
+                                        0+self.plot_y_scale*(ctr)+self.ensemble_state_y_offset],
                                        '--',
                                         c='black',
                                        linewidth=2,
-                                       )  # Return
+                                       )
 
             self.f0_objects.append(f0object)
 
