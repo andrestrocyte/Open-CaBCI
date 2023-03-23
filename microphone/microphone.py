@@ -39,14 +39,14 @@ class Microphone():
                             frames_per_buffer=self.CHUNK)
 
         #
-        self.initialize_termination_flag()
 
         #
-        self.start2()
-        
-    
+        ##self.start()
+
+
         #
-    def initialize_termination_flag(self):
+    #def initialize_termination_flag(self):
+        print (" Initilized term flag inside mic routeins...")
 
         aa = np.zeros(1, dtype=np.int64)
         self.existing_shm_termination_flag = shared_memory.SharedMemory(name=self.shmem_termination_flag)
@@ -56,8 +56,11 @@ class Microphone():
                     
         
     #
-    def start2(self):
+    #def start(self):
         
+       # self.initialize_termination_flag()
+
+
         print ("AUDIO REC started....")
         self.record_frames = []
         record_times = []
@@ -78,10 +81,10 @@ class Microphone():
         np.save(self.fname_out_audio_npy, self.record_frames)
         np.save(self.fname_out_audio_time_stamps, record_times)
         
-        self.save_audio_file()
+        #self.save_audio_file()
         
     #
-    def save_audio_file(self):
+    #def save_audio_file(self):
         
         waveFile = wave.open(self.WAVE_OUTPUT_FILENAME, 'wb')
         waveFile.setnchannels(self.CHANNELS)

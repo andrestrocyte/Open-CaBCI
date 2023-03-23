@@ -221,7 +221,7 @@ if __name__ ==  '__main__':
     #
     #if calibration_flag==False:
     print ("STARTING MIC ROUTINES")
-    rec_time_n_sec = int(n_frames_session/sampleRate_2P)+100 # add extra 10 seconds; audio always starts before video and eveyrthing else by a few sec
+    rec_time_n_sec = int(n_frames_session/sampleRate_2P)+1000 # add extra 10 seconds; audio always starts before video and eveyrthing else by a few sec
 
 #         mic_ =  Microphone(fname_root_path,
 #                            rec_time_n_sec,
@@ -236,7 +236,6 @@ if __name__ ==  '__main__':
     # mic starts right away
     #time.sleep(3)
     #print ("Setup AUDIO FILE: ", mic_.WAVE_OUTPUT_FILENAME)
-    #mic_.start()
 
         
     ###############################################################
@@ -292,8 +291,13 @@ if __name__ ==  '__main__':
     # TODO: autod detect when plotting is initialized 
     time.sleep(2)
     
+    mic_.start()
+
+
     #
     bmi.run_BMI()
+    
+    
     
     # close all classes
     bmi.close()
