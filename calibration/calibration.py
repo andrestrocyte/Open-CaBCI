@@ -47,11 +47,16 @@ class BMICalibration():
                  n_frames,
                  video_width,
                  video_length,
-                 motion_flag):
+                 motion_flag,
+                 align_flag):
+                     
 
         #
         print("... initializing BMI parameters...")
         print("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
+
+        #
+        self.align_flag = align_flag
 
         #
         self.motion_flag = motion_flag
@@ -103,6 +108,7 @@ class BMICalibration():
 
         # not currently used
         self.n_rewards_per_minute = 0
+        self.random_reward_probability = 0
         if False:
             self.random_reward_probability = (self.n_rewards_per_minute / (30 * 60))
             print(" RANDOM REWARD PROBABILITY (rewards per minute): ", self.n_rewards_per_minute,
@@ -112,9 +118,6 @@ class BMICalibration():
                 for k in range(10):
                     print(" >>>>>>>>>>>> RANDOM REWARD PROBABILITY IS HIGH!!! (rewards per minute): ",
                           self.n_rewards_per_minute, "; reward prob per TTL frame: ", self.random_reward_probability)
-
-        #
-
 
 
         #
@@ -131,6 +134,10 @@ class BMICalibration():
 
         # start the ttl frame counter at 0
         self.ttl_computed = 0
+        
+        #
+        self.trials = []
+
 
         # initialize all arrays to be used, mostly to save data after BMI run
         self.initialize_data_arrays()
@@ -182,10 +189,138 @@ class BMICalibration():
 
         #
         self.initialize_dynamic_f0_variable()
+        
+        #
+        self.initialize_white_noise_state()
+        
+        #
+        self.initialize_alignment_flag()
+        
+        #
+        self.initialize_contingency_degradation_flag()
+        
+        #
+        self.initialize_threshold_shared_memory()
+        
+        #
+        self.initialize_dynamic_reward_lockout_state()
 
         #
         self.initialize_manual_motion_correction_array()
 
+    #
+    def initialize_alignment_flag(self):
+
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int32)
+        self.shmem_alignment_flag = shared_memory.SharedMemory(create=True,
+                                                                 size=aa.nbytes)
+
+        #
+        self.alignment_flag = np.ndarray(aa.shape,
+                                     dtype=aa.dtype,
+                                     buffer=self.shmem_alignment_flag.buf)
+
+        #
+        self.alignment_flag[0] = self.align_flag
+     
+         #
+    def initialize_threshold_shared_memory(self):
+
+        '''
+            This variable keeps track of the locally computed E1-E2
+            - it is shared with a different process which plays tones
+            - TODO: perhaps want a better name like neural_state - to disambugate from ensembel states
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1,dtype=np.float32)
+        self.shmem_high_threshold_state = shared_memory.SharedMemory(create=True,
+                                                              size=aa.nbytes)
+
+        #
+        self.high_threshold = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.shmem_high_threshold_state.buf)
+
+        #
+        self.high_threshold[0] = 1
+    
+    def initialize_contingency_degradation_flag(self):
+        '''
+            Signal that is shared with all cores to indicate termination of BMI
+            - 0: keep running
+            - 1: end all processing
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1, dtype=np.int32)
+        self.shmem_contingency_degradation = shared_memory.SharedMemory(create=True,
+                                                                size=aa.nbytes)
+
+        #
+        self.contingency_degradation = np.ndarray(aa.shape,
+                                          dtype=aa.dtype,
+                                          buffer=self.shmem_contingency_degradation.buf)
+
+        #
+        self.contingency_degradation[0] = 0
+        
+           
+    #
+    def initialize_white_noise_state(self):
+
+        '''
+            This variable keeps track of the tone value computed by the TONE class
+            - technically it doesn't have to be initialized here, but we do it for simplicity to easier
+              share it with the plotter class (BMI class doesn't need it for now)
+
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros(1,dtype=np.float32)
+        self.shmem_white_noise_state = shared_memory.SharedMemory(create=True,
+                                                                  size=aa.nbytes)
+
+        #
+        self.white_noise_state = np.ndarray(aa.shape,
+                                         dtype=aa.dtype,
+                                         buffer=self.shmem_white_noise_state.buf)
+
+        #
+        self.white_noise_state [:] = aa[:]
+        
+    #
+    def initialize_dynamic_reward_lockout_state(self):
+
+        '''
+            shared variable indicating whether we are in a reward-lockout state or not
+            - required by tone class (possibly others)
+        '''
+
+        # make a numpy array to hold the rois_traces
+        aa = np.zeros((1), dtype=np.int32)
+        self.shmem_dynamic_reward_lockout_state = shared_memory.SharedMemory(create=True,
+                                                                 size=aa.nbytes)
+
+        #
+        self.dynamic_reward_lockout_state = np.ndarray(aa.shape,
+                                             dtype=aa.dtype,
+                                             buffer=self.shmem_dynamic_reward_lockout_state.buf)
+
+        #
+        self.dynamic_reward_lockout_state[0] = 0
+
+        #
+        # ## flag which indicates whether we are in the period post-reward that we want to lockout
+        # self.dynamic_reward_lockout_state = False
+        
     #
     def initialize_manual_motion_correction_array(self):
 
@@ -621,7 +756,7 @@ class BMICalibration():
         self.start_time_acquisition = time.time()
 
         # save trial start for first trial
-        self.trials.append(self.last_trial_start_ttl)
+        #self.trials.append(self.last_trial_start_ttl)
 
         # start recording and acquisition
         # count number of frames; but probably safer to just count time;
@@ -757,19 +892,28 @@ class BMICalibration():
         #
         self.load_current_frame_and_apply_drift_correction()
 
-        # check for reward condition:
-        self.check_reward_condition_random()
+		# load the [ca] imaging and compute activity in each ROI
+        self.update_rois()
 
-        # decrease any potential reward lockout counter
-        self.random_reward_lockout_counter[0] -= 1
+        # smooth the ROIs using the external function
+        self.compute_dff_and_smooth_rois()
 
-        # save meta data
-        self.ttl_n_computed.append(self.ttl_computed)
-        self.ttl_n_detected.append(self.n_ttl)
-        self.ttl_times.append(self.now)
+        # check if binning the rois
+        if self.binning_flag:
+            self.bin_rois()
 
+        # check if doing dynamic f0 updates
+        if self.dynamic_f0_flag[0]:
+            self.dynamic_f0()
+
+        # compute the ensemble activity from ROIs loaded
+        self.update_ensembles()
+       
         #
         self.n_ttl += 1
+
+
+
 
     #
 
@@ -937,39 +1081,6 @@ class BMICalibration():
 
         pass
 
-    #
-    def check_reward_condition_random(self):
-
-        ''' We check if reward condition was reached
-        '''
-
-        # draw random rewards so that the mouse is rewarded about once every minute
-
-        if np.random.rand() < self.random_reward_probability and self.random_reward_lockout_counter[0] < 1:
-            #
-            print(" reached RANDOM reward conition: ")
-
-            # search for the first empty slot in the reward times list
-            # TODO: this is a poor way to save these values;
-            # TODO: have a shared memory variable separate from one that keeps track of the times
-            for k in range(self.reward_times.shape[1]):
-                if self.reward_times[1, k] == -1:
-                    self.reward_times[1, k] = self.n_ttl[0]  # save current reward time
-                    break
-            #
-            self.rewarded_times_abs.append([1, self.n_ttl[0], self.abs_times])
-
-            # reset last reward time to current time
-            self.last_reward_ttl[0] = self.n_ttl[0]
-
-            #
-            self.trigger_random_reward()
-
-            # NOTE: this is set to negative only during calibration so there's no feedback
-            self.ensemble_state[0] = -3
-
-            # decouple tone etc. from feedback
-            self.post_reward_state()
 
     #
     def load_current_frame_and_apply_drift_correction(self):

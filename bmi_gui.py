@@ -114,36 +114,37 @@ if __name__ ==  '__main__':
     max_n_seconds_session = int(n_frames_session/sampleRate_2P) + 30  # gives bit of extra time... TODO: Not required any longer?!
 
     #
-    if calibration_flag:
-        bmi = BMICalibration(simulation_flag_bmi,
-                              simulation_flag_licking,
-                              fname_root_path,
-                              fname_fluorescence,
-                              fname_ttl,
-                              sampleRate_2P,
-                              fname_rois_pixels_and_thresholds,
-                              max_n_seconds_session,
-                              n_frames_session,
-                              video_width,
-                              video_height,
-                              motion_flag,
-                              align_flag
-                              )
-    else:
-        bmi = BMI(simulation_flag_bmi,
-                  simulation_flag_licking,
-                  fname_root_path,
-                  fname_fluorescence,
-                  fname_ttl,
-                  sampleRate_2P,
-                  fname_rois_pixels_and_thresholds,
-                  max_n_seconds_session,
-                  n_frames_session,
-                  video_width,
-                  video_height,
-                  motion_flag,
-                  align_flag
-                  )
+    #if calibration_flag:
+    #    bmi = BMICalibration(simulation_flag_bmi,
+    #                          simulation_flag_licking,
+    #                          fname_root_path,
+    #                          fname_fluorescence,
+    #                          fname_ttl,
+    #                          sampleRate_2P,
+    #                          fname_rois_pixels_and_thresholds,
+    #                          max_n_seconds_session,
+    #                          n_frames_session,
+    #                          video_width,
+    #                          video_height,
+    #                          motion_flag,
+    #                          align_flag
+    #                          )
+    #else:
+    bmi = BMI(simulation_flag_bmi,
+              simulation_flag_licking,
+              fname_root_path,
+              fname_fluorescence,
+              fname_ttl,
+              sampleRate_2P,
+              fname_rois_pixels_and_thresholds,
+              max_n_seconds_session,
+              n_frames_session,
+              video_width,
+              video_height,
+              motion_flag,
+              align_flag
+              )
+              
     #
     bmi.water_vol_ttl = water_vol_ttl
     print (" Water volume ttl: ", bmi.water_vol_ttl)
@@ -164,7 +165,8 @@ if __name__ ==  '__main__':
         as this is not related to anything else in the BMI class
     '''
     #
-    tone_player_ = Process(target=PlayTone, args=(fname_rois_pixels_and_thresholds,
+    if calibration_flag==False:
+        tone_player_ = Process(target=PlayTone, args=(fname_rois_pixels_and_thresholds,
                                                   bmi.shmem_ensemble_state.name,
                                                   bmi.shmem_tone_state.name,
                                                   bmi.shmem_termination_flag.name,
@@ -178,7 +180,7 @@ if __name__ ==  '__main__':
                                                   calibration_flag,
                                                   bmi.sleep_time_sec,
                                                   ))
-    tone_player_.start()
+        tone_player_.start()
 
     ###############################################################
     ############## INITIALIZE AND START PLOTTER ###################
@@ -219,24 +221,13 @@ if __name__ ==  '__main__':
     '''  Microphone recording
     '''
     #
-    #if calibration_flag==False:
-    print ("STARTING MIC ROUTINES")
-    rec_time_n_sec = int(n_frames_session/sampleRate_2P)+1000 # add extra 10 seconds; audio always starts before video and eveyrthing else by a few sec
-
-#         mic_ =  Microphone(fname_root_path,
-#                            rec_time_n_sec,
-#                                                )
-    
-    mic_ =  Process(target=Microphone, args=(
-                                           fname_root_path,
-                                           rec_time_n_sec,
-                                           bmi.shmem_termination_flag.name,
-                                           ))
-    
-    # mic starts right away
-    #time.sleep(3)
-    #print ("Setup AUDIO FILE: ", mic_.WAVE_OUTPUT_FILENAME)
-
+    if calibration_flag==False:
+        rec_time_n_sec = int(n_frames_session/sampleRate_2P)+1000 # add extra 10 seconds; audio always starts before video and eveyrthing else by a few sec
+        mic_ =  Process(target=Microphone, args=(
+                                               fname_root_path,
+                                               rec_time_n_sec,
+                                               bmi.shmem_termination_flag.name,
+                                               ))
         
     ###############################################################
     ############ INITIALIZE AND START DRIFT CORRECTION ############
@@ -291,7 +282,7 @@ if __name__ ==  '__main__':
     # TODO: autod detect when plotting is initialized 
     time.sleep(2)
     
-    mic_.start()
+   # mic_.start()
 
 
     #
@@ -304,7 +295,9 @@ if __name__ ==  '__main__':
 
     #
     plotter_.close()
-    tone_player_.close()
+    
+    if calibration_flag==False:
+        tone_player_.close()
     #water_reward_.close()
 
     quit()

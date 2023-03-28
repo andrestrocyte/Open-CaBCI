@@ -140,7 +140,7 @@ class PlotROIs():
         self.shmem_tone_state = shmem_tone_state
 
         #
-        if self.calibration_flag==False:
+        if True: # self.calibration_flag==False:
 
             #
             self.initialize_rois_traces()
@@ -550,7 +550,7 @@ class PlotROIs():
 
         # cache the background
         self.axbackground = []
-        if self.calibration_flag == False:
+        if True:
             self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_traces.bbox))
             self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
 
@@ -689,17 +689,17 @@ class PlotROIs():
 
         #
         self.grid = GridSpec(8, 12)#, left=0.55, right=0.98, hspace=0.05)
-		
+        
 		#########################################################
         ################# PLOT VIDEO IMAGE ######################
         #########################################################
         # TODO: refactor this plot to another function
-        if self.calibration_flag==False:
-            self.ax_camera = self.fig.add_subplot(self.grid[5:, :4])
-        else:
-            self.ax_camera = self.fig.add_subplot(self.grid[:, :])
-		
-		#
+        #if self.calibration_flag==False:
+        self.ax_camera = self.fig.add_subplot(self.grid[5:, :4])
+        #else:
+        #    self.ax_camera = self.fig.add_subplot(self.grid[:, :])
+        
+        #
         self.ax_camera.set_xticks([])
         self.ax_camera.set_yticks([])
         
@@ -718,7 +718,7 @@ class PlotROIs():
         #########################################################
         ######################### PLOT CA IMAGE #################
         #########################################################
-        if self.calibration_flag==False:
+        if True: #self.calibration_flag==False:
             # TODO: refactor this plot to another function
             self.ax_image = self.fig.add_subplot(self.grid[:, 4:])
 
@@ -791,7 +791,7 @@ class PlotROIs():
         ########## INITIALIZE THRESHOLD SLIDER ##################
         #########################################################
         #
-        if self.calibration_flag == False:
+        if True: #self.calibration_flag == False:
 
             #vals_n_frames = np.arange(1,31,1)
             #self.n_frame_ave = Slider(n_frame_ave, '# Frames', 1, 30, valinit=self.live_image_average_n_frames,
@@ -816,7 +816,7 @@ class PlotROIs():
         ########## INITIALIZE MASK TOGGLE BUTTON ################
         #########################################################
         #
-        if self.calibration_flag == False:
+        if True: #self.calibration_flag == False:
 
             contour_slider  = self.fig.add_axes([0.925, 0.15, 0.04, 0.04])
 
@@ -857,7 +857,7 @@ class PlotROIs():
         ########## INITIALIZE STOP BUTTON #######################
         #########################################################
         #
-        if self.calibration_flag == False:
+        if True: #self.calibration_flag == False:
 
             axstop = plt.axes([0.925, 0.05, 0.04, 0.04])
 
@@ -872,7 +872,7 @@ class PlotROIs():
         ########## INITIALIZE STOP BUTTON #######################
         #########################################################
         #
-        if self.calibration_flag == False:
+        if True: #self.calibration_flag == False:
             axcontdeg = plt.axes([0.925, 0.10, 0.04, 0.04])
 
             def contingency_button(event):
@@ -887,7 +887,7 @@ class PlotROIs():
         ########## INITIALIZE DRIFT BUTTONS ######################
         #########################################################
         #
-        if self.calibration_flag == False:
+        if True: #self.calibration_flag == False:
             # self.ax_camera = self.fig.add_subplot(self.grid[6:, :8])
 
             # NOT WORKING CURRENTLY
@@ -926,7 +926,7 @@ class PlotROIs():
         #########################################################
         ##################### PLOT ROI TRACES ###################
         #########################################################
-        if self.calibration_flag==False:
+        if True: #self.calibration_flag==False:
             # TODO: refactor this plot to another function
             self.ax_traces = self.fig.add_subplot(self.grid[:4, :4])
 
@@ -1048,7 +1048,7 @@ class PlotROIs():
 
         # cache the background
         self.axbackground = []
-        if self.calibration_flag==False:
+        if True: #self.calibration_flag==False:
             self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_traces.bbox))
             self.axbackground.append(self.fig.canvas.copy_from_bbox(self.ax_image.bbox))
 
@@ -1075,7 +1075,7 @@ class PlotROIs():
         #############################################################
         ################## UPDATE ENSEMBLE ARRAY ####################
         #############################################################
-        if self.calibration_flag==False:
+        if True: #self.calibration_flag==False:
             # save the current ensembel state
             while self.n_ttl_current > self.ensemble_state_counter:
                 self.ensemble_state_array[self.ensemble_state_counter] = self.ensemble_state[0]
@@ -1094,7 +1094,7 @@ class PlotROIs():
         ####################################
         ########### UPDATE IMAGE ###########
         ####################################
-        if self.calibration_flag==False:
+        if True: #self.calibration_flag==False:
             # TODO: note this takes 10ms of time to update,
             #     may wish to plot it only 1 - 5 x per second, no  real information here aside from nasty drift
             #start = time.time()
@@ -1130,7 +1130,7 @@ class PlotROIs():
         #########################################
         ######### UPDATE ROI TIME COURSES #######
         #########################################
-        if self.calibration_flag==False:
+        if True: #self.calibration_flag==False:
             # make t=0 tick to the current timer in seconds
             x_ticks = np.arange(-30,0.1,5)
             x_ticks_new = np.arange(-30,0.1,5)
@@ -1192,7 +1192,7 @@ class PlotROIs():
         ################################################
         ############ UPDATE ENSEMBLE STATE #############
         ################################################
-        if self.calibration_flag==False:
+        if True: #self.calibration_flag==False:
             # update ensemble state
             y_values = self.ensemble_state_array[max(0,self.n_ttl_current-self.plotting_window_width*self.sampleRate_2P):
                                                        self.n_ttl_current]*self.ensemble_state_y_scaling+self.plot_y_scale*(ctr+self.ensemble_state_y_offset)
@@ -1220,7 +1220,7 @@ class PlotROIs():
         ################################################
         ################# UPDATE TITLE #################
         ################################################
-        if self.calibration_flag==False:
+        if True: # self.calibration_flag==False:
             idx1 = np.where(self.reward_times[0]>-1)[0]
             idx2 = np.where(self.reward_times[1]>-1)[0]
             if self.contingency_degradation[0]:
@@ -1241,7 +1241,7 @@ class PlotROIs():
             self.fig.canvas.restore_region(self.axbackground[k])
 
         # add the drawn lines to the plot
-        if self.calibration_flag==False:
+        if True: # self.calibration_flag==False:
             for k in range(len(self.rois_traces_ensemble1)):
                 self.ax_traces.draw_artist(self.time_course_objects_ensemble1[k])
 
@@ -1251,7 +1251,7 @@ class PlotROIs():
             for k in range(len(self.f0_objects)):
                 self.ax_traces.draw_artist(self.f0_objects[k])
 
-        if self.calibration_flag==False:
+        if True: #self.calibration_flag==False:
             # fill in the axes rectangle
             self.fig.canvas.blit(self.ax_traces.bbox)
 
