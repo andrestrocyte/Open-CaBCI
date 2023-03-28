@@ -120,8 +120,10 @@ class BMI():
         # TODO: externalize these parameters
         self.image_width = 512
         self.image_length = 512
-
-        ################# BINNING PARAMETERS #########################
+		
+		###########################################################
+        ################# BINNING PARAMETERS ######################
+		###########################################################
         # amount of time to bin [ca] data in seconds
         self.binning_flag = True
 
@@ -140,7 +142,8 @@ class BMI():
 
         #
         self.smoothing_flag = True
-
+		###########################################################
+		###########################################################
         ###########################################################
         self.max_n_seconds_session = max_n_seconds_session
 

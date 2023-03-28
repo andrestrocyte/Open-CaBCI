@@ -1793,7 +1793,7 @@ class CalibrationTools(object):
     #     self.diff = diff
 
 
-    def find_reward_thresholds_high_realtime(self, high=None):
+    def find_reward_thresholds_high_realtime(self, stepper=0.99, high=None):
 
         # initialize the max and min values
         #
@@ -1813,12 +1813,12 @@ class CalibrationTools(object):
         print (" high guess: ", high)
 
         # loop over time series decreasing the rewards until we hit the random #
-        stepper = 0.99
+        #stepper = 0.99
         self.fps = 30
         n_rewards = 0
         exit_flag_next_cycle= False
         from tqdm.notebook import tqdm
-        for qq in range(200):
+        for qq in range(400):
 
             # run inside while loop for eveyr setting of low and high until we hit
             #   exact number of random rewards
@@ -1954,7 +1954,7 @@ class CalibrationTools(object):
             if n_rewards > n_rewards_random:
                 exit_flag_next_cycle = True
                 high /=stepper
-                stepper = 0.999
+                stepper = 0.99
             else:
                 # check exit condition otherwise decrase thresholds
                 high *= stepper
@@ -2150,10 +2150,13 @@ class CalibrationTools(object):
         plt.xlim(t[0],t[-1])
         for k in range(len(self.white_noise)):
             #print(self.white_noise[k])
-            ax.axvspan(t[self.white_noise[k][0]],
+            try:
+                ax.axvspan(t[self.white_noise[k][0]],
                        t[self.white_noise[k][1]],
                        alpha=0.2,
                        color='grey')
+            except:
+                pass
         ####################################################
         ################## VISUALIZE ENSEMBELS #############
         ####################################################
@@ -2184,11 +2187,14 @@ class CalibrationTools(object):
 
         for k in range(len(self.white_noise)):
             #print(self.white_noise[k])
-            ax.axvspan(t[self.white_noise[k][0]],
+            try:
+                ax.axvspan(t[self.white_noise[k][0]],
                        t[self.white_noise[k][1]],
                        alpha=0.2,
                        color='grey')
-
+            except:
+                pass
+				
         #
         plt.suptitle("binning: "+str(self.binning_flag) + ", rec time: " + str(int(t[-1])) + " sec " +
                   "\n expected # of random rewards: " + str(int(t[-1] / 30)) +
