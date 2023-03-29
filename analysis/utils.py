@@ -517,6 +517,7 @@ class ProcessSession():
 
         #
         plt.legend()
+        plt.ylim(-0.5, 15)
         plt.xlabel("Time (sec)")
         plt.xlim(self.ttl_times[0], self.ttl_times[-1])
         plt.suptitle(self.animal_id + " " + self.session_id)
@@ -528,6 +529,7 @@ class ProcessSession():
         else:
             plt.close()
 
+	#
     def process_calibration(self):
 
         d = np.load(os.path.join(self.root_dir,
@@ -635,6 +637,24 @@ class ProcessSession():
             self.e2_2 = get_dff(self.e2_2)
 
 
+    #
+    def process_calibration_new(self):
+            
+        fname = os.path.join(self.root_dir,
+                                 self.animal_id,
+                                 self.session_id,
+                                 'calibration',
+                                 'results.npz')
+        print ("fname: ", fname)
+        d = np.load(fname, allow_pickle=True)
+
+        #
+        self.e1_1 = d['rois_traces_smooth1'][0]
+        self.e1_2 = d['rois_traces_smooth1'][1]
+        self.e2_1 = d['rois_traces_smooth2'][0]
+        self.e2_2 = d['rois_traces_smooth2'][1]
+
+    #
     def show_session_traces_and_calibration(self):
 
         #
@@ -651,7 +671,8 @@ class ProcessSession():
         ax = plt.subplot(1, 1, 1)
 
         # plot calibration
-        t_calibration = np.arange(self.e1_1.shape[0])*self.calibration_subsample/30.
+        #t_calibration = np.arange(self.e1_1.shape[0])*self.calibration_subsample/30.
+        t_calibration = np.arange(self.e1_1.shape[0])/30.
         t_calibration = t_calibration-t_calibration[-1]
 
 
@@ -703,7 +724,7 @@ class ProcessSession():
 
 
         plt.plot([0,0],[0,scale*ctr],'--',c='grey')
-
+        plt.ylim(-0.5, 15)
 
         #
         plt.legend()

@@ -99,7 +99,7 @@ if __name__ ==  '__main__':
                              "ttl_pulses.npy")
                              
     # set location of rois files
-    if align_flag:
+    if align_flag or calibration_flag:
         fname_rois_pixels_and_thresholds = os.path.join(os.path.split(fname_root_path)[0],
                                                         'day0',
                                                         'rois_pixels_and_thresholds_day0.npz')
