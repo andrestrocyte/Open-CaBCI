@@ -2121,7 +2121,7 @@ class CalibrationTools(object):
     def plot_rewarded_ensembles(self):
 
         #
-        plt.figure()
+        plt.figure(figsize=(14,8))
         ####################################################
         ################# VISUALIZE ROIS ###################
         ####################################################
@@ -2217,6 +2217,11 @@ class CalibrationTools(object):
                   "\n expected # of random rewards: " + str(int(t[-1] / 30)) +
                   "\n actual # of provided rewards: " + str(self.reward_times.shape[0]))
         plt.xlabel("Time (sec)", fontsize=20)
+        
+        #
+        plt.savefig(os.path.join(os.path.split(self.fname)[0], 
+                                 "calibration_threshold_plot.png"))
+        
         plt.show()
 
 
