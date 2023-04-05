@@ -488,19 +488,36 @@ class CalibrationTools(object):
         # add cell contours
         clrs=['blue','red','green','pink']
         print ("cell ids: ", cell_ids)
-        contours = np.vstack((self.ensemble1_contours, self.ensemble2_contours)).squeeze()
-        for ctr,contour in enumerate(contours):
-            color = clrs[ctr//2]
+        #print 
+        if False:
+            print (self.ensemble1_contours[0].squeeze()[None].shape)
+            print (self.ensemble1_contours[1].squeeze()[None].shape)
+            print (np.array(list(self.ensemble2_contours[0].item()))[None].shape)
+            print (np.array(list(self.ensemble2_contours[1].item()))[None].shape)
+            #try:
+            contours = np.vstack((
+                                  self.ensemble1_contours[0].squeeze()[None], 
+                                  self.ensemble1_contours[1].squeeze()[None], 
+                                  np.array(list(self.ensemble2_contours[0].item()))[None], 
+                                  np.array(list(self.ensemble2_contours[1].item()))[None], 
+                                  #self.ensemble2_contours[1].item(), 
+                                  ))
+            print (contours.shape)
+            #except:
+            #    pass
+            #    
+            for ctr,contour in enumerate(contours):
+                color = clrs[ctr//2]
 
-            #
-            for k in range(len(contour) - 1):
-                plt.plot([contour[k][0], contour[k + 1][0]],
-                         [contour[k][1], contour[k + 1][1]],
-                         linewidth=2,
-                         c=color)
-            #
-            #z = np.vstack(footprints[p]).T
-            #plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c=color, fontsize=15)
+                #
+                for k in range(len(contour) - 1):
+                    plt.plot([contour[k][0], contour[k + 1][0]],
+                             [contour[k][1], contour[k + 1][1]],
+                             linewidth=2,
+                             c=color)
+                #
+                #z = np.vstack(footprints[p]).T
+				#plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c=color, fontsize=15)
         plt.xlim(0,512)
         plt.ylim(0,512)
         plt.show()

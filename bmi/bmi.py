@@ -68,7 +68,7 @@ class BMI():
         self.dynamic_reward_lockout = True
 
         # how far must the ensemble state drop before we reset the reward states
-        self.dynamic_reward_lockout_threshold = 0.3
+        self.dynamic_reward_lockout_threshold = 0.5
 
         #
         self.motion_flag = motion_flag
@@ -584,7 +584,7 @@ class BMI():
         print (">>>>>>>>>>>> POST-REWARD LOCKOUT: ", self.received_reward_lockout, "sec")
 
         # similar to post-reward lockout
-        self.missed_reward_lockout = 10
+        self.missed_reward_lockout = 3
         print (">>>>>>>>>>>> MISSED-REWARD LOCKOUT: ", self.missed_reward_lockout, "sec")
 
         # counter that track time after last reward
