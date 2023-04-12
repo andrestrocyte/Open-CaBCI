@@ -10,6 +10,20 @@ import scipy.ndimage
 #from matplotlib_scalebar.scalebar import ScaleBar
 
 
+def smooth_ca_time_series4(diff):
+	#
+	''' This returns the last value. i.e. no filter
+
+	'''
+
+	temp = (diff[-1]*0.4+
+			diff[-2] * 0.25 +
+			diff[-3] * 0.15 +
+			diff[-4] * 0.10 +
+			diff[-5] * 0.10)
+
+	return temp
+
 #
 class ProcessCohort():
 
@@ -125,9 +139,405 @@ class ProcessSession():
         if os.path.exists(self.save_dir)==False:
             os.mkdir(self.save_dir)
 
+
+    def plot_rewarded_ensembles(self):
+
+        #
+        plt.figure(figsize=(14,8))
+        ####################################################
+        ################# VISUALIZE ROIS ###################
+        ####################################################
+        ax=plt.subplot(2,1,1)
+        plt.title("ROIs")
+        t = np.arange(self.diff.shape[0]) / self.sample_rate
+        #plt.plot([t[0], t[-1]], [self.low, self.low], '--', c='grey')#, label='Low threshold')
+        plt.plot([t[0], t[-1]], [self.high, self.high], '--', c='grey')#, label='high threshold')
+
+
+        # show rois
+        #clrs = ['lightblue','darkblue','lightcoral','red']
+        #names = ["Roi #1","Roi #2","Roi #3","Roi #4",]
+        # ensembel 1
+        clrs=['blue','lightblue']
+        for k in range(len(self.ensemble1_traces_smooth)):
+            plt.plot(t, self.ensemble1_traces_smooth[k],
+                             c=clrs[k], alpha=.8)
+
+        #
+        clrs = ['red','pink']
+        for k in range(len(self.ensemble2_traces_smooth)):
+            plt.plot(t, self.ensemble2_traces_smooth[k],
+                             c=clrs[k], alpha=.8)
+
+        #
+        #plt.plot(t, self.diff, c='black', alpha=1, label='Global ensemble state (i.e. E1-E2)')
+        plt.plot([t[0], t[-1]], [0, 0], '--', c='black', linewidth=1, alpha=.5)
+
+        ymaxes = np.max(np.abs(self.diff))
+
+        # show locations of rewards
+        for k in range(len(self.reward_times)):
+            temp = self.reward_times[k]
+            plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue')
+
+        # replot two random rewards just to make nice legend
+        idx1 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
+
+        #
+        plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E1 rewarded # ' + str(idx1), )
+        plt.legend()
+        plt.xlim(t[0],t[-1])
+        for k in range(len(self.white_noise)):
+            #print(self.white_noise[k])
+            try:
+                ax.axvspan(t[self.white_noise[k][0]],
+                       t[self.white_noise[k][1]],
+                       alpha=0.2,
+                       color='grey')
+            except:
+                pass
+        ####################################################
+        ################## VISUALIZE ENSEMBELS #############
+        ####################################################
+        ax=plt.subplot(2,1,2)
+        plt.title("ENSEMBLES")
+        #plt.plot([t[0], t[-1]], [self.low, self.low], '--', c='grey')#, label='Low threshold')
+        plt.plot([t[0], t[-1]], [self.high, self.high], '--', c='grey')#', label='high threshold')
+        #plt.plot(t, self.E1, c='darkblue', alpha=1, label='E1')
+        #plt.plot(t, self.E2, c='darkred', alpha=1, label='E2')
+        plt.xlim(t[0],t[-1])
+        #
+        plt.plot(t, self.diff, c='black', alpha=1, label='Global ensemble state (i.e. E1-E2)')
+        plt.plot([t[0], t[-1]], [0, 0], '--', c='black', linewidth=1, alpha=.5)
+
+        ymaxes = np.max(np.abs(self.diff))
+        print (" PROCESSING...")
+        #
+        for k in range(len(self.reward_times)):
+            temp = self.reward_times[k]
+            plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue')
+
+        # replot two random rewards just to make nice legend
+        idx1 = np.where(self.reward_times[:, 1] == 1)[0].shape[0]
+
+        #
+        plt.plot([t[temp[0]], t[temp[0]]], [-ymaxes, ymaxes], '--', c='blue', label='E1 rewarded # ' + str(idx1), )
+        plt.legend()
+
+        for k in range(len(self.white_noise)):
+            #print(self.white_noise[k])
+            try:
+                ax.axvspan(t[self.white_noise[k][0]],
+                       t[self.white_noise[k][1]],
+                       alpha=0.2,
+                       color='grey')
+            except:
+                pass
+				
+        #
+        plt.suptitle("binning: "+str(self.binning_flag) + ", rec time: " + str(int(t[-1])) + " sec " +
+                  "\n expected # of random rewards: " + str(int(t[-1] / 30)) +
+                  "\n actual # of provided rewards: " + str(self.reward_times.shape[0]))
+        plt.xlabel("Time (sec)", fontsize=20)
+        
+        #
+        plt.savefig(os.path.join(self.root_dir,
+                                 self.animal_id,
+                                 self.session_id,
+                                 'results',
+                                 "calibration_threshold_plot.png"))
+            
+
+        
+        plt.show()
+
+
+    #
+    def run_simulated_bmi(self):
+
+
+        # initialize the max and min values
+        #
+        n_sec_recording = int(self.ensemble1_traces[0].shape[0] / self.sample_rate)
+        n_rewards_random = n_sec_recording // self.sample_rate
+
+        self.fps = 30
+        n_rewards = 0
+        last_reward = 0
+        reward_times = []
+
+        E1_1= np.zeros(self.ensemble1_traces[0].shape[0])
+        E1_2= np.zeros(self.ensemble1_traces[1].shape[0])
+        E2_1= np.zeros(self.ensemble2_traces[0].shape[0])
+        E2_2= np.zeros(self.ensemble2_traces[1].shape[0])
+
+        #
+        counter=-1
+
+        #
+        post_reward_lockout=False
+        binning_n_frames = int(self.binning_time * self.fps)
+        binning_counter = binning_n_frames
+        white_noise_starts = []
+        white_noise_ends = []
+        
+        # keep track of trials
+        trial_starts = []
+        trial_ends = []
+        trial_starts.append(0)
+
+        # here we bin data
+        self.binning_flag = True
+        for k in range(binning_n_frames, self.ensemble1_traces[0].shape[0], 1):
+
+            #
+            if self.binning_flag:
+                if False:
+                    # smooth the data
+                    if binning_counter<=0:
+                        temp_now = np.mean(self.ensemble1_traces[0][k-binning_n_frames:k])
+                        temp2 = []
+                        # go to previous n time bins and grab data
+                        for q in range(self.smoothing_n_bins-1,0,-1):
+                            temp2.append(E1_1[k-q*binning_n_frames])
+                        self.E1_1 = np.mean(np.hstack((temp2, temp_now)))
+
+                        temp_now = np.mean(self.ensemble1_traces[1][k-binning_n_frames:k])
+                        temp2 = []
+                        # go to previous n time bins and grab data
+                        for q in range(self.smoothing_n_bins-1,0,-1):
+                            temp2.append(E1_2[k-q*binning_n_frames])
+                        self.E1_2 = np.mean(np.hstack((temp2, temp_now)))
+
+                        temp_now = np.mean(self.ensemble2_traces[0][k-binning_n_frames:k])
+                        temp2 = []
+                        # go to previous n time bins and grab data
+                        for q in range(self.smoothing_n_bins-1,0,-1):
+                            temp2.append(E2_1[k-q*binning_n_frames])
+                        self.E2_1 = np.mean(np.hstack((temp2, temp_now)))
+
+                        temp_now = np.mean(self.ensemble2_traces[1][k-binning_n_frames:k])
+                        temp2 = []
+                        # go to previous n time bins and grab data
+                        for q in range(self.smoothing_n_bins-1,0,-1):
+                            temp2.append(E2_2[k-q*binning_n_frames])
+                        self.E2_2 = np.mean(np.hstack((temp2, temp_now)))
+
+
+                        # reset counter
+                        binning_counter = binning_n_frames
+                    else:
+                        self.E1_1 = E1_1[k-1]
+                        self.E1_2 = E1_2[k-1]
+                        self.E2_1 = E2_1[k-1]
+                        self.E2_2 = E2_2[k-1]
+                        binning_counter-=1
+                else:
+                    self.E1_1 = self.ensemble1_traces[0][k]
+                    self.E1_2 = self.ensemble1_traces[1][k]
+                    self.E2_1 = self.ensemble2_traces[0][k]
+                    self.E2_2 = self.ensemble2_traces[1][k]
+
+
+            
+
+            # old way of smoothing
+            else:
+                self.E1_1 = smooth_ca_time_series4(self.ensemble1_traces[0][k - self.rois_smooth_window:k])
+                self.E1_2 = smooth_ca_time_series4(self.ensemble1_traces[1][k - self.rois_smooth_window:k])
+                self.E2_1 = smooth_ca_time_series4(self.ensemble2_traces[0][k - self.rois_smooth_window:k])
+                self.E2_2 = smooth_ca_time_series4(self.ensemble2_traces[1][k - self.rois_smooth_window:k])
+
+
+            # save data arrays for later visualization
+            E1_1[k] = self.E1_1
+            E1_2[k] = self.E1_2
+            E2_1[k] = self.E2_1
+            E2_2[k] = self.E2_2
+
+            #
+            self.E1 = self.E1_1+self.E1_2
+            self.E2 = self.E2_1+self.E2_2
+
+            temp_diff = self.E1-self.E2
+
+            #
+            counter-=1
+            if counter>0:
+                continue
+
+            if post_reward_lockout:
+                if temp_diff > (self.high*self.post_reward_lockout_baseline_min):
+                    continue
+                else:
+                    post_reward_lockout=False
+
+
+            ############ REWARD REACHED ###########
+            if temp_diff >= self.high:
+                # high reward state reached
+                n_rewards += 1
+                reward_times.append([k, 1])
+                last_reward = k
+
+                trial_ends.append(k)
+
+                # lock out rewards for some time;
+                #k += int(self.post_reward_lockout * self.sample_rate)
+                counter = int(self.post_reward_lockout * self.sample_rate)
+
+                #
+                post_reward_lockout = True
+
+                #
+                trial_starts.append(k+counter)
+
+            ########### WHITE NOISE PENALTY ############
+            elif (k-last_reward)>= int(self.trial_time * self.sample_rate):
+
+                last_reward = k
+                # lock out rewards for some time;
+                counter = int(self.post_missed_reward_lockout * self.sample_rate)
+                trial_ends.append(k)
+                #
+                white_noise_starts.append(k)
+                white_noise_ends.append(k+self.post_missed_reward_lockout*self.sample_rate)
+
+                post_reward_lockout = True
+                trial_starts.append(k+counter)
+
+        #
+        #print("updated rewards #: ", n_rewards, " for threshold: ", self.high)
+
+        #
+        self.reward_times = np.vstack(reward_times)
+        self.white_noise = np.vstack((white_noise_starts, white_noise_ends)).T
+        self.ensemble1_traces_smooth= []
+        self.ensemble2_traces_smooth= []
+        self.ensemble1_traces_smooth.append(E1_1)
+        self.ensemble1_traces_smooth.append(E1_2)
+        self.ensemble2_traces_smooth.append(E2_1)
+        self.ensemble2_traces_smooth.append(E2_2)
+
+        #
+        self.E1 = E1_1 + E1_2
+        self.E2 = E2_1 + E2_2
+        self.diff = self.E1-self.E2
+        
+        self.rewards_in_frame_time=self.reward_times
+
+        #
+        self.trial_starts = np.array(trial_starts)
+        self.trial_ends = np.array(trial_ends)
+
+        max_len = min(self.trial_starts.shape[0], self.trial_ends.shape[0])
+
+        self.trials = np.vstack((self.trial_starts[:max_len], self.trial_ends[:max_len])).T
+        #print ("SELF TRIALS: ", self.trials)
+    
+    #
+    def simulate_session(self):
+
+        # we first load the rois_traces_raw from the results file
+        for session_id in self.during:
+
+            d = np.load(os.path.join(self.root_dir,
+                                    self.animal_id,
+                                    session_id,
+                                    'data',
+                                    'results.npz')
+                                    , allow_pickle=True
+                                    )
+            
+            #
+            self.ensemble1_traces = d['rois_traces_smooth1']
+            self.ensemble2_traces = d['rois_traces_smooth2']
+
+            # zero out first 10 seconds
+            self.ensemble1_traces[:,:int(10*self.sample_rate)] = 0
+            self.ensemble2_traces[:,:int(10*self.sample_rate)] = 0
+
+
+            #
+            self.high = d['high_threshold']
+
+            # run the bmit in simulation
+            self.run_simulated_bmi()
+
+            # make hits per min array
+            self.bin_width_mins = 5
+            xx = np.arange(0,self.rec_len_mins,self.bin_width_mins)
+
+            #start_time = self.starts_time[0]
+            hits_per_bin = np.zeros(xx.shape[0])
+            #misses_per_bin = np.zeros(xx.shape[0])
+            n_trials_per_bin = np.zeros(xx.shape[0])
+
+            #
+            #print ("all rewards frame time: ", self.rewards_in_frame_time)
+            #
+            for k in range(self.rewards_in_frame_time.shape[0]):
+                temp = self.rewards_in_frame_time[k]
+
+                # find bin of the reward
+                temp_mins = temp[0]/self.sample_rate/60.
+                #print ("reward time in mins: ", temp_mins)
+                idx = int(temp_mins/self.bin_width_mins)
+                hits_per_bin[idx]+= 1
+
+            # compute number of traisl per bin
+            for k in range(self.trials.shape[0]):
+                temp = self.trials[k]
+                start_min = temp[0]/self.sample_rate/60.
+                idx = int(start_min/self.bin_width_mins)
+
+                n_trials_per_bin[idx]+=1
+
+            yy = hits_per_bin/n_trials_per_bin
+            self.save_dir = os.path.join(self.root_dir,
+                                            self.animal_id,
+                                            session_id,
+                                            'results')
+            np.save(os.path.join(self.save_dir,
+                                 'intra_session_reward_hits_per_minute_simulated.npy'),yy)
+            
+            
+            #
+            from scipy import stats
+            res = stats.pearsonr(xx,yy)
+            if self.verbose:
+                print ("Pearson corr: ", res)
+
+            #
+            plt.figure()
+            plt.plot(np.unique(xx), np.poly1d(np.polyfit(xx, yy, 1))(np.unique(xx)),
+                    '--')
+            plt.scatter(xx,yy, label = "pcorr: "+str(round(res[0],2))+ ", pval: "+str(round(res[1],5)))
+            plt.bar(xx,yy,self.bin_width_mins*0.9, alpha=.5)
+            plt.ylim(bottom=0)
+            plt.xlim(xx[0]-self.bin_width_mins/2.,xx[-1]+self.bin_width_mins/2.)
+            plt.legend()
+
+            plt.xlabel("Time (mins)")
+            plt.ylabel("% hit rate")
+            plt.title(self.animal_id +  " -- " + session_id)
+            plt.savefig(os.path.join(self.save_dir,'intra_session_reward_hist_per_minute_simulated.png'),dpi=200)
+
+            if self.show_plots:
+                plt.show()
+            else:
+                plt.close()
+
+            self.session_id = session_id
+
+            #
+            self.plot_rewarded_ensembles()
+        #
+
     def contingency_degradation(self):
 
         # load test data
+        print ("Loading pre data")
         pre = []
         for session_id in self.pre:
             d = np.load(os.path.join(self.root_dir,
@@ -139,22 +549,33 @@ class ProcessSession():
 
 
         # load contingency degradata
+        # here we must recmopute the rewards rather than loading them   
+        print ("simulating contingency degradation runs")
+        self.simulate_session()
+
+        # load contingency degradata
         cont_deg = []
+        print ("Loading post data")
         for session_id in self.during:
             d = np.load(os.path.join(self.root_dir,
                                      self.animal_id,
                                      session_id,
                                      'results/intra_session_reward_hits_per_minute.npy'
                                      ))
+            print ("cont deg: ", d, " for session: ", session_id)
             cont_deg.append(d.mean())
+
+        #
+
 
         # load contingency degradata
         post = []
+        print ("Loading post data")
         for session_id in self.post:
             d = np.load(os.path.join(self.root_dir,
                                      self.animal_id,
                                      session_id,
-                                     'results/intra_session_reward_hits_per_minute.npy'
+                                     'results/intra_session_reward_hits_per_minute_simulated.npy'
                                      ))
             post.append(d.mean())
 
@@ -164,10 +585,9 @@ class ProcessSession():
 
         #
         x = np.arange(3)
-        #
         y = np.array(([np.mean(pre),
-                     np.mean(cont_deg),
-                     np.mean(post)]))
+                       np.mean(cont_deg),
+                       np.mean(post)]))
 
         plt.bar(x,y,width=0.9)
         plt.xticks(x,xticks)
@@ -985,18 +1405,6 @@ class ProcessSession():
     def compute_intra_session_reward_histogram_hist_per_minute(self):
 
         #
-        # d = np.load('/media/cat/4TB/donato/andres/Cohort 6 Data/DON-014266/20230205/data/results.npz',
-        #             allow_pickle=True)
-        #
-        #
-        # self.trials = d['trials']
-        # self.starts_ttl = d['trials'][:, 0]
-        # self.starts_time = d['trials'][:, 1]
-        # self.ends_ttl = d['trials'][:, 2]
-        # self.ends_time = d['trials'][:, 3]
-        # self.rewards = d['trials'][:, 4]
-
-        #
         # make hits per min array
         xx = np.arange(0,self.rec_len_mins,self.bin_width_mins)
         start_ttl = 0
@@ -1051,8 +1459,6 @@ class ProcessSession():
             plt.close()
         #
         np.save(os.path.join(self.save_dir,'intra_session_reward_hits_per_minute.npy'),yy)
-
-
 
     #
     def compute_animal_hit_rate(self):
@@ -1212,8 +1618,11 @@ class ProcessSession():
         names = ["roi1", "roi2","roi3","roi4",]
 
         #
+        self.window = self.window_size*self.sample_rate
+
+        #
         plt.figure()
-        t=np.arange(-self.window, self.window, 1)
+        t=np.arange(-self.window, self.window, 1)/self.sample_rate
         cc_array = []
         for k in range(4):
             cc_array.append([])
@@ -1230,6 +1639,7 @@ class ProcessSession():
                 for z in range(-self.window, self.window,1):
                     cc.append(stats.pearsonr(np.roll(t1,z), t2)[0])
 
+                #print (k,p, 'cc: ', len(cc), "t: ", len(t))
                 cc_array[k][p]=cc
                 #
                 #print (k*4+p)
@@ -1359,18 +1769,27 @@ class ProcessSession():
         #     3. Removing bleaching and drift artifacts using polynomial fits
         #        This is stored in detrend_model_order
         c.detrend_model_order = 1  # 1-5 polynomial fit
+        c.detrend_model_type = 'polynomial'  # 'polynomial' or 'exponential'
 
-        #
+        # remove first five seconds of data ni traces
+        self.E1[0][:5 * self.sample_rate] = 0
+        self.E1[1][:5 * self.sample_rate] = 0
+        self.E2[0][:5 * self.sample_rate] = 0
+        self.E2[1][:5 * self.sample_rate] = 0
+        
+              #
         traces = np.vstack((self.E1[0],
                             self.E1[1],
                             self.E2[0],
                             self.E2[1])).astype('float32')
+
 
         #
         c.F = traces
         c.verbose=False
         c.percentile_threshold = self.percentile_threshold
         c.recompute_binarization = self.recompute_binarization
+
 
         #c.binarize_fluorescence2()
         c.load_binarization()
@@ -1650,6 +2069,8 @@ class ProcessSession():
             #
             n_rewards.append(S.reward_times.shape[0])
 
+            #print ("S.reward_times: ", S.reward_times)
+            #print ("session_id: ", session_id)
 
         from scipy import stats
         xx = np.arange(len(n_rewards))
