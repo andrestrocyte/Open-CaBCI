@@ -1682,7 +1682,7 @@ class ProcessSession():
 
         #
         plt.figure()
-        t=np.arange(-self.window, self.window, 1)/30.
+        t=np.arange(-self.window*self.sample_rate, self.window*self.sample_rate, 1)/30.
         cc_array = []
 
         #for k in range()
@@ -1700,13 +1700,18 @@ class ProcessSession():
             print ("Length of cc: ", len(cc), len(cc[0]))
             ctr=0
             for k in range(4):
+                max_y = 0
                 for p in range(k,4,1):
-
+                    
+                    #
                     plt.subplot(4,4,k*4+p+1)
 
+                    #
                     y = cc[k][p]
                     #print ("y,: ", y)
-                    y = y/np.max(y)
+                    #y = y/np.max(y)
+                    
+                    #print ("y: ", y.shape, ", t: ", t.shape)
                     plt.plot(t,y, color=colors[ctr_sess])
                     ctr+=1
 
@@ -1716,12 +1721,20 @@ class ProcessSession():
                         plt.xticks([])
                     else:
                         plt.xlabel("Time (sec)")
-                    plt.ylim(bottom=0)
+                    #plt.ylim(bottom=0)
 
                     #
-                    plt.plot([0,0],
-                             [0,np.max(y) ],
-                             '--',c='grey')
+                    if np.max(y)>max_y:
+                        max_y = np.max(y)
+                        
+                        
+                plt.plot([0,0],
+                         [0,max_y],
+                         '--',c='grey')
+
+                #plt.ylim(0, max_y)
+                    
+                    
             ctr_sess+=1
         plt.suptitle(self.animal_id  + " Raw fluorescence based xcorrelation")
         #plt.savefig(os.path.join(self.save_dir, 'correlograms_fluorescence.png'), dpi=200)

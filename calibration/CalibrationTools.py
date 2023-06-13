@@ -1556,17 +1556,22 @@ class CalibrationTools(object):
         #
         #self.roi_f0s = np.zeros(self.roi_traces.shape[0], dtype=np.float32)
 
-        j = 0
+        #j = 0
         ctr = 0
         cell_ids = []
+        
+        import matplotlib.gridspec as gridspec  
+        gs = gridspec.GridSpec(4, 2)
+        ax1 = plt.subplot(gs[:3, :])
+
+        #ax=plt.subplot(1,2,1)
         for k in range(self.roi_traces.shape[0]):
 
             if self.roi_f0s[k]<self.min_f0:
                 continue
 
             #ax=plt.subplot(1,2,j+1)
-            ax=plt.subplot(2,1,j+1)
-            ax.tick_params(axis='both', which='both', labelsize=20)
+            ax1.tick_params(axis='both', which='both', labelsize=20)
             plt.ylabel("Neuron ID ", fontsize=20)
 
             temp = self.roi_traces[k].copy()
@@ -1580,7 +1585,7 @@ class CalibrationTools(object):
             # each cell might have different time signatures in case some have higher temporal resolution
             t = np.linspace(0, data.shape[0], temp.shape[0]) / 30.
 
-            plt.plot(t, temp-np.median(temp) + ctr * self.scale)
+            ax1.plot(t, temp-np.median(temp) + ctr * self.scale)
 
             cell_ids.append(k)
 
@@ -1599,7 +1604,8 @@ class CalibrationTools(object):
         ###########################################################
         ################### PLOT IMAGE OF [CA] ####################
         ###########################################################
-        plt.subplot(2,1,2)
+        #ax2.subplot(1,2,2)
+        ax2 = plt.subplot(gs[3:, 1])
         new_plot = False
         self.show_contour_map(std_map,
                               self.footprints[:self.max_n_cells],

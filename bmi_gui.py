@@ -250,18 +250,19 @@ if __name__ ==  '__main__':
     ########### INITIALIZE AND START CAMERA RECORDING #############
     ###############################################################
     if calibration_flag:
-        fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
+        fname_video = os.path.join(os.path.split(fname_fluorescence)[0],
                                    "video_calibration.avi")
     elif align_flag:
-        fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
+        fname_video = os.path.join(os.path.split(fname_fluorescence)[0],
                                    "video_alignment.avi")
     else:
-        fname_video = os.path.join(os.path.split(fname_rois_pixels_and_thresholds)[0],
+        fname_video = os.path.join(os.path.split(fname_fluorescence)[0],
                                    "video_data.avi")
 
     #
     camera_player_ = Process(target=Camera, args=(
-                                                fname_rois_pixels_and_thresholds,
+                                                #fname_rois_pixels_and_thresholds,
+                                                fname_fluorescence,
                                                 simulation_flag_video_camera,
                                                 video_hardware_trigger,
                                                 bmi.shmem_n_ttl.name,

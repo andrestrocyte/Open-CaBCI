@@ -52,7 +52,7 @@ class CameraSimulation():
 class Camera():
 	
 	def __init__(self, 
-                 fname_rois_pixels_and_thresholds,
+                 fname_fluorescence,
 				 camera_simulation_flag,
 				 hardware_trigger_flag,
 				 shmem_n_ttl,
@@ -71,7 +71,7 @@ class Camera():
 		self.shmem_live_video_frame = shmem_live_video_frame
 
 		#
-		self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
+		#self.fname_rois_pixels_and_thresholds = fname_rois_pixels_and_thresholds
 
 		# run camera in simulation mode, doesn't require a camera
 		self.camera_simulation_flag=camera_simulation_flag

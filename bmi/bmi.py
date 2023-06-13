@@ -1431,8 +1431,11 @@ class BMI():
 
         # if mouse does not perform in e.g. 30 sec, do a lockout
         # TODO: May wish to play white noise to distinguish it from post-reward state
-
-        if self.white_noise_state[0]==1 or self.post_reward_state[0]==1:
+		# so here we can't evaluate or reset the white noise as long as we're in one of these 3 states
+		#  white noise is still playing, i.e. post miss state
+		#  post-reward lockout of about 3 seconds
+		#  or we still haven't returned the neural activity to below required baseline
+        if self.white_noise_state[0]==1 or self.post_reward_state[0]==1 or self.dynamic_reward_lockout_state[0]==1:
             return
 
         # here we want to check not against last reward, but against the last trial commencement
