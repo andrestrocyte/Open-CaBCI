@@ -1492,7 +1492,7 @@ class BMI():
 
             # draw random probability:
             #threshold = 0.00027778
-            threshold = 0.00035
+            threshold = 0.00025
             x = np.random.rand()
             #print (self.n_ttl, "Rnadom draw: ", x)
             if x <= threshold:
