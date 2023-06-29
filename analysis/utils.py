@@ -133,8 +133,6 @@ class ProcessSession():
         #
         self.verbose = False
 
-
-
         #
         if os.path.exists(self.save_dir)==False:
             os.mkdir(self.save_dir)
