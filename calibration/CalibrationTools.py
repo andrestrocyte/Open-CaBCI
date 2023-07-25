@@ -13,6 +13,7 @@ import scipy.ndimage
 import cv2
 from matplotlib.widgets import Slider, Button, RadioButtons
 import os, pickle
+import matplotlib.gridspec as gridspec
 
 
 from stardist.models import StarDist2D
@@ -534,14 +535,16 @@ class CalibrationTools(object):
                    vmin=self.vmin * 0.7,
                    vmax=self.vmax * 1.3)
 
-
-
         # add cell contours
         clrs=['white']
-        for p in range(len(footprints)):
+        self.bmi_contours = []
+        self.bmi_contour_centres = []
 
-            if self.roi_f0s[p]<self.min_f0:
-                continue
+        #
+        for p in trange(len(footprints)):
+
+            #if self.roi_f0s[p]<self.min_f0:
+            #    continue
 
             temp = np.zeros(std_map.shape)
             #print ("footrpints: ", footprints[p])
@@ -551,7 +554,20 @@ class CalibrationTools(object):
                                           cv2.RETR_TREE,
                                           cv2.CHAIN_APPROX_SIMPLE)
             contour = contour[0].squeeze()
-            #print ("contour: ", contour.shape)
+
+            # save the contours
+            self.bmi_contours.append(contour)
+
+            # save the footprint centre
+            if len(contour.shape)>1:
+                center = np.mean(contour,axis=0)
+            else:
+                center = contour
+
+            #
+            self.bmi_contour_centres.append(center)
+
+            #
             try:
                 contour = np.vstack((contour, contour[0]))
             except:
@@ -567,31 +583,12 @@ class CalibrationTools(object):
             plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='white', fontsize=15)
 
         #
-        # # add cell contours
-        # clrs=['blue','red','green','pink']
-        # print ("cell ids: ", cell_ids)
-        # for p in cell_ids:
-        #     color = clrs[p//2]
-        #     temp = np.zeros(std_map.shape)
-        #     temp[footprints[p]] = 1
-        #     temp = temp.astype('uint8')
-        #     contour, _ = cv2.findContours(temp,
-        #                                   cv2.RETR_TREE,
-        #                                   cv2.CHAIN_APPROX_SIMPLE)
-        #     contour = contour[0].squeeze()
-        #     contour = np.vstack((contour, contour[0]))
-        #
-        #     #
-        #     for k in range(len(contour) - 1):
-        #         plt.plot([contour[k][0], contour[k + 1][0]],
-        #                  [contour[k][1], contour[k + 1][1]],
-        #                  c=color)
-        #     #
-        #     z = np.vstack(footprints[p]).T
-        #     plt.text(np.median(z[:, 1]), np.median(z[:, 0]), str(p), c='red')
+        self.bmi_contour_centres = np.vstack(self.bmi_contour_centres)
 
+        #
         plt.show()
 
+    #
     def select_cell(self,
                     cell_ids_available,
                     ideal_n_bursts,
@@ -834,6 +831,146 @@ class CalibrationTools(object):
         self.footprints = self.footprints_temp
         self.roi_f0s = self.rois_f0s_temp
 
+    #
+    def select_cells(self):
+
+        # get the centres of each contour in bmi_c.contours
+
+        #
+        fig = plt.figure(figsize=(12, 6))
+        fig.canvas.mpl_connect('button_press_event', self.onclick)
+        gs = gridspec.GridSpec(4, 2)
+
+        # Four vertical stacked plots on the left (each occupying one cell)
+        self.ax1 = plt.subplot(gs[0, 0])
+        self.ax1.set_title("ROI 3")
+
+        self.ax2 = plt.subplot(gs[1, 0])
+        self.ax2.set_title("ROI 2")
+
+        self.ax3 = plt.subplot(gs[2, 0])
+        self.ax3.set_title("ROI 1")
+
+        #
+        self.ax4 = plt.subplot(gs[3, 0])
+        self.ax4.set_title("ROI 0")
+
+        #
+        self.ax5 = plt.subplot(gs[:, 1])
+
+        # make the contours 
+        cell_ids = np.arange(len(self.footprints))
+        self.prev_cell_id = 0
+        self.roi_selected = 0
+        self.ensemble_ids = np.zeros(4)+np.nan
+
+        #
+        self.show_contour_map(self.std_map,
+                            self.footprints,
+                            cell_ids,
+                            False)
+
+        # find the contour
+        self.ax5.set_title("FOV")
+        self.ax5.set_xlim(0, 512)
+        self.ax5.set_ylim(512,0)
+
+        # Adjust spacing between subplots
+        plt.tight_layout()
+
+
+        plt.show()
+
+    #
+    def onclick(self, event):
+
+        #
+        axes = [self.ax1,self.ax2,self.ax3,self.ax4]
+
+        #
+        clrs = ['blue','lightblue','red','pink']
+
+        #
+        if event.button == 1:  # Check if the left mouse button is clicked
+            subplot_id = event.inaxes.get_subplotspec().num1
+            x_coord, y_coord = event.xdata, event.ydata
+            #print(f"Subplot ID: {subplot_id}, X: {x_coord}, Y: {y_coord}")
+
+            #
+            self.plot_selected = abs(subplot_id-6)/2
+
+            #
+            if subplot_id in [0,2,4,6]:
+                self.roi_selected = int(self.plot_selected)
+
+                #
+                #print ("Plot selected: ", bmi_c.plot_selected,
+                #       "roi selected: ", bmi_c.roi_selected)
+                #
+                self.prev_cell_id = self.ensemble_ids[self.roi_selected]
+                print ("previous selected cell for roi: ", self.roi_selected, " is: ", self.prev_cell_id)
+                #bmi_c.plot_selected = roi_selected
+            
+            #
+            elif subplot_id==1:
+                #print ("Selected ROI: ", bmi_c.plot_selected)
+
+                # find nearest contour to the x,y coord selected above
+                dists = self.bmi_contour_centres-np.array([x_coord,y_coord])
+
+                # compute euclidean length of dists
+                dists = np.linalg.norm(dists, axis=1)
+
+                # find the closest contour
+                idx = np.argmin(dists)
+
+                # 
+                #print ("closest cell ID: ", idx)
+
+                # plot the contour of previous cell in white
+                try:
+                    contour = self.bmi_contours[int(self.prev_cell_id)]
+                    for k in range(len(contour) - 1):
+                        self.ax5.plot([contour[k][0], contour[k + 1][0]],
+                                [contour[k][1], contour[k + 1][1]],
+                                c='white')
+                except:
+                    pass
+
+                # plot the contour of current cell in red
+                contour = self.bmi_contours[idx]
+                color = clrs[self.roi_selected]
+                contour = np.vstack((contour, contour[0]))
+
+                #
+                for k in range(len(contour) - 1):
+                    self.ax5.plot([contour[k][0], contour[k + 1][0]],
+                                  [contour[k][1], contour[k + 1][1]],
+                            c=color)
+                
+                # refresh plot
+                plt.draw()
+
+                #
+                self.prev_cell_id = idx
+
+                #
+                self.ensemble_ids[self.roi_selected] = idx
+
+                # clear the plot first
+                axes[3-self.roi_selected].cla()
+
+                # pltot the traces of the cell inside the specific ax plot
+                trace = self.roi_traces[idx]
+                axes[3-self.roi_selected].plot(trace, c=color)
+
+        #
+        if event.button == 3:  # Check if the left mouse button is clicked
+            print ("Right click, exiting...")
+            print ("Selected ensemble cells: ", self.ensemble_ids)
+            plt.close()
+
+    #
     def compute_roi_traces_f0_and_NO_reorder_cells_Day1(self):
 
         #
@@ -898,9 +1035,6 @@ class CalibrationTools(object):
 
             #
             self.roi_snrs[k] = np.max((self.roi_traces[k] - f0) / f0)
-
-
-
 
     #
     def compute_roi_traces_f0_and_reorder_cells(self,
@@ -1324,7 +1458,8 @@ class CalibrationTools(object):
 
         plt.show()
 
-    def compute_traces_ensembles2(self, std_map):
+    #
+    def compute_traces_ensembles_Day0(self, std_map):
         """ Same as below but visualize every single frame
         """
 
@@ -1397,11 +1532,16 @@ class CalibrationTools(object):
 
         # plot ensemble 1 cells
         ctr2 = 0
+        self.roi_f0s = np.zeros(len(self.footprints), dtype=np.float32)
         for ctr, k in enumerate(self.ensemble1):
             temp = self.ensemble1_traces[ctr]
 
+            # compute f0 baseline
+            f0 = np.nanmedian(temp)
+            self.roi_f0s[self.ensemble1[ctr]] = f0
+
             # normalize by the correct cell id, not the one computed above
-            temp = (temp - self.roi_f0s[self.ensemble1[ctr]]) / self.roi_f0s[self.ensemble1[ctr]]
+            temp = (temp - f0) / f0
 
             # we update the selected traces time dynamics
             self.ensemble1_traces[ctr] = temp
@@ -1418,8 +1558,12 @@ class CalibrationTools(object):
         for ctr, k in enumerate(self.ensemble2):
             temp = self.ensemble2_traces[ctr]
 
+            # compute f0 baseline
+            f0 = np.nanmedian(temp)
+            self.roi_f0s[self.ensemble2[ctr]] = f0
+
             # normalize by the correct cell id, not the one computed above
-            temp = (temp - self.roi_f0s[self.ensemble2[ctr]]) / self.roi_f0s[self.ensemble2[ctr]]
+            temp = (temp - f0)/f0
 
             # we update the selected traces time dynamics
             self.ensemble2_traces[ctr] = temp
@@ -1431,7 +1575,10 @@ class CalibrationTools(object):
             plt.plot(t, t*0 + np.median(self.ensemble2_traces[ctr])+ ctr2 * self.scale,'--', c='black')
 
             ctr2 += 1
+
+        #
         plt.xlim(t[0],t[-1])
+
         #
         cell_ids = np.hstack((self.ensemble1, self.ensemble2))
 
@@ -2862,6 +3009,9 @@ def get_footprints_from_suite2p(bmi_c):
     c.data_dir = data_dir
     c.load_suite2p()
 
+    # save the calcium traces from suite2p
+    bmi_c.roi_traces = c.F
+
     # this loads the suite2p footprints
     c.load_footprints()
     print("# of footprints; ", len(c.footprints))
@@ -2869,10 +3019,10 @@ def get_footprints_from_suite2p(bmi_c):
     bmi_c.footprints = []
 
     #
-    plt.figure()
-    plt.imshow(bmi_c.std_map)
+    #plt.figure()
+    #plt.imshow(bmi_c.std_map)
     for k in range(len(c.footprints)):
-        plt.plot(c.contours[k][:, 0], c.contours[k][:, 1])
+        #plt.plot(c.contours[k][:, 0], c.contours[k][:, 1])
 
         #
         footprint = c.footprints[k].T
@@ -2880,19 +3030,20 @@ def get_footprints_from_suite2p(bmi_c):
         bmi_c.footprints.append(idx)
 
         # print (temp)
-        idx = np.where(footprint <= 0)
-        idx2 = np.where(footprint > 0)
-        footprint[idx] = np.nan
-        footprint[idx2] = 1
+        if False:
+            idx = np.where(footprint <= 0)
+            idx2 = np.where(footprint > 0)
+            footprint[idx] = np.nan
+            footprint[idx2] = 1
 
-        # print (np.nanmax(temp), np.nanmin(temp))
-        plt.imshow(footprint,
-                   vmin=0,
-                   vmax=1)
-
-    plt.xlim(0, 512)
-    plt.ylim(0, 512)
-    plt.colorbar()
-    plt.show()
+            # print (np.nanmax(temp), np.nanmin(temp))
+            plt.imshow(footprint,
+                    vmin=0,
+                    vmax=1)
+    if False:
+        plt.xlim(0, 512)
+        plt.ylim(0, 512)
+        plt.colorbar()
+        plt.show()
 
     return bmi_c
