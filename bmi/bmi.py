@@ -55,8 +55,14 @@ class BMI():
                  ):
 
         #
+        self.debug_mode = False
+
+        #
         print ("... initializing BMI parameters...")
         print ("    TODO: consider saving all imaging data to RAM disk (or faster SSD) for improved speeds")
+
+        if self.debug_mode:
+            print (">>>>>> NOTE RUNNING IN DEBUG MODE ONLY... BMI WILL NOT RUN/GIVE REWARDS<<<<")
 
         #
         self.align_flag=align_flag
@@ -926,8 +932,18 @@ class BMI():
             # check of ttl pulse when from high ~5 to low ~0
             if self.min_<1 and self.prev_max>=1:
                 
-                # runs the bmi code whenever imaging frame is completed
-                self.bmi_update()
+                # prefer to save it here for debugging purposes
+                self.ttl_times.append(self.now)
+                
+                #
+                if len(self.ttl_times)>0:
+                    print (" Detected ttl: ", self.ttl_times[-1])
+                
+                # also have a non_bmi mode for debugging, e.g. to count TTL pulses etc.
+                if self.debug_mode==False:
+                    
+                    # runs the bmi code whenever imaging frame is completed
+                    self.bmi_update()
 
                 # update trigger time
                 self.previous_trigger = self.now
@@ -1237,7 +1253,6 @@ class BMI():
         # save meta data
         self.ttl_n_computed.append(self.ttl_computed)
         self.ttl_n_detected.append(self.n_ttl)
-        self.ttl_times.append(self.now)
 
         #
         self.n_ttl+=1
