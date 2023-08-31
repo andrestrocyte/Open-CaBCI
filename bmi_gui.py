@@ -249,14 +249,19 @@ if __name__ ==  '__main__':
     ###############################################################
     ########### INITIALIZE AND START CAMERA RECORDING #############
     ###############################################################
+    
+    #
+    root_fname_video = os.path.split(os.path.split(fname_fluorescence)[0])[0]
+    
+    
     if calibration_flag:
-        fname_video = os.path.join(os.path.split(fname_fluorescence)[0],
+        fname_video = os.path.join(root_fname_video,
                                    "video_calibration.avi")
     elif align_flag:
-        fname_video = os.path.join(os.path.split(fname_fluorescence)[0],
+        fname_video = os.path.join(root_fname_video,
                                    "video_alignment.avi")
     else:
-        fname_video = os.path.join(os.path.split(fname_fluorescence)[0],
+        fname_video = os.path.join(root_fname_video,
                                    "video_data.avi")
 
     #
@@ -296,6 +301,9 @@ if __name__ ==  '__main__':
 
     #
     plotter_.close()
+    
+    #
+    camera_player_.close()
     
     if calibration_flag==False:
         tone_player_.close()
