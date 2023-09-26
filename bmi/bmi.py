@@ -936,8 +936,8 @@ class BMI():
                 self.ttl_times.append(self.now)
                 
                 #
-                if len(self.ttl_times)>0:
-                    print (" Detected ttl: ", self.ttl_times[-1])
+                #if len(self.ttl_times)>0:
+                #    print (" Detected ttl: ", self.ttl_times[-1])
                 
                 # also have a non_bmi mode for debugging, e.g. to count TTL pulses etc.
                 if self.debug_mode==False:
