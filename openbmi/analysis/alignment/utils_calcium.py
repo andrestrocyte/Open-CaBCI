@@ -3464,7 +3464,7 @@ class ProcessCalcium():
                               y_shift=0,
                               theta =0,
                               theta_x = 256,
-                                theta_y = 256,
+                              theta_y = 256,
                               ):
 
         session_contours = self.sessions[self.session_id].contours
@@ -3477,13 +3477,13 @@ class ProcessCalcium():
             temp[:,1] = temp2[:,0]+y_shift
 
             # rotate the contours by x degrees
-            def rotate_contours(temp, theta):
-                # rotate the contours by x degrees
-                theta = np.deg2rad(theta)
-                R = np.array([[np.cos(theta), -np.sin(theta)],
-                            [np.sin(theta),  np.cos(theta)]])
-                temp = np.dot(temp, R)
-                return temp
+            #def rotate_contours(temp, theta):
+            #    # rotate the contours by x degrees
+            #    theta = np.deg2rad(theta)
+            #    R = np.array([[np.cos(theta), -np.sin(theta)],
+            #                [np.sin(theta),  np.cos(theta)]])
+            #    temp = np.dot(temp, R)
+            #    return temp
             
             def rotate_points(points, cx, cy, theta):
                 # Convert the angle to radians
