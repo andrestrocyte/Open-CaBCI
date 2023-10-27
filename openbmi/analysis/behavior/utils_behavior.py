@@ -2244,10 +2244,8 @@ class ProcessSession():
         else:
             plt.close()
 
-
+        #
         np.save(os.path.join(self.save_dir,'correlograms_upphase.npy'),corr)
-
-
 
     #
     def compute_correlograms_ensembles_fluorescence(self):
@@ -2273,6 +2271,7 @@ class ProcessSession():
             for p in range(4):
                 cc_array[k].append([])
 
+        #
         for k in range(4):
             for p in range(k,4,1):
                 t1 = self.F_filtered[k]
@@ -2296,15 +2295,24 @@ class ProcessSession():
                     plt.xticks([])
                 else:
                     plt.xlabel("Time (sec)")
-                plt.ylim(bottom=0)
-                plt.plot([0,0],
-                         [0,np.max(cc) ],
-                         '--',c='grey')
 
+                #
+                plt.ylim(bottom=0)
+                #plt.plot([0,0],
+                #         [0,np.max(cc) ],
+                #         '--',c='grey')
+
+                # plot a horizontal line at zero
+                plt.plot([t[0],t[-1]],
+                            [0,0],
+                            '--',c='grey')
+
+
+        #
         plt.suptitle(self.animal_id + " " + self.session_id + " Raw fluorescence based xcorrelation")
         plt.savefig(os.path.join(self.save_dir, 'correlograms_fluorescence.png'), dpi=200)
-        #import time
-        #time.sleep(1)
+
+        #
         plt.show()
 
         if self.show_plots==False:
@@ -2312,7 +2320,7 @@ class ProcessSession():
         #
         np.save(os.path.join(self.save_dir,'correlograms_fluorescence.npy'),cc_array)
 
-
+    #
     def correlograms_inter_session(self):
 
         from scipy import stats
@@ -2356,7 +2364,13 @@ class ProcessSession():
                     #y = y/np.max(y)
                     
                     #print ("y: ", y.shape, ", t: ", t.shape)
-                    plt.plot(t,y, color=colors[ctr_sess])
+                    if k==0 and p==0:
+                        plt.plot(t, y, color=colors[ctr_sess], label=session_id)
+                        plt.legend(fontsize=8)
+                    else:
+                        plt.plot(t,y, color=colors[ctr_sess])
+
+
                     ctr+=1
 
                     plt.title(names[k] + " vs " +names[p])
@@ -2367,14 +2381,15 @@ class ProcessSession():
                         plt.xlabel("Time (sec)")
                     #plt.ylim(bottom=0)
 
-                    #
-                    if np.max(y)>max_y:
-                        max_y = np.max(y)
+                     # plot a horizontal line at zero
+                    plt.plot([t[0],t[-1]],
+                            [0,0],
+                            '--',c='grey')
+
                         
-                        
-                plt.plot([0,0],
-                         [0,max_y],
-                         '--',c='grey')
+                # plt.plot([0,0],
+                #          [0,max_y],
+                #          '--',c='grey')
 
                 #plt.ylim(0, max_y)
                     
