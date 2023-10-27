@@ -2320,6 +2320,130 @@ class ProcessSession():
         #
         np.save(os.path.join(self.save_dir,'correlograms_fluorescence.npy'),cc_array)
 
+
+    def correlograms_inter_session_early_vs_late(self):
+
+        from scipy import stats
+
+        self.sample_rate = 30  # in Hz
+        self.bin_size = 1  # in seconds
+
+        # rewarded times
+        std_threshold = 5
+        names = ["roi1", "roi2","roi3","roi4",]
+
+        #
+        plt.figure()
+        t=np.arange(-self.window*self.sample_rate, self.window*self.sample_rate, 1)/30.
+        cc_array = []
+
+        #for k in range()
+        colors = plt.cm.viridis(np.linspace(0, 1, len(self.session_ids)))
+        ctr_sess =0
+        
+        # print ("cc : ", cc)
+        ctr=0
+        ymaxs = np.zeros((4,4))
+        ymins = np.zeros((4,4))
+
+
+        for k in range(4):
+            max_y = 0
+            for p in range(k,4,1):
+
+                early = []
+                late = []
+                for session_id in tqdm(self.session_ids[1:], desc='loading data for hit rate per session'):
+
+                    #
+                    cc = np.load(os.path.join(self.root_dir,
+                                      self.animal_id,
+                                      session_id,
+                                      'results',
+                                      'correlograms_fluorescence.npy'), allow_pickle=True)
+            
+                    y = cc[k][p]
+
+                    if session_id in self.early:
+                        early.append(y)
+                    else:
+                        late.append(y)
+                    
+                #
+                plt.subplot(4,4,k*4+p+1)
+
+                #
+                early = np.mean(np.vstack(early),0)
+                late = np.mean(np.vstack(late),0)
+
+                #
+                if k==0 and p==0:
+                    plt.plot(t, early, 
+                             color='blue', 
+                             label='early')
+                    plt.plot(t, late,
+                                color='red',
+                                label='late')
+                    plt.legend(fontsize=8)
+                else:
+                    plt.plot(t,early, color='blue')
+                    plt.plot(t,late, color='red')
+
+                #
+                if np.max(early)>ymaxs[k,p]:
+                    ymaxs[k,p] = np.max(early)
+
+                if np.max(late)>ymaxs[k,p]:
+                    ymaxs[k,p] = np.max(late)
+
+                if np.min(early)<ymins[k,p]:
+                    ymins[k,p] = np.min(early)
+
+                if np.min(late)<ymins[k,p]:
+                    ymins[k,p] = np.min(late)
+
+
+                # plot vertical line at zero
+                plt.plot([0,0],
+                            [ymins[k,p],ymaxs[k,p]],
+                            '--',c='grey')
+                
+                ctr+=1
+
+                plt.title(names[k] + " vs " +names[p])
+                plt.xlim(t[0],t[-1])
+                if p!=k:
+                    plt.xticks([])
+                else:
+                    plt.xlabel("Time (sec)")
+
+                    # plot a horizontal line at zero
+                plt.plot([t[0],t[-1]],
+                        [0,0],
+                        '--',c='grey')
+
+                        
+                # plt.plot([0,0],
+                #          [0,max_y],
+                #          '--',c='grey')
+
+                #plt.ylim(0, max_y)
+                    
+                    
+            ctr_sess+=1
+        plt.suptitle(self.animal_id  + " Raw fluorescence based xcorrelation")
+        #plt.savefig(os.path.join(self.save_dir, 'correlograms_fluorescence.png'), dpi=200)
+        #import time
+        #time.sleep(1)
+        plt.show()
+
+        #if self.show_plots==False:
+        #    plt.close()
+        #
+        #np.save(os.path.join(self.save_dir,'correlograms_fluorescence.npy'),cc_array, allow_pickle=True)
+
+    #
+
     #
     def correlograms_inter_session(self):
 
