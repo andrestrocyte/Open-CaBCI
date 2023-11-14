@@ -153,7 +153,7 @@ class Calcium():
             self.data_dir = os.path.join(self.data_dir,
                                          "suite2p", 
                                          "plane0")  
-        
+
     #
     def load_suite2p(self):
         #print ('')
@@ -190,18 +190,21 @@ class Calcium():
         ################## REMOVE NON-CELLS ########################
         ############################################################
         #
-        idx = np.where(self.iscell[:,0]==1)[0]
-        self.F = self.F[idx]
-        self.Fneu = self.Fneu[idx]
+        if self.remove_bad_cells:
+            idx = np.where(self.iscell[:,0]==1)[0]
 
-        self.spks = self.spks[idx]
-        self.stat = self.stat[idx]
+            #
+            self.F = self.F[idx]
+            self.Fneu = self.Fneu[idx]
+
+            self.spks = self.spks[idx]
+            self.stat = self.stat[idx]
 
         #############################################################
         ########### COMPUTE GLOBAL MEAN - REMOVE MEAN ###############
         #############################################################
 
-        std_global,_ = self.compute_std_global(self.F)
+        #std_global,_ = self.compute_std_global(self.F)
         if self.verbose:
             print ("  Fluorescence data loading information")
             print ("         sample rate: ", self.sample_rate, "hz")
@@ -211,8 +214,9 @@ class Calcium():
             print ("              of which number of good cells: ", np.where(self.iscell==1)[0].shape)
             print ("         self.spks (deconnvoved spikes): ", self.spks.shape)
             print ("         self.stat (footprints structure): ", self.stat.shape)
-            print ("         mean std over all cells : ", std_global)
+            #print ("         mean std over all cells : ", std_global)
 
+    #
     def compute_std_global(self, F):
         #if self.verbose:
         #    print ("computing std of global signal (finding max)")
@@ -234,10 +238,6 @@ class Calcium():
 
         #
         y = np.histogram(stds, bins=np.arange(0, 100, .5))
-        #plt.plot(y[1][:-1],y[0])
-        #plt.show()
-
-        #print ("cell stds: ", stds)
         
         #
         if stds.shape[0]<10:
@@ -255,12 +255,19 @@ class Calcium():
             idx = np.where(cumsum>=0.5)[0]
 
             # take the first bin at which cumusm is > 0.5
-            argmax = idx[0]
+            if idx.shape[0]>0:
+                argmax = idx[0]
+            else:
+                print ("data is flat, contains all zoers?!", y[0])
+
+                argmax = 0
+
+        #
         std_global = y[1][argmax]
 
         return std_global, F
 
-
+    #
     def load_inscopix(self):
 
         from numpy import genfromtxt
@@ -873,7 +880,7 @@ class Calcium():
             ###### BINARIZE FILTERED FLUORESCENCE ONPHASE ######
             ####################################################
             # compute global std on filtered/detrended signal
-            std_global, self.F_filtered = self.compute_std_global(self.F_filtered)
+            #std_global, self.F_filtered = self.compute_std_global(self.F_filtered)
 
             #
             self.thresholds = find_threshold_by_gaussian_fit(self.F_filtered, self.percentile_threshold)

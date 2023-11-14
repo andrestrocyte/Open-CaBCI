@@ -11,6 +11,12 @@ from openpyxl import load_workbook
 from scipy.signal import savgol_filter
 from scipy.interpolate import interp1d
 from dtw import dtw
+import yaml
+from scipy.stats import pearsonr
+from tqdm import tqdm
+from scipy.signal import savgol_filter
+from scipy.signal import butter, sosfilt
+
 
 #
 from calcium import Calcium
@@ -47,17 +53,27 @@ class ProcessCalcium():
                             animal_id+'.yaml')
         
         # load yaml file
-        import yaml
         with open(fname) as file:
             doc = yaml.load(file, Loader=yaml.FullLoader)
 
-        self.session_ids = np.array(doc['session_names'],dtype='str')
+        #
+        self.cohort_year = doc['cohort_year']
+        self.dob = doc['dob']
+        self.animal_name = doc['name']
+        self.sex = doc['sex']
 
         #
-        self.shifts = doc['shifts']
+        self.session_ids = doc['session_ids']
 
         #
         self.verbose = True
+
+        # also make a results folder in the animal id folder
+        self.results_dir = os.path.join(self.root_dir,
+                                        self.animal_id,
+                                        'results')
+        if not os.path.exists(self.results_dir):
+            os.makedirs(self.results_dir)
 
     # #
     def load_day0_mask(self):
@@ -299,6 +315,99 @@ class ProcessCalcium():
         plt.show()
 
     #
+    def find_matching_cells_to_master_mask(self):
+
+        fname_out = os.path.join(self.root_dir, 
+                                self.animal_id, 
+                                'results',
+                                'best_matches.npy')
+        
+        if os.path.exists(  fname_out)==False or self.recompute_match_master_mask:
+            #
+            sessions_F_filtered = []
+            for session in self.sessions:
+                sessions_F_filtered.append(session.F_filtered)
+
+            #
+            cell_names = ['roi_pos1','roi_pos2','roi_neg1','roi_neg2']
+            res = parmap.map(find_best_match_bmi_vs_mastermask,
+                            cell_names,
+                            self.root_dir,
+                            self.animal_id,
+                            sessions_F_filtered,
+                            self.session_ids,
+                            pm_processes=4,
+                            pm_pbar=True)
+
+            print ("res: ", res)
+
+            # make 4 panels with histogram of best match
+            plt.figure(figsize=(10,10))
+            best_matches = []
+            for k in range(4):
+                plt.subplot(2,2,k+1)
+
+                #
+                y = np.histogram(res[k], bins=np.arange(0,np.max(res[k])+3,1))
+
+                # find locations where y[1]>0
+                ctr =0
+                tags = []
+                best_match = [0,0]
+                for q in range(y[1].shape[0]-1):
+                    yy = y[0][q]
+                    if yy>0:
+                        plt.bar(ctr,yy,0.9, label=str(q))
+                        tags.append(q)
+
+                        #
+                        if yy>best_match[0]:
+                            best_match[0]=yy
+                            best_match[1]=q
+
+
+                        ctr+=1     
+
+                # relabel x axis
+                plt.xticks(np.arange(ctr), y[1][tags])
+
+                #
+                plt.title(cell_names[k])
+                plt.legend()
+
+                #
+                best_matches.append(best_match)
+
+            #    
+            plt.suptitle(self.animal_id+ "\nBest match to master mask for ensemble cells over all sessions")
+            plt.savefig(os.path.join(self.root_dir, 
+                                    self.animal_id, 
+                                    'results',
+                                    'best_match_ensemble_cells.png'),dpi=300)
+
+            # 
+            plt.show()
+            
+            # also save the res array in the same folder
+            np.save(os.path.join(self.root_dir, 
+                                    self.animal_id, 
+                                    'results',
+                                    'best_match_ensemble_cells.npy'),res)
+            
+            # also save best_matches array
+            np.save(fname_out,best_matches)
+
+            #
+            self.best_matches = best_matches    
+
+        #
+        else:
+            self.best_matches = np.load(fname_out, allow_pickle=True)
+        
+        #
+        self.best_matches = np.array(self.best_matches)
+
+    #
     def plot_reward_centered_traces_ROIs_only(self):
 
         #
@@ -383,6 +492,175 @@ class ProcessCalcium():
         #
         plt.suptitle(self.session_ids[self.session_id])
         plt.show()
+
+
+    #
+    def make_multi_session_traces(self):
+        
+        #
+        fps = 30
+
+        # visualize the ensembel cells over all time
+        roi_match_ids = self.best_matches[:,1]
+
+        #
+        clrs=['blue','lightblue','red','pink']
+
+        # loop over the sessions and plot the ensemble cells
+        if self.plotting:
+            plt.figure(figsize=(20,10))
+            plt.suptitle(self.animal_id)
+            ax=plt.subplot(111)
+        
+        #
+        t_start = 0
+        window = 120*30
+
+        #
+        traces = [[],[],[],[]]
+        traces_bin = [[],[],[],[]]
+        traces_realtime = [[],[],[],[]]
+        for session in range(len(self.sessions)):
+            ca = self.sessions[session].F_filtered
+            ca_bin = self.sessions[session].F_upphase_bin
+
+            # plot all 4 rois from the master mask
+            t = np.arange(t_start, t_start+ca.shape[1],1)
+            ctr=0
+            for roi_id in roi_match_ids:
+                temp = ca[roi_id].copy()
+                temp_bin = ca_bin[roi_id].copy()
+
+                # cmpute mode of temp using scipy or stats
+                if False:
+                    for k in range(0, temp.shape[0], window):
+                        temp1 = temp[k:k+window]
+                        temp1 = np.round(temp1,2)
+                        mode1 = scipy.stats.mode(temp1).mode
+                        #print (mode1)
+                        temp[k:k+window]-=mode1
+
+                #
+                traces[ctr].extend(temp)            
+
+                # the same but for upphase
+                traces_bin[ctr].extend(temp_bin)
+                
+                #
+                ctr+=1
+
+            # plot rois from the .npz file
+            if self.show_realtime_bmi_ensembles:
+                
+                if session==0:
+                    temp = np.zeros(ca.shape[1])
+                    traces_realtime[0].extend(temp)
+                    traces_realtime[1].extend(temp)
+                    traces_realtime[2].extend(temp)
+                    traces_realtime[3].extend(temp)
+                else:
+                    # # load results.npz file
+                    rois1, rois2, _ = load_results_npz_standalone(self.root_dir,
+                                                                    self.animal_id,
+                                                                    session,
+                                                                    self.session_ids)
+                    #
+                    rois1[:,:100]=0
+                    rois2[:,:100]=0
+                    
+                    #
+                    traces_realtime[0].extend(rois1[0])
+                    traces_realtime[1].extend(rois1[1])
+                    traces_realtime[2].extend(rois2[0])
+                    traces_realtime[3].extend(rois2[1])
+                                            
+
+            #
+            t_start+=ca.shape[1]
+
+        #
+        traces = np.array(traces)
+        traces_bin = np.array(traces_bin)
+        traces_realtime = np.array(traces_realtime)
+
+        #
+        if self.plotting:
+            t=np.arange(traces[0].shape[0])/30. 
+            for k in range(traces.shape[0]):
+
+                ax.plot(t,
+                        traces[k]+k*self.y_scale,
+                        c=clrs[k])
+                
+                #
+                if self.show_realtime_bmi_ensembles:
+                    ax.plot(t,
+                            traces_realtime[k]+k*self.y_scale,
+                            '--',
+                            c=clrs[k],
+                            )
+                #
+                if self.show_upphases:
+                    ax.plot(t,
+                            traces_bin[k]+k*self.y_scale,
+                            #'-.',
+                            linewidth=3,
+                            #c=clrs[k],
+                            c='black'
+                            )
+
+            # make light grey background shading every 90000 frames
+            ctr=0
+            for k in range(0, t_start, 2*90000):
+                ax.axvspan(t[k], t[k+90000], color='grey', alpha=0.2)
+
+            # plot horizontal lines at zero
+            ctr = 0
+            for k in range(4):
+                temp = traces[k].copy()
+                temp = np.round(temp,3)
+                mode1 = scipy.stats.mode(temp).mode
+
+                ax.plot([t[0], t[-1]], 
+                            [ctr*self.y_scale+mode1, ctr*self.y_scale+mode1], c='black')
+                ctr+=1
+            
+            # add xtick custom labels
+            xlabels = ['day0']
+            for k in range(1,len(self.session_ids)):
+                xlabels.append(self.session_types[k])
+            
+            #
+            plt.xlabel("Time (sec)")
+            plt.xlim(t[0], t[-1])
+
+            # relabel yticks with neuron ids
+            neuron_ids = ['roi_pos1','roi_pos2','roi_neg1','roi_neg2']
+            plt.yticks(np.arange(4)*self.y_scale+0.75, neuron_ids,
+                    rotation=90)
+
+
+
+            #################################################################
+            #################################################################
+            #################################################################
+            # add the xlabels to the xticks
+            ax2 = ax.twiny()
+            ax2.set_xticks(np.arange(len(xlabels))*90000/fps+90000/fps/2, 
+                    xlabels, rotation=45)
+            
+            ax2.set_xlim(t[0], t[-1])
+
+
+            #
+            plt.show()
+
+        #
+        self.traces = traces
+        self.traces_bin = traces_bin 
+        self.traces_realtime = traces_realtime 
+
+        #
 
 
     #
@@ -2880,6 +3158,66 @@ class ProcessCalcium():
         self.trial_ids_not_rewarded = trial_ids_not_rewarded
     
     #
+    def load_results_npz(self):
+        
+        #
+        print ("...loading session: ", 
+               self.session_id, 
+               self.session_types[self.session_id])
+        
+        #
+        fname = os.path.join(self.root_dir,
+                                self.animal_id,
+                                str(self.session_ids[self.session_id]),
+                                'results.npz')
+        #
+        results = np.load(fname, allow_pickle=True)
+
+        # load all fields 
+        self.ttl_voltages = results['ttl_voltages']
+        self.ttl_n_computed = results['ttl_n_computed']
+        self.ttl_n_detected = results['ttl_n_detected']
+        self.abs_times_ttl_read = results['abs_times_ttl_read']
+        self.abs_times_ca_read = results['abs_times_ca_read']
+        self.ttl_times = results['ttl_times']
+        self.rois_pixels_ensemble1 = results['rois_pixels_ensemble1']
+        self.rois_pixels_ensemble2 = results['rois_pixels_ensemble2']
+        self.rois_traces_raw_ensemble1 = results['rois_traces_raw_ensemble1']
+        self.rois_traces_raw_ensemble2 = results['rois_traces_raw_ensemble2']
+        self.rois_traces_smooth1 = results['rois_traces_smooth1']
+        self.rois_traces_smooth2 = results['rois_traces_smooth2']
+        self.reward_times = results['reward_times']
+        self.rewarded_times_abs = results['rewarded_times_abs']
+        self.ensemble_activity = results['ensemble_activity']
+        self.ensemble_diff_array = results['ensemble_diff_array']
+        self.received_reward_lockout = results['received_reward_lockout']
+        self.max_reward_window = results['max_reward_window']
+        self.missed_reward_lockout = results['missed_reward_lockout']
+        self.trials = results['trials']
+        self.high_threshold = results['high_threshold']
+        self.sampleRate_NI = results['sampleRate_NI']
+        self.ttl_pts = results['ttl_pts']
+        self.sampleRate_2P = results['sampleRate_2P']
+        self.image_width = results['image_width']
+        self.image_length = results['image_length']
+        self.max_n_seconds_session = results['max_n_seconds_session']
+        self.n_frames = results['n_frames']
+        self.n_frames_to_be_acquired = results['n_frames_to_be_acquired']
+        self.rois_smooth_window = results['rois_smooth_window']
+        self.n_ttl_to_start_applying_dynamic_f0 = results['n_ttl_to_start_applying_dynamic_f0']
+        self.n_frames_search_forward = results['n_frames_search_forward']
+        self.drift_array = results['drift_array']
+        self.lick_detector_abstime = results['lick_detector_abstime']
+        self.rotary_encoder1_abstime = results['rotary_encoder1_abstime']
+        self.rotary_encoder2_abstime = results['rotary_encoder2_abstime']
+
+        #
+        self.reward_times = results['reward_times'].T
+        self.reward_times = self.reward_times[self.reward_times[:,1]>0]
+        self.n_rewards = self.reward_times.shape[0]
+        print ("# of rewards: ", self.n_rewards)
+
+    #
     def fix_spreadsheet(self, plotting=False):
 
         #
@@ -3408,51 +3746,74 @@ class ProcessCalcium():
         return C
 
     #
-    def load_data(self):
+    def load_sessions(self):
 
         #for animal_id in self.animal_ids:
         self.sessions = []
+        self.session_types = []
         for session_ in tqdm(self.session_ids):
 
+            ################################################
+            ################################################
+            ################################################
+            fname_yaml = os.path.join(self.root_dir,
+                                        self.animal_id,
+                                        str(session_),
+                                        str(session_)+'.yaml')
+            with open(fname_yaml) as file:
+                doc = yaml.load(file, Loader=yaml.FullLoader)
 
+            session_type = doc['session_type']
+            self.session_types.append(session_type)
+
+            ################################################
+            # TODO: what is this for?!
             # make a directory called 'cells' if not already present
             self.cells_dir = os.path.join(self.root_dir,
                                             self.animal_id,
                                             'cells')
+            
+            #
             if not os.path.exists(self.cells_dir):
                 os.makedirs(self.cells_dir)
 
-                
+            ################################################
+            ################################################
+            ################################################
+            #
             data_dir = os.path.join(
-                            self.root_dir,
-                            self.animal_id,
-                            session_,
-                            'plane0'
-                            )
+                                    self.root_dir,
+                                    self.animal_id,
+                                    str(session_),
+                                    'plane0',
+                                    'merged'
+                                    )
+            
+            #
+            if os.path.exists(data_dir)==False:
+                print ("couldn't find merged binarization...")
+                return
 
             #
-            try:
-                C = Calcium()       
-                C.data_dir = data_dir
+            #try:
+            C = Calcium()       
+            C.data_dir = data_dir
 
-                #
-                C.load_suite2p()
+            #
+            C.remove_bad_cells = self.remove_bad_cells
+            C.load_suite2p()
 
-                #
-                C.load_footprints()
+            #
+            C.load_footprints()
 
-                # load binarization
-                C.detrend_model_type = 'polynomial'
-                C.detrend_model_order = 2
-                C.percentile_threshold = 0.999999
-                
-                # 
-                print ("loading binarization")
-                C.load_binarization()
+            # load binarization
+            C.detrend_model_type = 'polynomial'
+            C.detrend_model_order = 2
+            C.percentile_threshold = 0.999999
             
-            except:
-                print ("could not load session: ", session_)
-                C = None
+            # 
+            #print ("loading binarization")
+            C.load_binarization()
 
             #
             self.sessions.append(C)
@@ -3886,3 +4247,161 @@ def interpolate_time_warp(ts1, ts2, warp_function):
     return resampled_warped_ts1
 
 #
+
+def load_results_npz_standalone(root_dir,
+                                animal_id,
+                                session_id,
+                                session_ids,
+                                ):
+    
+    #
+    fname = os.path.join(root_dir,
+                        animal_id,
+                        str(session_ids[session_id]),
+                        'results.npz')
+    #
+    results = np.load(fname, allow_pickle=True)
+
+    # load all fields 
+    # self.ttl_voltages = results['ttl_voltages']
+    # self.ttl_n_computed = results['ttl_n_computed']
+    # self.ttl_n_detected = results['ttl_n_detected']
+    # self.abs_times_ttl_read = results['abs_times_ttl_read']
+    # self.abs_times_ca_read = results['abs_times_ca_read']
+    # self.ttl_times = results['ttl_times']
+    # self.rois_pixels_ensemble1 = results['rois_pixels_ensemble1']
+    # self.rois_pixels_ensemble2 = results['rois_pixels_ensemble2']
+    # self.rois_traces_raw_ensemble1 = results['rois_traces_raw_ensemble1']
+    # self.rois_traces_raw_ensemble2 = results['rois_traces_raw_ensemble2']
+    rois_traces_smooth1 = results['rois_traces_smooth1']
+    rois_traces_smooth2 = results['rois_traces_smooth2']
+    reward_times = results['reward_times']
+    # self.rewarded_times_abs = results['rewarded_times_abs']
+    # self.ensemble_activity = results['ensemble_activity']
+    # self.ensemble_diff_array = results['ensemble_diff_array']
+    # self.received_reward_lockout = results['received_reward_lockout']
+    # self.max_reward_window = results['max_reward_window']
+    # self.missed_reward_lockout = results['missed_reward_lockout']
+    # self.trials = results['trials']
+    # self.high_threshold = results['high_threshold']
+    # self.sampleRate_NI = results['sampleRate_NI']
+    # self.ttl_pts = results['ttl_pts']
+    # self.sampleRate_2P = results['sampleRate_2P']
+    # self.image_width = results['image_width']
+    # self.image_length = results['image_length']
+    # self.max_n_seconds_session = results['max_n_seconds_session']
+    # self.n_frames = results['n_frames']
+    # self.n_frames_to_be_acquired = results['n_frames_to_be_acquired']
+    # self.rois_smooth_window = results['rois_smooth_window']
+    # self.n_ttl_to_start_applying_dynamic_f0 = results['n_ttl_to_start_applying_dynamic_f0']
+    # self.n_frames_search_forward = results['n_frames_search_forward']
+    # self.drift_array = results['drift_array']
+    # self.lick_detector_abstime = results['lick_detector_abstime']
+    # self.rotary_encoder1_abstime = results['rotary_encoder1_abstime']
+    # self.rotary_encoder2_abstime = results['rotary_encoder2_abstime']
+
+    #
+    reward_times = results['reward_times'].T
+    reward_times = reward_times[reward_times[:,1]>0]
+    n_rewards = reward_times.shape[0]
+
+    #
+    return rois_traces_smooth1, rois_traces_smooth2, reward_times
+
+
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    sos = butter(order, [low, high],analog=False, btype='band', output='sos')
+    #b, a = scipy.signal.cheby1(order, [low, high], btype='band')
+    return sos
+
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    sos = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = sosfilt(sos, data)
+    return y
+
+
+
+def preprocess_trace(temp):
+
+    # smooth with a sliding window
+    temp = savgol_filter(temp, 101, 3)
+
+    #
+    low_cutoff = 0.1
+    high_cutoff = 3
+    sample_rate = 30
+    temp = butter_bandpass_filter(temp,
+                                low_cutoff,
+                                high_cutoff,
+                                sample_rate,
+                                order=1)
+    
+    return temp
+
+#
+def find_best_match_bmi_vs_mastermask(cell_name,
+                                      root_dir,
+                                      animal_id,
+                                      sessions_F_filtered,
+                                      session_ids):
+
+    # loop over all sessions
+    corrs_array = []
+    best_cells = []
+    for session_id in range(1,len(sessions_F_filtered),1):
+
+        # these are already loaded, so can just index into them
+        cells = sessions_F_filtered[session_id]
+
+        # # load results.npz file
+        rois1, rois2, _ = load_results_npz_standalone(root_dir,
+                                                      animal_id,
+                                                      session_id,
+                                                      session_ids)
+        #
+        if cell_name=='roi_pos1':
+            roi = rois1[0]
+        elif cell_name=='roi_pos2':
+            roi = rois1[1]
+        elif cell_name=='roi_neg1':
+            roi = rois2[0]
+        elif cell_name=='roi_neg2':
+            roi = rois2[1]
+        else:
+            print ("Cell does not exist: ", cell_name)
+            return
+        
+        #
+        roi[:100] = 0
+        roi = preprocess_trace(roi)
+
+        #
+        corrs = []
+        for cell in cells:
+
+            # smooth cell using savgol filter
+            cell = preprocess_trace(cell)
+
+            # Compute the Pearson correlation
+            correlation, _ = pearsonr(cell, roi)
+            corrs.append(correlation)
+
+        # find armgax as best match
+        idx = np.argmax(corrs)
+
+        # plt.figure()
+        # cell = preprocess_trace(cells[380])
+        # plt.plot(cell)
+        # plt.plot(roi)
+        # plt.show()
+
+        #
+        corrs_array.append(corrs)
+        best_cells.append(idx)
+
+    #
+    return best_cells
