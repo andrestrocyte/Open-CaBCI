@@ -12,15 +12,15 @@ Open-CaBCI is an open-source software platform for running closed-loop BCI exper
 
 ## Associated Publication
 
-**Equivalent volitional learning emerges through circuit-specific population dynamics in motor cortex and hippocampus**
+**[Equivalent volitional learning emerges through circuit-specific population dynamics in motor cortex and hippocampus](https://doi.org/10.64898/2026.06.04.730137)**
 
-Andres de Vicente\*, Catalin Mitelut\*, Renan V. Mendes, Lorenzo Marianelli, Mariona Colomer Rosell, David Bruckner, Giampiero Bardella, and Flavio Donato
-
-Biozentrum, University of Basel | Sapienza, University of Rome
+Andres de Vicente\*, Catalin Mitelut\*, Renan Viana Mendes, Lorenzo Marianelli, Mariona Colomer Rosell, David Bruckner, Giampiero Bardella, and Flavio Donato
 
 \*Equal contribution | Correspondence: flavio.donato@unibas.ch
 
-> bioRxiv DOI: *coming soon*
+bioRxiv 2026.06.04.730137 | doi: [10.64898/2026.06.04.730137](https://doi.org/10.64898/2026.06.04.730137)
+
+> 📢 **If you use Open-CaBCI in your research, please cite the above publication.**
 
 ---
 
