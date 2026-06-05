@@ -26,7 +26,7 @@ Biozentrum, University of Basel | Sapienza, University of Rome
 
 ## Paradigm Overview
 
-![BCI Paradigm](figures/paradigm_overview.png)
+<img src="figures/paradigm_overview.png" width="100%"/>
 
 **(A)** Schematic of the closed-loop two-photon calcium imaging BCI paradigm. Head-fixed mice were trained to volitionally modulate selected neuronal ensembles in M1 or CA3. The protocol comprised an ensemble-selection session (day 0) followed by 8 daily training sessions, each with a 15-min calibration period and a 50-min BCI session.
 
