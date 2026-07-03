@@ -19,7 +19,7 @@ bioRxiv 2026.06.04.730137 | DOI: [10.64898/2026.06.04.730137](https://doi.org/10
 - [Paradigm overview](#paradigm-overview)
 - [System requirements](#system-requirements)
 - [Installation](#installation)
-- [Five-minute demo](#five-minute-demo)
+- [Demo options](#demo-options)
 - [Using your own data](#using-your-own-data)
 - [Algorithm overview](#algorithm-overview)
 - [Reproducing manuscript results](#reproducing-manuscript-results)
@@ -47,7 +47,7 @@ The bundled demo was tested on:
 - Python 3.9.13
 - A standard desktop CPU; no GPU is required
 - 8 GB RAM or more
-- Approximately 12 GB free disk space during the first run: about 3.1 GB of compressed demo files, Git object storage, and a generated 4.7 GB raw movie
+- Approximately 4 GB free disk space for the lightweight demo or 12 GB for the full five-minute demo
 - An X11 display and Tk support for the optional live GUI
 
 The hardware-free command-line demo should also work on other modern Linux distributions with Python 3.9. The GUI and acquisition pipeline have not been validated for this release on macOS or Windows.
@@ -93,21 +93,62 @@ The current laboratory configuration uses NI-DAQ channels addressed as `Dev3`. R
 
 ## Installation
 
-Clone the public repository and create an isolated environment:
+Choose the checkout that matches the intended demonstration.
+
+For the lightweight reviewer demo, use a partial sparse clone that omits the full five-minute movie:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/andrestrocyte/Open-CaBCI.git Open-CaBCI-light
+cd Open-CaBCI-light
+git sparse-checkout set --no-cone '/*' '!/openbmi/data_samples/demo_5min/'
+```
+
+For both bundled datasets, clone the complete repository:
 
 ```bash
 git clone --depth 1 https://github.com/andrestrocyte/Open-CaBCI.git
 cd Open-CaBCI
+```
 
+After either checkout, create the tested Python environment:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Installation normally takes 3–5 minutes on a recent desktop with a broadband connection, excluding the time needed to clone the approximately 3.1 GB demonstration dataset.
+Python environment installation normally takes 3–5 minutes on a recent desktop with a broadband connection. The lightweight checkout downloads approximately 338 MiB of compressed imaging data; the complete checkout contains approximately 3.1 GB.
 
-## Five-Minute Demo
+## Demo Options
+
+| Option | What it demonstrates | Recorded duration | Compressed data | Typical use |
+|---|---|---:|---:|---|
+| Lightweight smoke test | Dataset reconstruction, TTL replay, ROI extraction, BMI state computation, reward logic, result saving, and numerical validation | 33.3 seconds / 1,000 frames | 338 MiB | Reviewer installation and CI check |
+| Full five-minute replay | The same complete pipeline over a sustained session, optionally with the realtime live GUI | 300 seconds / 9,000 frames | 3.1 GB | Interactive demonstration and stability check |
+
+### Lightweight 1,000-Frame Demo
+
+Run the compact reviewer dataset as quickly as the computer permits:
+
+```bash
+python run_demo.py --dataset openbmi/data_samples/demo_1000 --frames 1000
+```
+
+The first run reconstructs a 500 MiB raw movie, processes every frame, saves the numerical outputs, and validates their dimensions and finite ROI values. The measured first-run time on the tested workstation was 6.85 seconds; allow approximately 15–60 seconds on a normal desktop.
+
+Expected final output:
+
+```text
+Validated 1000 processed frames
+ROI ranges: E1=375.170..1099.460, E2=391.660..642.598
+Simulation output: .../demo_1000/data/results.npz
+```
+
+This is also the command executed automatically by the GitHub Actions smoke test. Dataset details and checksums are in `openbmi/data_samples/demo_1000/README.md`.
+
+### Full Five-Minute Demo
 
 The bundled dataset contains 9,000 consecutive, real calcium-imaging frames at 30 Hz, matching ROI calibration metadata, a day-0 mask, and a simulated TTL waveform. The movie is split into 90 gzip files of approximately 35 MB so every Git object remains below GitHub's 100 MB file limit.
 
@@ -251,6 +292,7 @@ Open-CaBCI/
 │   ├── camera/, tone/, water/       hardware-facing modules
 │   ├── plotter/                     live graphical interface
 │   ├── simulation/                  recorded TTL simulation
+│   ├── data_samples/demo_1000/      lightweight reviewer dataset
 │   └── data_samples/demo_5min/      bundled five-minute dataset
 ├── run_demo.py                      validated hardware-free entry point
 ├── requirements.txt                 tested Python dependencies
@@ -262,7 +304,9 @@ Open-CaBCI/
 
 Open-CaBCI is distributed under the OSI-approved [GNU General Public License v3.0](LICENSE). You may use, modify, and redistribute the software under the terms of that license.
 
-Public source repository: [github.com/donatolab/Open-CaBCI](https://github.com/donatolab/Open-CaBCI)
+Demo-ready public repository: [github.com/andrestrocyte/Open-CaBCI](https://github.com/andrestrocyte/Open-CaBCI)
+
+Upstream source repository: [github.com/donatolab/Open-CaBCI](https://github.com/donatolab/Open-CaBCI)
 
 If you use Open-CaBCI, please cite the associated publication listed above.
 
