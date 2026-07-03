@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Check out code and lightweight data
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           filter: blob:none
           sparse-checkout-cone-mode: false
@@ -22,7 +22,7 @@ jobs:
             !/openbmi/data_samples/demo_5min/
 
       - name: Set up Python 3.9
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.9"
           cache: pip
