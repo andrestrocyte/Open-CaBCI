@@ -96,7 +96,7 @@ The current laboratory configuration uses NI-DAQ channels addressed as `Dev3`. R
 Clone the public repository and create an isolated environment:
 
 ```bash
-git clone https://github.com/donatolab/Open-CaBCI.git
+git clone --depth 1 https://github.com/andrestrocyte/Open-CaBCI.git
 cd Open-CaBCI
 
 python3 -m venv .venv
