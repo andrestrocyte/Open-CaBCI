@@ -44,13 +44,14 @@ The bundled demo was tested on:
 
 - Open-CaBCI 0.1
 - Ubuntu 22.04.5 LTS, x86-64
+- Windows Server 2022 for the hardware-free smoke test through GitHub Actions
 - Python 3.9.13
 - A standard desktop CPU; no GPU is required
 - 8 GB RAM or more
 - Approximately 4 GB free disk space for the lightweight demo or 12 GB for the full five-minute demo
 - An X11 display and Tk support for the optional live GUI
 
-The hardware-free command-line demo should also work on other modern Linux distributions with Python 3.9. The GUI and acquisition pipeline have not been validated for this release on macOS or Windows.
+The hardware-free command-line demo is continuously tested on Linux and Windows with Python 3.9. The realtime GUI and acquisition-hardware pipeline have not been validated for this release on macOS or Windows.
 
 ### Tested Python dependencies
 
@@ -110,7 +111,9 @@ git clone --depth 1 https://github.com/andrestrocyte/Open-CaBCI.git
 cd Open-CaBCI
 ```
 
-After either checkout, create the tested Python environment:
+After either checkout, create the tested Python environment.
+
+### Linux or macOS
 
 ```bash
 python3 -m venv .venv
@@ -118,6 +121,26 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
+
+### Windows PowerShell
+
+Install 64-bit Python 3.9 and Git for Windows, then run:
+
+```powershell
+py -3.9 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+If PowerShell blocks activation, allow scripts only for the current terminal and activate again:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+From Windows Command Prompt, use `.venv\Scripts\activate.bat` instead. The standard Windows Python installer normally includes Tcl/Tk; verify it with `python -m tkinter` before attempting the optional realtime GUI.
 
 Python environment installation normally takes 3–5 minutes on a recent desktop with a broadband connection. The lightweight checkout downloads approximately 338 MiB of compressed imaging data; the complete checkout contains approximately 3.1 GB.
 
